@@ -1,4 +1,5 @@
-# Example: a bathroom with seven lights.
+# Example: a bathroom with seven lights (YAML format of version 0.1).
+# Since 0.2 rooms are set up in the UI; a YAML room like this is imported once.
 # Add this under `light:` in configuration.yaml (or a file included there).
 #
 # Position 0 = everything off. Each light starts fading in at the step

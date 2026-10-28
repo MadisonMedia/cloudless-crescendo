@@ -1,4 +1,42 @@
 {
+  "config": {
+    "step": {
+      "user": {
+        "title": "New room",
+        "description": "Name the room and pick its lights. Steps, brightness and colors are set afterwards in the **Crescendo** editor in the sidebar.",
+        "data": {
+          "name": "Name",
+          "lights": "Lights"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This room has already been imported."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Room settings",
+        "description": "Steps, brightness and colors are edited in the **Crescendo** editor in the sidebar.",
+        "data": {
+          "lights": "Lights",
+          "default_transition": "Default transition",
+          "max_segment": "Longest single command during long fades"
+        },
+        "data_description": {
+          "default_transition": "Used when the room is changed without a transition, e.g. by a dashboard slider.",
+          "max_segment": "Long fades are split into commands of at most this length so they can be stopped at any time."
+        }
+      }
+    }
+  },
+  "issues": {
+    "deprecated_yaml": {
+      "title": "Crescendo room \"{name}\" was imported from YAML",
+      "description": "The room \"{name}\" was imported and is now edited in the Crescendo editor in the sidebar. Remove its `cloudless_crescendo` entry from `light:` in your YAML configuration and restart Home Assistant. Until then the YAML is ignored."
+    }
+  },
   "services": {
     "fade_to": {
       "name": "Fade to position",
@@ -17,10 +55,6 @@
     "stop": {
       "name": "Stop fade",
       "description": "Stops a running fade and keeps all lights where they currently are."
-    },
-    "reload": {
-      "name": "Reload",
-      "description": "Reloads all Cloudless Crescendo lights from YAML."
     }
   }
 }

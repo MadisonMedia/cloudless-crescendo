@@ -3,112 +3,85 @@
 [![Validate](https://github.com/MadisonMedia/cloudless-crescendo/actions/workflows/validate.yml/badge.svg)](https://github.com/MadisonMedia/cloudless-crescendo/actions/workflows/validate.yml)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 
-**One slider, many lights.** Cloudless Crescendo gives a room a single 0–100 scale. You decide
-what every light does along that scale: which one comes first, how bright it gets, and which
-color or color temperature it has. Moving the slider – or fading over an hour for a wake-up
+**One slider, many lights.** Cloudless Crescendo puts the lights of a room on a single scale from
+0 to 100. You decide what every light does along that scale: which one comes first, how bright it
+gets and which color or white it has. Moving the slider – or fading over an hour for a wake-up
 light – plays the lights in exactly that staggered order.
 
 🇩🇪 [Deutsche Anleitung](README.de.md)
 
-- Staggered dimming: lights join one after another, each with its own brightness curve
-- Colors and color temperatures per step, smoothly blended in between
-- Fades of any length (seconds to hours) that follow the curve the whole way
-- Any new command interrupts a running fade cleanly
-- Works with every Home Assistant light; few commands, friendly to Thread/Zigbee networks
+- **Editor in the sidebar**: draw the room as a score of lights, with live preview on the real lights
+- **Dashboard card**: one playhead over the room's light, follows your finger, buttons for named steps
+- **Staggered fades** of any length that follow the curve all the way, interruptible at any time
+- **Smooth on real hardware**: few commands, soft fade-outs, no jumps between white and color LEDs
+- Fades that are running survive a Home Assistant restart
 
 Part of the *cloudless* family, alongside cloudless-mixtape.
 
-## How it works
-
-```
-position   0 ──────── 20 ──────── 40 ──────── 60 ──────── 100
-Floor      off ─────▶ 50 % ─────▶ 100 % ─────────────────── 100 %
-Shower     off ───────────────────▶ 100 % ───────────────── 100 %
-                       (starts at 20)
-Mirror     off ───────────────────────────────▶ 50 % ────── 50 %
-                                   (starts at 40)
-```
-
-- **0 is always everything off.**
-- A light that is first mentioned at a step **starts fading in at the previous step**.
-  That is what creates the staggered effect.
-- Between steps, values are interpolated (brightness linearly, color temperature in mireds,
-  colors in CIE xy – the same way the lights themselves transition).
-- After its last step, a light keeps its value up to 100.
-- A step without brightness keeps the previous brightness; a step without color keeps the
-  previous color.
-
-A fade is split at every step, and each light gets one command per part with a matching
-transition. So a one-hour wake-up fade really follows the curve, while sending only a handful
-of commands. Long parts are split into pieces of at most `max_segment` seconds so that the
-slider keeps moving and the fade can be stopped at any time.
-
 ## Installation
-
-### HACS
 
 1. HACS → ⋮ → *Custom repositories* → add `https://github.com/MadisonMedia/cloudless-crescendo`
    as type *Integration*.
 2. Install **Cloudless Crescendo** and restart Home Assistant.
+3. *Settings → Devices & services → Add integration → Cloudless Crescendo*: name the room and pick
+   its lights.
+4. Open **Crescendo** in the sidebar and set up the steps.
 
-### Manual
+## The editor
 
-Copy `custom_components/cloudless_crescendo` into your `config/custom_components` folder and
-restart Home Assistant.
+Every light is a lane; its brightness over the scale is drawn as an area in its own color. The
+**Room** lane on top shows what the room as a whole looks like.
 
-## Configuration
+- Tap or drag on the score to move the playhead. With **Preview on the lights** switched on,
+  your real lights follow the playhead – nothing is saved yet.
+- **Step at …** adds a step at the playhead. Select a step via its marker or a dot.
+- For each light in a step: switch it on for this step, set brightness, and choose **Keep**
+  (color continues), **White** (color temperature) or **Color**. Lights that are not part of a
+  step simply follow their curve.
+- **Name** a step (e.g. *Morning*) to get a button for it on the card.
+- **Save** applies the room immediately; no restart.
 
-Configuration is YAML for now (a graphical editor is planned). Add one entry per room under
-`light:`:
+### How the curve works
+
+- **0 is always everything off.**
+- A light that first appears at a step **starts fading in at the previous step**. That is what
+  creates the staggered effect.
+- Between steps values are blended (brightness linearly, color temperature in mireds, colors in
+  CIE xy – the same way lights transition themselves).
+- After its last step a light keeps its value up to 100.
+
+### White and color on RGBCCT lights
+
+An RGBCCT light makes white with its white LEDs, and colors with its RGB LEDs. Switching between
+the two is a visible jump. With **Automatic** (default), a light that uses a color anywhere in its
+curve mixes its whites from RGB as well, so it never switches mid-fade. You can force *Always mix
+colors* or *Always white LEDs* per light in the editor.
+
+## The dashboard card
+
+Add the card **Crescendo** from the card picker (or `type: custom:crescendo-card`).
 
 ```yaml
-light:
-  - platform: cloudless_crescendo
-    name: Bathroom
-    unique_id: crescendo_bathroom
-    steps:
-      20:
-        light.bathroom_floor: { brightness: 50, kelvin: 2700 }
-      40:
-        light.bathroom_floor: 100
-        light.bathroom_shower: 100
-      60:
-        light.bathroom_mirror: { brightness: 50, kelvin: 3000 }
-        light.bathroom_ceiling_strip: { brightness: 30, rgb: [255, 120, 40] }
+type: custom:crescendo-card
+entity: light.bathroom
 ```
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `name` | required | Name of the virtual room light. |
-| `unique_id` | – | Recommended, makes the entity editable in the UI. |
-| `default_transition` | `1.5` | Seconds used when the light is changed without a transition (e.g. the dashboard slider). |
-| `max_segment` | `30` | Longest single command in seconds during long fades. |
-| `steps` | required | Position (1–100) → lights → value. |
+| `entity` | required | The room light. |
+| `name` | room name | Card title. |
+| `show_lanes` | `true` | Show a thin lane per light under the room. |
+| `live` | `true` | Lights follow while you drag. Off: they fade when you let go. |
+| `step_duration` | room default | Fade time in seconds when tapping a step. |
+| `buttons` | – | Extra buttons: `[{position: 30, name: Reading, icon: mdi:book}]`. |
 
-A value is either a plain brightness in percent, or a mapping with:
+Drag anywhere on the room; tap a step name to fade there. During long fades the playhead moves on
+its own and the card shows the target and remaining time.
 
-| Key | Description |
-| --- | --- |
-| `brightness` | 0–100 %. `0` turns the light off at that step. |
-| `kelvin` | Color temperature, e.g. `2700`. |
-| `rgb` | Color, e.g. `[255, 120, 40]`. |
-| `xy` | Color in CIE xy, e.g. `[0.55, 0.4]`. |
+The room is also a normal light (e.g. `light.bathroom`): its brightness *is* the position, so tile
+cards, voice assistants and automations work as usual.
 
-Use only one of `kelvin`, `rgb` and `xy` per value. Colors are adapted to each light: a
-warm/cold-only light receives the nearest color temperature, a dimmable-only light just the
-brightness.
-
-Changes are applied with **Developer tools → YAML → Cloudless Crescendo**, or the
-`cloudless_crescendo.reload` action – no restart needed.
-
-A complete example for a bathroom with seven lights is in [`examples/bathroom.yaml`](examples/bathroom.yaml).
-
-## Usage
-
-The room appears as a normal light (e.g. `light.bathroom`). Its brightness *is* the position on
-the scale, so a tile card with a brightness slider is all you need.
-
-### Actions
+## Actions
 
 **`cloudless_crescendo.fade_to`** – fade to a position over any duration.
 
@@ -117,30 +90,15 @@ action: cloudless_crescendo.fade_to
 target:
   entity_id: light.bathroom
 data:
-  position: 40
-  duration: 3 # seconds, or { minutes: 60 }
+  position: 80
+  duration:
+    hours: 1
 ```
 
 **`cloudless_crescendo.stop`** – stop a running fade and keep the lights where they are.
 
-`light.turn_on` with `brightness_pct` and `transition`, and `light.turn_off`, work as well.
-Turning the room on without a brightness returns to the last position.
-
-### Dashboard buttons
-
-```yaml
-type: button
-name: Morning
-icon: mdi:weather-sunset-up
-tap_action:
-  action: perform-action
-  perform_action: cloudless_crescendo.fade_to
-  target:
-    entity_id: light.bathroom
-  data:
-    position: 40
-    duration: 3
-```
+`light.turn_on` with `brightness_pct` and `transition`, and `light.turn_off`, work as well. Turning
+the room on without a brightness returns to the last position.
 
 ### Wake-up light
 
@@ -160,36 +118,47 @@ automation:
             hours: 1
 ```
 
-### Attributes
+## Under the hood
+
+A fade is planned per light. Each light only gets a command at its own steps, with a transition
+that lasts until its next step, so even a one-hour fade needs only a few commands. Long legs are
+split (default 30 s) so the fade can be stopped at any time. Three details keep it smooth on Thread,
+Zigbee and Wi-Fi lights alike:
+
+- **Fading out** never relies on `turn_off` with a transition (Matter, for example, switches off
+  instantly). Lights dim to their minimum and switch off when they arrive.
+- **Fading in** starts at the minimum in the target color, so nothing flashes up at an old
+  brightness or color.
+- **Follow-up commands** are sent a moment early, so lights never pause between legs.
+
+Lights without transition support get small software steps instead.
+
+## Attributes
 
 | Attribute | Description |
 | --- | --- |
-| `position` | Current position (0–100), updated while fading. |
-| `fading` | `true` while a fade is running. |
-| `target_position` | Target of the running fade. |
-| `fade_end` | Seconds until the running fade ends. |
-| `last_on_position` | Position used by a plain `turn_on`. |
+| `position` | Current position (0–100). |
+| `fading`, `target_position`, `fade_remaining` | Progress of a running fade. |
+| `steps` | Positions and names of the steps. |
 | `entity_id` | The controlled lights. |
 
-## Good to know
+## Coming from YAML (0.1)
 
-- Most dashboard sliders only send a value when you let go. The room then fades to that value
-  over `default_transition`, following the curve.
-- A fade that is running while Home Assistant restarts is not resumed; the position is restored.
-- If you change a controlled light by hand, the next command to the room brings it back in line.
+YAML rooms under `light:` are imported automatically on the first start, keeping their entity ID.
+A repair notice then asks you to remove the YAML; from then on the room is edited in the editor.
 
-## Roadmap
+## Troubleshooting
 
-- Graphical editor for steps and colors
-- Color cycling ("rolling colors") as a step value for RGB lights
-- Resuming fades after a restart
+- **The card shows "Custom element doesn't exist" right after installing**: reload the page once.
+- **A light reacts late or jumps**: check *Settings → System → Logs* for warnings from
+  `cloudless_crescendo`; each failing command is logged with the light's name.
 
 ## Development
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements_test.txt
-.venv/bin/ruff check . && .venv/bin/ruff format --check .
-.venv/bin/pytest
+.venv/bin/ruff check . && .venv/bin/pytest
+cd frontend && npm ci && npm run build   # rebuilds the card and editor into custom_components
 ```
 
 ## License

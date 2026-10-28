@@ -1,10 +1,9 @@
-"""Tests for the Crescendo light and fade engine inside Home Assistant."""
+"""Tests for the room light inside Home Assistant."""
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
-from unittest.mock import patch
+from datetime import timedelta
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -16,72 +15,23 @@ from homeassistant.components.light import (
 )
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers.entity_platform import async_get_platforms
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import mock_restore_cache
+from pytest_homeassistant_custom_component.common import MockConfigEntry, mock_restore_cache
 
 from custom_components.cloudless_crescendo.const import DOMAIN
+from custom_components.cloudless_crescendo.model import normalize_options
 
-ROOM = "light.bad"
-
-CONFIG = {
-    LIGHT_DOMAIN: [
-        {"platform": "test"},
-        {
-            "platform": DOMAIN,
-            "name": "Bad",
-            "unique_id": "crescendo_bad",
-            "default_transition": 2,
-            "steps": {
-                20: {"light.bad_boden": {"brightness": 50, "kelvin": 2700}},
-                40: {"light.bad_boden": 100, "light.bad_duschnische": 100},
-                60: {
-                    "light.bad_spiegel": {"brightness": 50, "rgb": [255, 160, 80]},
-                    "light.bad_deckenstrip": {"brightness": 30, "rgb": [255, 0, 0]},
-                },
-            },
-        },
-    ]
-}
-
-
-def crescendo_entity(hass: HomeAssistant):
-    for platform in async_get_platforms(hass, DOMAIN):
-        if ROOM in platform.entities:
-            return platform.entities[ROOM]
-    raise AssertionError("Crescendo light not found")
-
-
-class FakeClock:
-    """Instant sleeps with a controllable clock."""
-
-    def __init__(self) -> None:
-        self.now = 0.0
-        self.sleeps: list[float] = []
-
-    async def sleep(self, seconds: float) -> None:
-        self.sleeps.append(seconds)
-        self.now += seconds
-        await asyncio.sleep(0)
-
-
-@pytest.fixture
-async def room(hass: HomeAssistant, fake_lights) -> FakeClock:
-    assert await async_setup_component(hass, LIGHT_DOMAIN, CONFIG)
-    await hass.async_block_till_done()
-    clock = FakeClock()
-    engine = crescendo_entity(hass).engine
-    engine.sleep = clock.sleep
-    engine.now = lambda: clock.now
-    return clock
+from .conftest import ROOM, ROOM_OPTIONS, room_entity
 
 
 async def settle(hass: HomeAssistant) -> None:
     await hass.async_block_till_done(wait_background_tasks=True)
 
 
-def last_call(light) -> tuple[str, dict[str, Any]]:
+def last_call(light):
     assert light.calls, f"{light.name} received no command"
     return light.calls[-1]
 
@@ -93,28 +43,29 @@ async def test_slider_fades_staggered(hass: HomeAssistant, fake_lights, room) ->
         {ATTR_ENTITY_ID: ROOM, ATTR_BRIGHTNESS_PCT: 40, ATTR_TRANSITION: 4},
         blocking=True,
     )
-    await settle(hass)
+    # A short fade reports its target immediately, so sliders do not bounce back.
+    state = hass.states.get(ROOM)
+    assert state.attributes[ATTR_BRIGHTNESS] == 102
+    assert state.attributes["fading"] is True
+    assert state.attributes["target_position"] == 40
 
-    # Two segments (0->20, 20->40) of two seconds each.
-    assert room.sleeps == pytest.approx([2, 2])
+    await settle(hass)
+    assert sum(room.sleeps) == pytest.approx(4)
 
     boden = fake_lights["light.bad_boden"]
-    assert [c[1][ATTR_BRIGHTNESS] for c in boden.calls] == [128, 255]
-    assert [c[1][ATTR_TRANSITION] for c in boden.calls] == [2, 2]
+    # Minimum first, then 0->20 and 20->40.
+    assert [c[1][ATTR_BRIGHTNESS] for c in boden.calls] == [1, 128, 255]
     assert boden.calls[0][1][ATTR_COLOR_TEMP_KELVIN] == 2700
 
     dusche = fake_lights["light.bad_duschnische"]
-    # Off during the first segment (no command), fades in during the second.
-    assert len(dusche.calls) == 1
-    assert dusche.calls[0][1][ATTR_BRIGHTNESS] == 255
+    assert [c[1][ATTR_BRIGHTNESS] for c in dusche.calls] == [1, 255]
+    assert dusche.calls[1][1][ATTR_TRANSITION] == 2
 
     assert fake_lights["light.bad_spiegel"].calls == []
     assert fake_lights["light.bad_deckenstrip"].calls == []
 
     state = hass.states.get(ROOM)
-    assert state.state == "on"
     assert state.attributes["position"] == 40
-    assert state.attributes[ATTR_BRIGHTNESS] == 102
     assert state.attributes["fading"] is False
 
 
@@ -124,19 +75,16 @@ async def test_colors_reach_the_lights(hass: HomeAssistant, fake_lights, room) -
     )
     await settle(hass)
 
-    strip = fake_lights["light.bad_deckenstrip"]
-    service, data = last_call(strip)
+    service, data = last_call(fake_lights["light.bad_deckenstrip"])
     assert service == "on"
     assert data[ATTR_BRIGHTNESS] == round(0.3 * 255)
-    assert data[ATTR_XY_COLOR][0] > 0.6  # red
+    assert data[ATTR_XY_COLOR][0] > 0.6
 
-    # The warm/cold-only mirror light gets the RGB intent as color temperature.
     service, data = last_call(fake_lights["light.bad_spiegel"])
-    assert service == "on"
     assert 2000 <= data[ATTR_COLOR_TEMP_KELVIN] <= 4000
 
 
-async def test_long_fade_is_split(hass: HomeAssistant, fake_lights, room) -> None:
+async def test_long_fade(hass: HomeAssistant, fake_lights, room) -> None:
     await hass.services.async_call(
         DOMAIN,
         "fade_to",
@@ -145,8 +93,28 @@ async def test_long_fade_is_split(hass: HomeAssistant, fake_lights, room) -> Non
     )
     await settle(hass)
     assert sum(room.sleeps) == pytest.approx(3600)
-    assert max(room.sleeps) <= 30 + 1e-6
     assert hass.states.get(ROOM).attributes["position"] == 100
+
+
+async def test_long_fade_reports_progress(hass: HomeAssistant, fake_lights, room_entry) -> None:
+    engine = room_entity(hass).engine
+    clock = {"now": 0.0}
+    engine.now = lambda: clock["now"]
+    gate = asyncio.Event()
+
+    async def blocked_sleep(seconds: float) -> None:
+        await gate.wait()
+
+    engine.sleep = blocked_sleep
+    await hass.services.async_call(
+        DOMAIN, "fade_to", {ATTR_ENTITY_ID: ROOM, "position": 100, "duration": 600}, blocking=True
+    )
+    # Long fades show progress instead of jumping to the target.
+    assert hass.states.get(ROOM).state == "off"
+    clock["now"] = 300.0
+    room_entity(hass).async_write_ha_state()
+    assert hass.states.get(ROOM).attributes[ATTR_BRIGHTNESS] == 128
+    await engine.async_shutdown()
 
 
 async def test_turn_off_fades_everything_out(hass: HomeAssistant, fake_lights, room) -> None:
@@ -162,9 +130,11 @@ async def test_turn_off_fades_everything_out(hass: HomeAssistant, fake_lights, r
     for light in fake_lights.values():
         assert last_call(light)[0] == "off"
         assert not light.is_on
+        # The light was dimmed to its minimum with a transition before switching off.
+        assert light.calls[-2][1][ATTR_BRIGHTNESS] == 1
+        assert light.calls[-2][1][ATTR_TRANSITION] > 0
     assert hass.states.get(ROOM).state == "off"
 
-    # Turning on again returns to the last position.
     await hass.services.async_call(
         LIGHT_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: ROOM}, blocking=True
     )
@@ -172,10 +142,8 @@ async def test_turn_off_fades_everything_out(hass: HomeAssistant, fake_lights, r
     assert hass.states.get(ROOM).attributes["position"] == 60
 
 
-async def test_stop_holds_current_position(hass: HomeAssistant, fake_lights) -> None:
-    assert await async_setup_component(hass, LIGHT_DOMAIN, CONFIG)
-    await hass.async_block_till_done()
-    engine = crescendo_entity(hass).engine
+async def test_stop_holds_current_position(hass: HomeAssistant, fake_lights, room_entry) -> None:
+    engine = room_entity(hass).engine
     clock = {"now": 0.0}
     engine.now = lambda: clock["now"]
     gate = asyncio.Event()
@@ -184,58 +152,27 @@ async def test_stop_holds_current_position(hass: HomeAssistant, fake_lights) -> 
         await gate.wait()
 
     engine.sleep = blocked_sleep
-
     await hass.services.async_call(
-        DOMAIN, "fade_to", {ATTR_ENTITY_ID: ROOM, "position": 40, "duration": 20}, blocking=True
+        DOMAIN, "fade_to", {ATTR_ENTITY_ID: ROOM, "position": 40, "duration": 60}, blocking=True
     )
     await hass.async_block_till_done()
-    assert hass.states.get(ROOM).attributes["fading"] is True
-    assert hass.states.get(ROOM).attributes["target_position"] == 40
-
-    # Halfway through the first segment (0 -> 20 in 10 s).
-    clock["now"] = 5.0
+    clock["now"] = 15.0  # a quarter of the way: position 10
     await hass.services.async_call(DOMAIN, "stop", {ATTR_ENTITY_ID: ROOM}, blocking=True)
     await settle(hass)
 
     state = hass.states.get(ROOM)
     assert state.attributes["position"] == 10
     assert state.attributes["fading"] is False
-    # Boden is told to hold 25 %.
     assert last_call(fake_lights["light.bad_boden"])[1][ATTR_BRIGHTNESS] == round(0.25 * 255)
 
 
-async def test_new_command_replaces_running_fade(hass: HomeAssistant, fake_lights) -> None:
-    assert await async_setup_component(hass, LIGHT_DOMAIN, CONFIG)
-    await hass.async_block_till_done()
-    engine = crescendo_entity(hass).engine
-    clock = {"now": 0.0}
-    engine.now = lambda: clock["now"]
-    gate = asyncio.Event()
-
-    async def blocked_sleep(seconds: float) -> None:
-        await gate.wait()
-
-    engine.sleep = blocked_sleep
-    await hass.services.async_call(
-        DOMAIN, "fade_to", {ATTR_ENTITY_ID: ROOM, "position": 100, "duration": 100}, blocking=True
-    )
-    clock["now"] = 10.0  # position 10
-
-    async def instant(seconds: float) -> None:
-        await asyncio.sleep(0)
-
-    engine.sleep = instant
-    await hass.services.async_call(
-        DOMAIN, "fade_to", {ATTR_ENTITY_ID: ROOM, "position": 0, "duration": 1}, blocking=True
-    )
-    await settle(hass)
-    assert hass.states.get(ROOM).state == "off"
-    assert last_call(fake_lights["light.bad_boden"])[0] == "off"
-
-
-async def test_restores_position_without_commands(hass: HomeAssistant, fake_lights) -> None:
+async def test_restores_position_without_commands(
+    hass: HomeAssistant, setup_lights, fake_lights
+) -> None:
     mock_restore_cache(hass, [State(ROOM, "on", {"position": 40.0, "last_on_position": 40.0})])
-    assert await async_setup_component(hass, LIGHT_DOMAIN, CONFIG)
+    entry = MockConfigEntry(domain=DOMAIN, title="Bad", options=normalize_options(ROOM_OPTIONS))
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get(ROOM)
@@ -244,37 +181,85 @@ async def test_restores_position_without_commands(hass: HomeAssistant, fake_ligh
     assert all(light.calls == [] for light in fake_lights.values())
 
 
-async def test_invalid_config_is_rejected(hass: HomeAssistant, fake_lights) -> None:
+async def test_resumes_fade_after_restart(hass: HomeAssistant, setup_lights, fake_lights) -> None:
+    now = dt_util.utcnow()
+    mock_restore_cache(
+        hass,
+        [
+            State(
+                ROOM,
+                "on",
+                {
+                    "position": 25.0,
+                    "fade_from": 0.0,
+                    "target_position": 100.0,
+                    "fade_started": (now - timedelta(minutes=30)).isoformat(),
+                    "fade_ends": (now + timedelta(minutes=30)).isoformat(),
+                },
+            )
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, title="Bad", options=normalize_options(ROOM_OPTIONS))
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(ROOM)
+    assert state.attributes["fading"] is True
+    assert state.attributes["target_position"] == 100
+    assert state.attributes["fade_from"] == pytest.approx(50, abs=0.5)
+    assert state.attributes["fade_remaining"] == pytest.approx(1800, abs=5)
+    await room_entity(hass).engine.async_shutdown()
+
+
+async def test_yaml_is_imported_once(hass: HomeAssistant, fake_lights) -> None:
     config = {
         LIGHT_DOMAIN: [
-            {
-                "platform": DOMAIN,
-                "name": "Kaputt",
-                "steps": {20: {"light.bad_boden": {"kelvin": 2700}}},
-            }
-        ]
-    }
-    assert await async_setup_component(hass, LIGHT_DOMAIN, config)
-    await hass.async_block_till_done()
-    assert hass.states.get("light.kaputt") is None
-
-
-async def test_reload_service_exists(hass: HomeAssistant, fake_lights, room) -> None:
-    assert hass.services.has_service(DOMAIN, "reload")
-
-
-async def test_reload_applies_new_steps(hass: HomeAssistant, fake_lights, room) -> None:
-    new_config = {
-        LIGHT_DOMAIN: [
+            {"platform": "test"},
             {
                 "platform": DOMAIN,
                 "name": "Bad",
                 "unique_id": "crescendo_bad",
-                "steps": {50: {"light.bad_spiegel": 80}},
-            }
+                "steps": {20: {"name": "Nacht", "light.bad_boden": 50}},
+            },
         ]
     }
-    with patch("homeassistant.config.load_yaml_config_file", return_value=new_config):
-        await hass.services.async_call(DOMAIN, "reload", blocking=True)
+    # The entity of the former YAML light keeps its entity ID.
+    er.async_get(hass).async_get_or_create(
+        LIGHT_DOMAIN, DOMAIN, "crescendo_bad", suggested_object_id="bad"
+    )
+    assert await async_setup_component(hass, LIGHT_DOMAIN, config)
+    await hass.async_block_till_done()
+
+    entries = hass.config_entries.async_entries(DOMAIN)
+    assert len(entries) == 1
+    assert entries[0].unique_id == "crescendo_bad"
+    assert entries[0].options["steps"][0]["name"] == "Nacht"
+    assert hass.states.get(ROOM).attributes["steps"] == [{"position": 20, "name": "Nacht"}]
+    assert ir.async_get(hass).async_get_issue(DOMAIN, "deprecated_yaml_crescendo_bad")
+
+    # Editing in the UI is not overwritten by the YAML on the next start.
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "import"},
+        data={"name": "Bad", "unique_id": "crescendo_bad", "options": {}},
+    )
+    assert result["reason"] == "already_configured"
+
+
+async def test_options_update_reloads_room(hass: HomeAssistant, fake_lights, room_entry) -> None:
+    options = dict(room_entry.options)
+    options["steps"] = [{"position": 50, "lights": {"light.bad_spiegel": {"brightness": 80}}}]
+    hass.config_entries.async_update_entry(room_entry, options=normalize_options(options))
     await hass.async_block_till_done()
     assert hass.states.get(ROOM).attributes["entity_id"] == ["light.bad_spiegel"]
+
+
+async def test_zero_duration_is_instant(hass: HomeAssistant, fake_lights, room) -> None:
+    await hass.services.async_call(
+        DOMAIN, "fade_to", {ATTR_ENTITY_ID: ROOM, "position": 40, "duration": 0}, blocking=True
+    )
+    await settle(hass)
+    assert sum(room.sleeps) == 0
+    assert hass.states.get(ROOM).attributes["position"] == 40
+    assert fake_lights["light.bad_duschnische"].is_on

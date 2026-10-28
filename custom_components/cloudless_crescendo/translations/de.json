@@ -1,4 +1,42 @@
 {
+  "config": {
+    "step": {
+      "user": {
+        "title": "Neuer Raum",
+        "description": "Gib dem Raum einen Namen und wähle seine Leuchten. Stufen, Helligkeit und Farben stellst du danach im **Crescendo**-Editor in der Seitenleiste ein.",
+        "data": {
+          "name": "Name",
+          "lights": "Leuchten"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dieser Raum wurde bereits importiert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Raumeinstellungen",
+        "description": "Stufen, Helligkeit und Farben bearbeitest du im **Crescendo**-Editor in der Seitenleiste.",
+        "data": {
+          "lights": "Leuchten",
+          "default_transition": "Standard-Übergangszeit",
+          "max_segment": "Längster Einzelbefehl bei langen Überblendungen"
+        },
+        "data_description": {
+          "default_transition": "Wird genutzt, wenn der Raum ohne Übergangszeit geändert wird, z. B. über einen Dashboard-Regler.",
+          "max_segment": "Lange Überblendungen werden in Befehle dieser Länge aufgeteilt, damit sie jederzeit gestoppt werden können."
+        }
+      }
+    }
+  },
+  "issues": {
+    "deprecated_yaml": {
+      "title": "Crescendo-Raum „{name}“ wurde aus YAML übernommen",
+      "description": "Der Raum „{name}“ wurde übernommen und wird jetzt im Crescendo-Editor in der Seitenleiste bearbeitet. Entferne seinen `cloudless_crescendo`-Eintrag unter `light:` aus deiner YAML-Konfiguration und starte Home Assistant neu. Bis dahin wird das YAML ignoriert."
+    }
+  },
   "services": {
     "fade_to": {
       "name": "Auf Position fahren",
@@ -17,10 +55,6 @@
     "stop": {
       "name": "Überblendung stoppen",
       "description": "Stoppt eine laufende Überblendung und hält alle Leuchten auf ihrem aktuellen Stand."
-    },
-    "reload": {
-      "name": "Neu laden",
-      "description": "Lädt alle Cloudless-Crescendo-Lichter neu aus YAML."
     }
   }
 }

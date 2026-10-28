@@ -1,117 +1,98 @@
 # Cloudless Crescendo – Lichtkurven für mehrere Leuchten
 
-**Ein Regler, viele Leuchten.** Cloudless Crescendo gibt einem Raum eine Skala von 0 bis 100.
-Du legst fest, was jede Leuchte entlang dieser Skala tut: welche zuerst kommt, wie hell sie
-wird und welche Farbe oder Farbtemperatur sie hat. Ziehst du den Regler hoch – oder lässt du
-über eine Stunde zum Aufwachen hochdimmen –, blenden die Leuchten genau in dieser versetzten
+**Ein Regler, viele Leuchten.** Cloudless Crescendo legt die Leuchten eines Raums auf eine Skala
+von 0 bis 100. Du bestimmst, was jede Leuchte entlang dieser Skala tut: welche zuerst kommt, wie
+hell sie wird und welche Farbe oder welches Weiß sie hat. Ziehst du den Regler hoch – oder lässt
+du über eine Stunde zum Aufwachen hochdimmen –, blenden die Leuchten genau in dieser versetzten
 Reihenfolge ein.
 
 🇬🇧 [English documentation](README.md)
 
-## So funktioniert's
-
-- **0 ist immer alles aus.**
-- Eine Leuchte, die an einer Stufe zum ersten Mal vorkommt, **wird ab der vorherigen Stufe
-  eingeblendet**. Daraus entsteht das versetzte Dimmen.
-- Zwischen den Stufen wird weich überblendet: Helligkeit linear, Farbtemperatur in Mired,
-  Farben im xy-Farbraum – so, wie die Leuchten selbst überblenden.
-- Nach ihrer letzten Stufe behält eine Leuchte ihren Wert bis 100.
-- Fehlt an einer Stufe die Helligkeit oder Farbe, gilt die vorherige.
-
-Eine Überblendung wird an jeder Stufe aufgeteilt; jede Leuchte bekommt pro Abschnitt einen
-Befehl mit passender Übergangszeit. Dadurch folgt auch eine einstündige Aufwach-Überblendung
-exakt der Kurve, mit sehr wenigen Befehlen im Funknetz.
-
 ## Installation
 
-HACS → ⋮ → *Benutzerdefinierte Repositories* → `https://github.com/MadisonMedia/cloudless-crescendo`
-als *Integration* hinzufügen, **Cloudless Crescendo** installieren, Home Assistant neu starten.
+1. HACS → ⋮ → *Benutzerdefinierte Repositories* → `https://github.com/MadisonMedia/cloudless-crescendo`
+   als *Integration* hinzufügen.
+2. **Cloudless Crescendo** installieren und Home Assistant neu starten.
+3. *Einstellungen → Geräte & Dienste → Integration hinzufügen → Cloudless Crescendo*: Raum benennen
+   und Leuchten wählen.
+4. **Crescendo** in der Seitenleiste öffnen und die Stufen einrichten.
 
-## Konfiguration
+## Der Editor
 
-Vorerst per YAML unter `light:` (ein grafischer Editor ist geplant):
+Jede Leuchte ist eine Spur; ihre Helligkeit über die Skala ist als Fläche in ihrer Farbe
+gezeichnet. Die Spur **Raum** oben zeigt, wie der Raum insgesamt aussieht.
+
+- Tippe oder ziehe auf die Spuren, um die Abspielposition zu bewegen. Mit **Vorschau an den
+  Leuchten** folgen deine echten Leuchten – gespeichert wird dabei nichts.
+- **Stufe bei …** legt eine Stufe an der Abspielposition an. Stufen wählst du über ihre Marke oder
+  einen Punkt.
+- Pro Leuchte und Stufe: einschalten, Helligkeit setzen und **Beibehalten** (Farbe läuft weiter),
+  **Weiß** (Farbtemperatur) oder **Farbe** wählen. Leuchten ohne Haken folgen einfach ihrer Kurve.
+- Gib einer Stufe einen **Namen** (z. B. *Morgen*), dann bekommt sie auf der Karte einen Button.
+- **Speichern** wirkt sofort, ohne Neustart.
+
+**Regeln der Kurve:** 0 ist immer alles aus. Eine Leuchte, die an einer Stufe zum ersten Mal
+vorkommt, wird ab der vorherigen Stufe eingeblendet – daraus entsteht das versetzte Dimmen.
+Zwischen den Stufen wird weich überblendet; nach ihrer letzten Stufe behält eine Leuchte ihren
+Wert bis 100.
+
+**Weiß und Farbe bei RGBCCT-Leuchten:** Weiß kommt aus den Weiß-LEDs, Farbe aus den RGB-LEDs, und
+der Wechsel dazwischen ist ein sichtbarer Sprung. Mit **Automatisch** mischt eine Leuchte, die
+irgendwo in ihrer Kurve eine Farbe nutzt, auch ihr Weiß aus Farben – so wechselt sie nie mitten
+in einer Überblendung. Pro Leuchte lässt sich *Immer Farben mischen* oder *Immer Weiß-LEDs* wählen.
+
+## Die Dashboard-Karte
+
+Karte **Crescendo** über die Kartenauswahl hinzufügen (oder `type: custom:crescendo-card`):
 
 ```yaml
-light:
-  - platform: cloudless_crescendo
-    name: Bad
-    unique_id: crescendo_bad
-    steps:
-      20:
-        light.bad_boden: { brightness: 50, kelvin: 2700 }
-      40:
-        light.bad_boden: 100
-        light.bad_duschnische: 100
-      60:
-        light.bad_spiegel: { brightness: 50, kelvin: 3000 }
-        light.bad_deckenstrip: { brightness: 30, rgb: [255, 120, 40] }
+type: custom:crescendo-card
+entity: light.bad
 ```
 
-Ein Wert ist entweder eine Helligkeit in Prozent oder enthält `brightness` (0–100, `0` = aus),
-und optional genau eins von `kelvin`, `rgb` oder `xy`. Weitere Optionen: `default_transition`
-(Sekunden für den Dashboard-Regler, Standard 1,5) und `max_segment` (längster Einzelbefehl bei
-langen Überblendungen, Standard 30 s).
+Optionen: `name`, `show_lanes` (Spur pro Leuchte, Standard an), `live` (Leuchten folgen beim
+Ziehen, Standard an), `step_duration` (Überblendzeit beim Tippen auf eine Stufe) und `buttons`
+für zusätzliche Buttons, z. B. `[{position: 30, name: Lesen, icon: mdi:book}]`.
 
-Änderungen übernimmst du unter **Entwicklerwerkzeuge → YAML → Cloudless Crescendo** oder mit
-der Aktion `cloudless_crescendo.reload` – ohne Neustart.
+Ziehe irgendwo auf dem Raum; tippe auf einen Stufennamen, um dorthin zu blenden. Bei langen
+Überblendungen wandert die Position von selbst, und die Karte zeigt Ziel und Restzeit.
 
-Ein vollständiges Beispiel fürs Bad liegt in [`examples/bathroom.yaml`](examples/bathroom.yaml).
+Der Raum ist außerdem ein normales Licht (z. B. `light.bad`): Seine Helligkeit *ist* die Position.
+Kacheln, Sprachassistenten und Automationen funktionieren wie gewohnt.
 
-## Benutzung
-
-Der Raum erscheint als normales Licht (z. B. `light.bad`). Seine Helligkeit *ist* die Position
-auf der Skala – eine Kachel mit Helligkeitsregler genügt.
-
-**Auf eine Position fahren** (für Buttons und Automationen):
+## Aktionen
 
 ```yaml
 action: cloudless_crescendo.fade_to
 target:
   entity_id: light.bad
 data:
-  position: 40
-  duration: 3 # Sekunden, oder { minutes: 60 }
+  position: 80
+  duration:
+    hours: 1
 ```
 
-**Stoppen:** `cloudless_crescendo.stop` hält alle Leuchten auf dem aktuellen Stand.
+`cloudless_crescendo.stop` hält alle Leuchten auf dem aktuellen Stand. `light.turn_on` mit
+`brightness_pct` und `transition` sowie `light.turn_off` funktionieren ebenfalls.
 
-**Button im Dashboard:**
+## Was im Hintergrund passiert
 
-```yaml
-type: button
-name: Morgen
-icon: mdi:weather-sunset-up
-tap_action:
-  action: perform-action
-  perform_action: cloudless_crescendo.fade_to
-  target:
-    entity_id: light.bad
-  data:
-    position: 40
-    duration: 3
-```
+Jede Leuchte bekommt nur an ihren eigenen Stufen einen Befehl, mit einer Übergangszeit bis zur
+nächsten Stufe. Lange Abschnitte werden geteilt (Standard 30 s), damit sich jede Überblendung
+jederzeit stoppen lässt. Ausblenden läuft über die minimale Helligkeit statt über `turn_off`
+(Matter schaltet sonst sofort hart aus), Einblenden beginnt bei der minimalen Helligkeit in der
+Zielfarbe, und Folgebefehle gehen einen Moment früher raus, damit keine Leuchte zwischendurch
+stehen bleibt. Laufende Überblendungen überstehen einen Neustart von Home Assistant.
 
-**Aufwachlicht:**
+## Umstieg von YAML (0.1)
 
-```yaml
-automation:
-  - alias: Bad Aufwachlicht
-    triggers:
-      - trigger: time
-        at: "06:00:00"
-    actions:
-      - action: cloudless_crescendo.fade_to
-        target:
-          entity_id: light.bad
-        data:
-          position: 80
-          duration:
-            hours: 1
-```
+YAML-Räume unter `light:` werden beim ersten Start automatisch übernommen und behalten ihre
+Entitäts-ID. Ein Reparatur-Hinweis bittet dich danach, das YAML zu entfernen; ab dann bearbeitest
+du den Raum im Editor.
 
-## Gut zu wissen
+## Fehlerbehebung
 
-- Die meisten Dashboard-Regler senden erst beim Loslassen. Der Raum fährt dann in
-  `default_transition` entlang der Kurve dorthin.
-- Eine laufende Überblendung wird nach einem Neustart von Home Assistant nicht fortgesetzt;
-  die Position bleibt erhalten.
+- **Die Karte zeigt direkt nach der Installation „Custom element doesn't exist“**: Seite einmal
+  neu laden.
+- **Eine Leuchte reagiert verzögert oder springt**: Unter *Einstellungen → System → Protokolle*
+  stehen Warnungen von `cloudless_crescendo` mit dem Namen der Leuchte.

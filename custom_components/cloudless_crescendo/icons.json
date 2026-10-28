@@ -1,7 +1,11 @@
 {
+  "entity": {
+    "light": {
+      "room": { "default": "mdi:lightbulb-group" }
+    }
+  },
   "services": {
     "fade_to": { "service": "mdi:transition" },
-    "stop": { "service": "mdi:pause" },
-    "reload": { "service": "mdi:reload" }
+    "stop": { "service": "mdi:pause" }
   }
 }
