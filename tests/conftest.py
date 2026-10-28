@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from unittest.mock import patch
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -36,6 +37,15 @@ ROOM = "light.bad"
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Enable loading custom_components in every test."""
     return
+
+
+@pytest.fixture(autouse=True)
+def mock_frontend(hass: HomeAssistant):
+    """The card and panel need the real frontend; tests only need the backend."""
+    mock_integration(hass, MockModule("frontend"))
+    mock_integration(hass, MockModule("panel_custom"))
+    with patch("custom_components.cloudless_crescendo.async_register_frontend") as register:
+        yield register
 
 
 class FakeLight(LightEntity):
