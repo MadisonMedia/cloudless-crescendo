@@ -1,0 +1,26 @@
+{
+  "services": {
+    "fade_to": {
+      "name": "Fade to position",
+      "description": "Moves the room along its curve to a position. Every light follows its own staggered curve on the way.",
+      "fields": {
+        "position": {
+          "name": "Position",
+          "description": "Target position on the room's 0–100 scale. 0 turns everything off."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "How long the fade takes, e.g. one hour for a wake-up light. Defaults to the room's default transition."
+        }
+      }
+    },
+    "stop": {
+      "name": "Stop fade",
+      "description": "Stops a running fade and keeps all lights where they currently are."
+    },
+    "reload": {
+      "name": "Reload",
+      "description": "Reloads all Cloudless Crescendo lights from YAML."
+    }
+  }
+}

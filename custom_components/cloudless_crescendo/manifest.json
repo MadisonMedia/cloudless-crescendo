@@ -1,0 +1,12 @@
+{
+  "domain": "cloudless_crescendo",
+  "name": "Cloudless Crescendo",
+  "codeowners": ["@MadisonMedia"],
+  "dependencies": ["light"],
+  "documentation": "https://github.com/MadisonMedia/cloudless-crescendo",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/MadisonMedia/cloudless-crescendo/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

@@ -1,0 +1,28 @@
+fade_to:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light
+  fields:
+    position:
+      required: true
+      example: 40
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    duration:
+      example:
+        minutes: 60
+      selector:
+        duration:
+          enable_day: false
+
+stop:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light

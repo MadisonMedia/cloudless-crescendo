@@ -1,0 +1,26 @@
+{
+  "services": {
+    "fade_to": {
+      "name": "Auf Position fahren",
+      "description": "Fährt den Raum entlang seiner Kurve auf eine Position. Jede Leuchte folgt dabei ihrer eigenen, versetzten Kurve.",
+      "fields": {
+        "position": {
+          "name": "Position",
+          "description": "Zielposition auf der Skala 0–100 des Raums. 0 schaltet alles aus."
+        },
+        "duration": {
+          "name": "Dauer",
+          "description": "Wie lange die Überblendung dauert, z. B. eine Stunde zum Aufwachen. Standard ist die Übergangszeit des Raums."
+        }
+      }
+    },
+    "stop": {
+      "name": "Überblendung stoppen",
+      "description": "Stoppt eine laufende Überblendung und hält alle Leuchten auf ihrem aktuellen Stand."
+    },
+    "reload": {
+      "name": "Neu laden",
+      "description": "Lädt alle Cloudless-Crescendo-Lichter neu aus YAML."
+    }
+  }
+}

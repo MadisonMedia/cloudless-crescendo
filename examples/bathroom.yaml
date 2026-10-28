@@ -1,0 +1,46 @@
+# Example: a bathroom with seven lights.
+# Add this under `light:` in configuration.yaml (or a file included there).
+#
+# Position 0 = everything off. Each light starts fading in at the step
+# *before* the one where it is first mentioned, and keeps its last value
+# up to 100. A plain number is a brightness in percent.
+
+- platform: cloudless_crescendo
+  name: Bad
+  unique_id: crescendo_bad
+  default_transition: 1.5 # seconds, used by the dashboard slider
+  steps:
+    # Night light: just a warm glow from the floor strip.
+    10:
+      light.bad_boden: { brightness: 20, rgb: [255, 90, 20] }
+
+    # Early morning: floor gets brighter and warmer-white, shower niche joins.
+    25:
+      light.bad_boden: { brightness: 50, kelvin: 2200 }
+      light.bad_duschnische: 40
+
+    40:
+      light.bad_boden: { brightness: 100, kelvin: 2700 }
+      light.bad_duschnische: 100
+      light.bad_spiegel: { brightness: 30, kelvin: 2700 }
+
+    # The ceiling strip joins in amber.
+    60:
+      light.bad_spiegel: { brightness: 70, kelvin: 3000 }
+      light.bad_deckenstrip: { brightness: 20, rgb: [255, 140, 60] }
+
+    # Vanity spots join, the ceiling strip turns from amber to white.
+    80:
+      light.bad_deckenstrip: { brightness: 50, kelvin: 3500 }
+      light.bad_waschtisch_links: { brightness: 50, kelvin: 3000 }
+      light.bad_waschtisch_mitte: { brightness: 50, kelvin: 3000 }
+      light.bad_waschtisch_rechts: { brightness: 50, kelvin: 3000 }
+
+    # Everything bright and neutral.
+    100:
+      light.bad_boden: { brightness: 100, kelvin: 4000 }
+      light.bad_spiegel: { brightness: 100, kelvin: 4000 }
+      light.bad_deckenstrip: { brightness: 80, kelvin: 4000 }
+      light.bad_waschtisch_links: { brightness: 100, kelvin: 4000 }
+      light.bad_waschtisch_mitte: { brightness: 100, kelvin: 4000 }
+      light.bad_waschtisch_rechts: { brightness: 100, kelvin: 4000 }
