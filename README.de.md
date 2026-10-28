@@ -92,7 +92,9 @@ du den Raum im Editor.
 
 ## Fehlerbehebung
 
-- **Die Karte zeigt direkt nach der Installation „Custom element doesn't exist“**: Seite einmal
-  neu laden.
+- **Die Karte zeigt „Custom element doesn't exist“**: Nach Installation oder Update Home Assistant
+  neu starten und die Seite neu laden. In der Companion-App: *Einstellungen → Companion App →
+  Fehlersuche → Frontend-Cache zurücksetzen*. Die Karte wird außerdem automatisch als
+  Dashboard-Ressource eingetragen (Dashboards im Speichermodus).
 - **Eine Leuchte reagiert verzögert oder springt**: Unter *Einstellungen → System → Protokolle*
   stehen Warnungen von `cloudless_crescendo` mit dem Namen der Leuchte.

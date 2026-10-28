@@ -149,7 +149,10 @@ A repair notice then asks you to remove the YAML; from then on the room is edite
 
 ## Troubleshooting
 
-- **The card shows "Custom element doesn't exist" right after installing**: reload the page once.
+- **The card shows "Custom element doesn't exist"**: make sure Home Assistant was restarted after
+  installing or updating, then reload the page. In the companion app, use *Settings → Companion app
+  → Debugging → Reset frontend cache*. The card is also added to your dashboard resources
+  automatically (dashboards in storage mode).
 - **A light reacts late or jumps**: check *Settings → System → Logs* for warnings from
   `cloudless_crescendo`; each failing command is logged with the light's name.
 

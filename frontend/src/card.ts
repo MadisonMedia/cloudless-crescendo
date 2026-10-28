@@ -636,19 +636,35 @@ class CrescendoCardEditor extends LitElement {
   }
 }
 
-if (!customElements.get("crescendo-card")) customElements.define("crescendo-card", CrescendoCard);
-if (!customElements.get("crescendo-card-editor")) {
-  customElements.define("crescendo-card-editor", CrescendoCardEditor);
+// Home Assistant replaces `window.customElements` with a scoped registry while
+// its app starts. A card defined before that ends up in the old registry and
+// is invisible to dashboards ("Custom element doesn't exist"). So wait until
+// the app has started (its root element is known to the current registry).
+function registerCard(): void {
+  if (!customElements.get("crescendo-card")) customElements.define("crescendo-card", CrescendoCard);
+  if (!customElements.get("crescendo-card-editor")) {
+    customElements.define("crescendo-card-editor", CrescendoCardEditor);
+  }
+  const w = window as unknown as { customCards?: { type: string }[] };
+  w.customCards = w.customCards ?? [];
+  if (!w.customCards.some((c) => c.type === "crescendo-card")) {
+    w.customCards.push({
+      type: "crescendo-card",
+      name: "Crescendo",
+      description: "One slider for a whole room, with staggered dimming curves.",
+      preview: true,
+      documentationURL: "https://github.com/MadisonMedia/cloudless-crescendo",
+    } as { type: string });
+  }
 }
 
-const w = window as unknown as { customCards?: unknown[] };
-w.customCards = w.customCards ?? [];
-if (!w.customCards.some((c) => (c as { type: string }).type === "crescendo-card")) {
-  w.customCards.push({
-    type: "crescendo-card",
-    name: "Crescendo",
-    description: "One slider for a whole room, with staggered dimming curves.",
-    preview: true,
-    documentationURL: "https://github.com/MadisonMedia/cloudless-crescendo",
-  });
+function whenAppReady(attempt = 0): void {
+  const ready = Boolean(customElements.get("home-assistant") || customElements.get("hui-view"));
+  if (ready || attempt > 600) {
+    registerCard();
+    return;
+  }
+  window.setTimeout(() => whenAppReady(attempt + 1), 50);
 }
+
+whenAppReady();

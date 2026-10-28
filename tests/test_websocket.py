@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from homeassistant.components.light import ATTR_BRIGHTNESS
+from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from custom_components.cloudless_crescendo.const import DOMAIN
+from custom_components.cloudless_crescendo.frontend import async_register_card_resource
 
 from .conftest import ROOM
 
@@ -108,3 +110,16 @@ async def test_create_and_delete(hass: HomeAssistant, hass_ws_client, setup_ligh
     await client.send_json_auto_id({"type": f"{DOMAIN}/room/delete", "entry_id": entry_id})
     assert (await client.receive_json())["success"]
     assert hass.config_entries.async_entries(DOMAIN) == []
+
+
+async def test_card_resource_is_registered(hass: HomeAssistant) -> None:
+    assert await async_setup_component(hass, "lovelace", {})
+    url = "/cloudless_crescendo_static/crescendo-card.js?v=1"
+    await async_register_card_resource(hass, url)
+    await async_register_card_resource(hass, url)
+    items = hass.data[LOVELACE_DATA].resources.async_items()
+    assert [(i["type"], i["url"]) for i in items] == [("module", url)]
+
+    newer = "/cloudless_crescendo_static/crescendo-card.js?v=2"
+    await async_register_card_resource(hass, newer)
+    assert [i["url"] for i in hass.data[LOVELACE_DATA].resources.async_items()] == [newer]
