@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.0b2
+
+Restart Home Assistant after updating, then reload open dashboards.
+
+### Added
+
+- The columns of all lights can open in a window from any design, to set single lights apart from the object. The card settings choose how it opens: a button in the card's header (the default), a tap on the card, both, or not at all.
+- The name of a single light in that window opens its normal controls, for example to choose its color.
+- The card shows the active light colors as dots when a color is chosen or a light was changed by hand. A setting shows them all the time, and the window of single lights always names them.
+- A setting for the dial: a wedge that grows where the room gets brighter, or an even ring. Both themes now use the same shape.
+- A color bar on the card replaces the color field, with whites on the left and colors on the right.
+- A button's name replaces the value at that button's position. Long names shrink to fit.
+
+### Fixed
+
+- The object reported a mix of its lights' colors while a color was chosen. Where white lights outweighed the lights that follow the color, Home Assistant and the card showed white instead of the chosen color.
+- The card's controls kept their old colors until the page was reloaded after a color was chosen or reset.
+- **Current light colors, without a gradient** (formerly **Current light color, flat**) showed one mixed color that no light had. It now shows the lights' real colors side by side.
+- A column jumped to the object's position when touched, and back to the old value when released.
+- The card's settings closed the advanced section after each change and listed options that had no effect on the chosen design.
+- The photo upload and the mixer channels were hidden in the advanced section.
+- The logo looked uneven in Home Assistant, because the font was not available there.
+
+### Changed
+
+- Fades on the card and the setup page now start and end softly up to 15 seconds. Longer fades stay even, so the display keeps matching the lights. The lights themselves are unchanged and still fade natively.
+
 ## 0.1.0b1
 
 First public beta, written from scratch. Versions before it are not compatible, so remove any older Crescendo first and set up your objects again.

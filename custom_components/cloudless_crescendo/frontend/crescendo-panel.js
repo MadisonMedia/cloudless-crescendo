@@ -5,7 +5,9 @@ const {
   DEVICE_ACTIONS,
   RAMP_DOMAINS,
   clamp,
+  EASE_MAX_SECONDS,
   comma,
+  ease,
   esc,
   friendly,
   hexRgb,
@@ -44,7 +46,8 @@ button { cursor: pointer; }
 .shell { container-type: inline-size; max-width: 1400px; margin: 0 auto; padding-block: 16px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 .menu { border: 0; background: transparent; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
-.mark { font-size: 27px; line-height: 1; letter-spacing: -.01em; font-weight: 400; }
+.mark { margin: 0; line-height: 0; }
+.mark svg { display: block; height: 20px; width: auto; }
 .tabs, .seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--line); border-radius: 10px; }
 .tabs button, .seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; font-weight: 500; color: var(--muted); }
 .tabs button[aria-selected="true"], .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; }
@@ -199,6 +202,8 @@ const RAMP_LABEL = {
   fan: ["Speed", "Geschwindigkeit", "%"],
   light: ["Brightness", "Helligkeit", "%"],
 };
+// The name as outlines, each letter a step heavier. Fonts on a system rarely offer that many weights.
+const LOGO = '<svg viewBox="0 -720 4828 740" role="img" aria-label="Crescendo"><path fill="currentColor" d="M389 12Q290 12 214 -34Q137 -81 94 -162Q50 -244 50 -350Q50 -456 93 -538Q136 -619 212 -666Q288 -712 386 -712Q445 -712 502 -690Q558 -669 604 -630Q650 -592 675 -542L622 -509Q601 -552 564 -584Q526 -617 480 -636Q434 -654 386 -654Q307 -654 246 -615Q184 -576 149 -508Q114 -439 114 -350Q114 -260 149 -191Q184 -122 246 -83Q309 -44 389 -44Q438 -44 484 -64Q530 -85 568 -121Q605 -157 626 -203L679 -170Q653 -117 608 -76Q562 -34 505 -11Q448 12 389 12Z M780 0V-500H855V-411Q885 -458 933 -480Q980 -502 1032 -502V-432Q988 -432 947 -417Q907 -403 881 -369Q855 -334 855 -276V0Z M1321 12Q1248 12 1192 -22Q1136 -55 1104 -114Q1072 -173 1072 -250Q1072 -327 1104 -386Q1136 -445 1192 -478Q1248 -512 1321 -512Q1390 -512 1441 -478Q1493 -443 1522 -380Q1551 -317 1551 -232H1161Q1166 -154 1212 -111Q1258 -67 1326 -67Q1378 -67 1413 -91Q1448 -115 1467 -154L1543 -117Q1523 -79 1492 -49Q1460 -20 1417 -4Q1374 12 1321 12ZM1168 -304H1456Q1453 -345 1434 -375Q1416 -404 1386 -420Q1356 -435 1319 -435Q1283 -435 1250 -420Q1216 -404 1194 -375Q1172 -345 1168 -304Z M1814 12Q1762 12 1721 -4Q1679 -19 1650 -47Q1621 -74 1607 -109L1693 -146Q1709 -116 1740 -96Q1771 -76 1809 -76Q1852 -76 1878 -92Q1905 -107 1905 -135Q1905 -161 1885 -177Q1865 -192 1827 -201L1779 -214Q1710 -232 1670 -271Q1631 -309 1631 -358Q1631 -431 1679 -472Q1727 -512 1818 -512Q1863 -512 1901 -499Q1939 -485 1966 -461Q1992 -437 2004 -405L1920 -367Q1909 -396 1880 -410Q1851 -424 1814 -424Q1775 -424 1753 -408Q1731 -391 1731 -361Q1731 -344 1750 -330Q1769 -315 1805 -306L1860 -292Q1909 -280 1941 -256Q1973 -231 1989 -200Q2004 -169 2004 -136Q2004 -91 1980 -58Q1955 -24 1912 -6Q1869 12 1814 12Z M2322 12Q2245 12 2186 -22Q2127 -55 2094 -114Q2060 -173 2060 -250Q2060 -327 2093 -386Q2127 -445 2185 -478Q2244 -512 2320 -512Q2394 -512 2454 -476Q2514 -441 2543 -375L2439 -335Q2423 -368 2390 -388Q2357 -408 2315 -408Q2274 -408 2242 -388Q2210 -367 2192 -332Q2174 -296 2174 -250Q2174 -204 2192 -168Q2211 -133 2243 -113Q2276 -92 2317 -92Q2359 -92 2392 -114Q2425 -135 2441 -172L2545 -132Q2516 -64 2457 -26Q2397 12 2322 12Z M2844 12Q2770 12 2713 -22Q2656 -55 2623 -114Q2591 -173 2591 -250Q2591 -327 2624 -386Q2658 -445 2716 -478Q2774 -512 2850 -512Q2916 -512 2971 -478Q3026 -443 3059 -377Q3092 -311 3092 -217H2723Q2728 -164 2767 -133Q2806 -102 2857 -102Q2899 -102 2926 -120Q2953 -138 2967 -167L3081 -122Q3060 -81 3027 -50Q2993 -20 2948 -4Q2902 12 2844 12ZM2730 -312H2955Q2952 -344 2934 -364Q2917 -384 2893 -394Q2870 -404 2846 -404Q2823 -404 2798 -395Q2772 -385 2753 -365Q2734 -345 2730 -312Z M3157 0V-500H3293L3299 -434Q3323 -472 3360 -492Q3397 -512 3443 -512Q3503 -512 3544 -488Q3586 -464 3607 -413Q3628 -363 3628 -284V0H3484V-256Q3484 -301 3473 -327Q3463 -353 3444 -365Q3425 -376 3400 -377Q3352 -378 3326 -349Q3301 -320 3301 -263V0Z M3914 12Q3843 12 3793 -19Q3742 -51 3715 -110Q3688 -169 3688 -250Q3688 -332 3715 -391Q3742 -449 3793 -481Q3843 -512 3914 -512Q3960 -512 3995 -494Q4030 -477 4053 -443V-700H4215V0H4061L4057 -61Q4034 -26 3998 -7Q3961 12 3914 12ZM3956 -137Q3983 -137 4004 -150Q4025 -162 4038 -185Q4051 -208 4053 -236V-264Q4051 -292 4038 -315Q4025 -337 4004 -349Q3982 -362 3955 -362Q3927 -362 3905 -348Q3882 -334 3869 -308Q3857 -283 3857 -250Q3857 -217 3870 -192Q3883 -166 3906 -152Q3928 -137 3956 -137Z M4548 12Q4468 12 4407 -22Q4345 -55 4310 -114Q4275 -173 4275 -250Q4275 -327 4309 -386Q4344 -445 4405 -478Q4467 -512 4546 -512Q4626 -512 4687 -478Q4749 -445 4784 -386Q4818 -327 4818 -250Q4818 -173 4784 -114Q4749 -55 4688 -22Q4627 12 4548 12ZM4548 -154Q4573 -154 4592 -166Q4611 -179 4622 -200Q4633 -222 4633 -250Q4633 -278 4622 -300Q4611 -321 4591 -334Q4572 -346 4546 -346Q4521 -346 4502 -334Q4482 -321 4471 -300Q4460 -278 4460 -250Q4460 -222 4471 -200Q4482 -179 4502 -166Q4522 -154 4548 -154Z"/></svg>';
 const MENU_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>';
 const PT = 10,
   PB = 30,
@@ -329,11 +334,10 @@ class CrescendoPanel extends HTMLElement {
 
   _render() {
     const t = this._t;
-    const mark = "Crescendo".split("").map((ch, i) => `<span style="font-weight:${300 + i * 75}">${ch}</span>`).join("");
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><div class="shell">
       <header class="top">
         <button class="menu" data-act="menu" aria-label="Menu" ${this._narrow ? "" : "hidden"}>${MENU_ICON}</button>
-        <h1 class="mark" aria-label="Crescendo">${mark}</h1>
+        <h1 class="mark">${LOGO}</h1>
         <div class="tabs" role="tablist">
           <button role="tab" data-act="tab" data-v="edit" aria-selected="${this._view === "edit"}">${esc(t("Setup", "Einrichtung"))}</button>
           <button role="tab" data-act="tab" data-v="diag" aria-selected="${this._view === "diag"}">${esc(t("Diagnostics", "Diagnose"))}</button>
@@ -800,7 +804,7 @@ data:
     if (a.fading && a.fade_started && a.fade_ends) {
       const total = (Date.parse(a.fade_ends) - Date.parse(a.fade_started)) / 1000 || 1;
       const done = clamp((Date.now() - Date.parse(a.fade_started)) / 1000 / total, 0, 1);
-      return lerp(a.fade_from, a.target_position, done);
+      return lerp(a.fade_from, a.target_position, total <= EASE_MAX_SECONDS ? ease(done) : done);
     }
     return a.position ?? 0;
   }

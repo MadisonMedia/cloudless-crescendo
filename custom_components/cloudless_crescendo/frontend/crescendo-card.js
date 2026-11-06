@@ -2,14 +2,17 @@
 
 const shared = await import(new URL(`./crescendo-shared.js${new URL(import.meta.url).search}`, import.meta.url).href);
 const {
+  activeColors,
   clamp,
   comma,
   controllerFor,
+  EASE_MAX_SECONDS,
   css,
+  ease,
   esc,
   formatValue,
   friendly,
-  hexRgb,
+  hueRgb,
   isDark,
   kRgb,
   lampAt,
@@ -19,7 +22,7 @@ const {
   lightColor,
   lumOf,
   rampColor,
-  rgbHex,
+  rgbHue,
   roomGradient,
   roomLight,
   seriesVar,
@@ -28,6 +31,9 @@ const {
   tr,
   units,
 } = shared;
+
+// Lights not yet placed on the room picture, spread out so that none hides another.
+const defaultMark = (index, count) => [(index + 1) / (count + 1), [0.25, 0.5, 0.75][index % 3]];
 
 const DESIGNS = [
   ["gradient", "Room gradient", "Raumverlauf"],
@@ -55,6 +61,10 @@ const DEFAULTS = {
   glow: true,
   show_lanes: true,
   color_control: false,
+  dial_wedge: true,
+  button_names: true,
+  details: "button",
+  colors_always: false,
   tap_duration: 1,
 };
 
@@ -79,6 +89,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .value small, .big small { font-size: 14px; color: var(--cr-muted); margin-left: 2px; letter-spacing: 0; }
 .big { font-size: 54px; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -.03em; white-space: nowrap; line-height: 1; }
 .big small { font-size: 20px; }
+.value.named { font-size: 18px; font-weight: 600; letter-spacing: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+.big.named { font-size: 28px; font-weight: 500; letter-spacing: 0; line-height: 1.15; white-space: normal; text-align: center; }
 .power { width: 42px; height: 42px; flex: none; border-radius: 50%; border: 1px solid var(--cr-line); background: transparent; display: grid; place-items: center; color: var(--cr-muted); padding: 0; }
 .power[aria-pressed="true"] { background: var(--cr-accent); border-color: var(--cr-accent); color: var(--cr-accent-ink); }
 .power .stop { display: none; }
@@ -116,7 +128,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 [data-sl="wide"] .regh .slim { display: none; }
 [data-sl="slim"] .regh .track { display: none; }
 [data-sl="none"] .regh { display: none; }
-[data-color="solid"] .js-grad, [data-color="solid"] .js-vgrad { background-color: var(--reg); background-image: none !important; }
+[data-color="solid"] .js-grad, [data-color="solid"] .js-vgrad { background-color: var(--reg); }
 .ticks { position: relative; height: 17px; font-size: 11.5px; line-height: 1; color: var(--cr-muted); font-variant-numeric: tabular-nums; }
 .ticks span { position: absolute; top: 0; transform: translateX(-50%); }
 .ticks span::before { content: ""; display: block; width: 1px; height: 4px; margin: 0 auto 2px; background: var(--cr-line); }
@@ -137,9 +149,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dial svg { display: block; width: 100%; height: 100%; }
 .dial-base { fill: none; stroke-width: 22; stroke-linecap: round; stroke: var(--cr-well); }
 .dial-seg { fill: none; stroke-width: 22; }
+.dial-under { fill: none; stroke: var(--cr-well); }
+[data-wedge] .dial-base { display: none; }
 .dial-tick { stroke: var(--cr-muted); stroke-width: 2; }
 .dial-knob { fill: #fff; stroke: var(--cr-ink); stroke-width: 3; }
-.dial-center { position: absolute; inset: 0; display: grid; place-content: center; pointer-events: none; }
+.dial-center { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 62%); place-content: center; text-align: center; pointer-events: none; }
 .bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 7px; }
 .bar { display: grid; grid-template-rows: 150px auto; gap: 5px; min-width: 0; }
 .well { position: relative; overflow: hidden; border-radius: 9px; background: var(--cr-well); }
@@ -148,9 +162,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(0deg, color-mix(in srgb, var(--reg) 35%, transparent), var(--reg)); }
 .bar > span, .ch > span { font-size: 11px; line-height: 1.15; text-align: center; color: var(--cr-muted); overflow-wrap: anywhere; }
 .reset { border: 1px solid var(--cr-line); background: transparent; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-.colorrow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13.5px; color: var(--cr-muted); }
-.colorrow label { display: inline-flex; gap: 8px; align-items: center; }
-.colorrow input { width: 44px; height: 32px; padding: 2px; border: 1px solid var(--cr-line); border-radius: 8px; background: transparent; cursor: pointer; }
+.colorrow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.colorbar { position: relative; flex: 1 1 160px; height: 24px; cursor: pointer; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.colorbar:focus-visible { outline: 2px solid var(--cr-accent); outline-offset: 2px; border-radius: 8px; }
+.colorbar u { position: absolute; top: 0; bottom: 0; border-radius: 8px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cr-ink) 12%, transparent); }
+.colorknob { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 1px rgba(17,21,42,.4), 0 1px 5px rgba(0,0,0,.35); pointer-events: none; }
 .chart { display: block; width: 100%; height: auto; touch-action: pan-y; cursor: ew-resize; }
 .c-grid { stroke: var(--cr-line); stroke-width: 1; }
 .c-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
@@ -164,14 +180,38 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ch b { font-size: 12px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ch-fill { position: absolute; left: 0; right: 0; bottom: 0; }
 .warning { padding: 16px; color: var(--cr-muted); }
+.icon-btn { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid var(--cr-line); background: transparent; display: grid; place-items: center; color: var(--cr-muted); padding: 0; }
+.icon-btn:hover { color: var(--cr-ink); border-color: var(--cr-muted); }
+.cc[data-tap] { cursor: pointer; }
+.js-title:focus-visible { outline: 2px solid var(--cr-accent); outline-offset: 2px; border-radius: 6px; }
+.chips { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { display: inline-block; flex: none; width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cr-ink) 24%, transparent); }
+.details { border: 0; padding: 0; border-radius: 16px; background: var(--cr-bg); color: var(--cr-ink); width: min(620px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.35); cursor: default; }
+.details::backdrop { background: rgba(0,0,0,.5); }
+.details-in { display: grid; gap: 14px; padding: 16px; }
+.details-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.details-head > div { min-width: 0; flex: 1; }
+.details .bars { grid-auto-columns: minmax(46px, 1fr); overflow-x: auto; padding-block: 2px; }
+.details .bar { grid-template-rows: auto clamp(170px, 40dvh, 320px) auto; }
+.details .bar > b { font-size: 12px; font-weight: 500; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bar-name { border: 0; background: none; padding: 0; font-size: 11px; line-height: 1.15; text-align: center; color: var(--cr-muted); overflow-wrap: anywhere; text-decoration: underline dotted; text-underline-offset: 2px; }
+.bar-name:hover { color: var(--cr-ink); }
+.details-colors { display: grid; gap: 6px; font-size: 13px; color: var(--cr-muted); }
+.details-colors b { font-weight: 600; color: var(--cr-ink); }
+.named-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.named-chips span { display: inline-flex; gap: 6px; align-items: center; }
+.details-group { display: inline-flex; gap: 8px; align-items: center; justify-self: start; font-size: 13px; color: var(--cr-muted); cursor: pointer; }
+.details-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+.details-foot:not(:has(button:not([hidden]))) { display: none; }
 :host([data-dark]) .dim, :host([data-dark]) .cover { background: color-mix(in srgb, var(--cr-well) 90%, transparent); }
 :host([data-dark]) .fill { background: var(--reg); }
-:host([data-dark]) .dial-base { display: none; }
 @container (max-width: 270px) {
   .ticks, .lanes, .status { display: none; }
   .value { font-size: 22px; }
   .big { font-size: 36px; }
   .power { width: 36px; height: 36px; }
+  .head { gap: 8px; }
+  .icon-btn { width: 32px; height: 32px; }
   .fader-row { grid-template-columns: minmax(0, 1fr); }
   .fader-row .big { display: none; }
   .fader { height: 170px; }
@@ -191,14 +231,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .ch { grid-template-rows: auto 230px auto; }
   .big { font-size: 66px; }
 }
+@container (max-width: 190px) {
+  .head .icon-btn { display: none; }
+}
 `;
 
 const POWER = `<button class="power js-power" aria-pressed="false"><svg class="pw" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg><svg class="stop" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg></button>`;
-const TITLE = `<div><h3 class="name js-name"></h3><p class="status js-status"></p></div>`;
+const OPEN_DETAILS = `<button class="icon-btn js-details-open" aria-haspopup="dialog" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 4v9M6 17v3M12 4v3M12 11v9M18 4v11M18 19v1"/><circle cx="6" cy="15" r="2"/><circle cx="12" cy="9" r="2"/><circle cx="18" cy="17" r="2"/></svg></button>`;
+const CLOSE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const TITLE = `<div class="js-title"><h3 class="name js-name"></h3><p class="status js-status"></p></div>`;
 const VALUE = `<div class="value"><span class="js-pos">0</span><small class="js-unit"></small></div>`;
+const NAME_MIN_PX = 13;
 const BIG = `<div class="big"><span class="js-pos">0</span><small class="js-unit"></small></div>`;
-const HEAD = `<div class="head">${TITLE}${VALUE}${POWER}</div>`;
-const HEAD_PLAIN = `<div class="head">${TITLE}${POWER}</div>`;
+const HEAD = `<div class="head">${TITLE}${VALUE}${OPEN_DETAILS}${POWER}</div>`;
+const HEAD_PLAIN = `<div class="head">${TITLE}${OPEN_DETAILS}${POWER}</div>`;
 const TICKS = `<div class="ticks js-ticks" aria-hidden="true"></div>`;
 const REG = `<div class="regh"><div class="track js-grad" data-slider="x"><div class="dim"></div><div class="thumb"></div></div><div class="slim" data-slider="x"><div class="slim-track js-grad"><div class="dim"></div></div><div class="knob"></div></div>${TICKS}</div>`;
 const BTNS = `<div class="btns"><div class="presets js-presets"></div></div>`;
@@ -242,17 +288,15 @@ class CrescendoCard extends HTMLElement {
     this._photo = null;
     this._built = false;
     this._mix = {};
+    this._barHolds = {};
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
-    this.shadowRoot.addEventListener("change", (e) => {
-      if (e.target.classList?.contains("js-color")) {
-        this._hass.callService("light", "turn_on", { rgb_color: hexRgb(e.target.value) }, { entity_id: this._ctl.entityId });
-      }
-    });
     this.shadowRoot.addEventListener("pointerdown", (e) => this._onDown(e));
     this.shadowRoot.addEventListener("pointermove", (e) => this._onMove(e));
     this.shadowRoot.addEventListener("pointerup", (e) => this._onUp(e));
     this.shadowRoot.addEventListener("pointercancel", () => {
       this._drag = null;
+      this._colorDrag = null;
+      this._colorX = undefined;
       this._kick();
     });
     this.shadowRoot.addEventListener("keydown", (e) => this._onKey(e));
@@ -281,7 +325,8 @@ class CrescendoCard extends HTMLElement {
     const changed =
       !old ||
       old.states[this._config.entity] !== hass.states[this._config.entity] ||
-      (this._config.design === "mixer" && (this._config.channels || []).some((c) => old.states[c] !== hass.states[c]));
+      (this._config.design === "mixer" && (this._config.channels || []).some((c) => old.states[c] !== hass.states[c])) ||
+      (this._options?.lights || []).some((l) => old.states[l.entity_id] !== hass.states[l.entity_id]);
     if (changed || !this._built) this._update(false);
     if (old && (old.themes?.darkMode !== hass.themes?.darkMode || old.themes?.theme !== hass.themes?.theme)) {
       setTimeout(() => this._recheckDark(), 200);
@@ -291,6 +336,22 @@ class CrescendoCard extends HTMLElement {
   connectedCallback() {
     this._recheckDark();
     this._kick();
+    this._sizes ??= new ResizeObserver(() => this._fitNames());
+    this._sizes.observe(this);
+  }
+
+  // A button's name may be one long word. It gets smaller to fit; only a word too long even then breaks.
+  _fitNames() {
+    this.shadowRoot.querySelectorAll(".big").forEach((el) => {
+      el.style.fontSize = "";
+      el.style.overflowWrap = "";
+      if (!el.classList.contains("named") || !el.clientWidth) return;
+      const over = el.scrollWidth / el.clientWidth;
+      if (over <= 1) return;
+      const size = parseFloat(getComputedStyle(el).fontSize);
+      el.style.fontSize = `${Math.max(NAME_MIN_PX, Math.floor(size / over))}px`;
+      if (el.scrollWidth > el.clientWidth) el.style.overflowWrap = "anywhere";
+    });
   }
 
   // The colors depend on the ground the card sits on, which is only known once it is on the page.
@@ -305,6 +366,7 @@ class CrescendoCard extends HTMLElement {
   disconnectedCallback() {
     cancelAnimationFrame(this._raf);
     this._raf = 0;
+    this._sizes?.disconnect();
   }
 
   get _t() {
@@ -335,6 +397,12 @@ class CrescendoCard extends HTMLElement {
     }
     if (!ctl.crescendo) this._options = null;
     this._trackFade(ctl);
+    // The colors on the controls were painted for one chosen color. Another one needs them painted anew.
+    const chosen = JSON.stringify(this._override());
+    if (chosen !== this._chosen && !this._drag && !this._colorDrag) {
+      this._chosen = chosen;
+      this._built = false;
+    }
     if (!this._built || force) this._build();
     this._kick();
   }
@@ -342,41 +410,75 @@ class CrescendoCard extends HTMLElement {
   // Follows a fade from what the state last said, without relying on synchronized clocks.
   _trackFade(ctl) {
     const a = ctl.state.attributes;
+    const f = this._fade;
+    const now = performance.now();
     if (!ctl.crescendo || !a.fading || a.target_position === undefined) {
+      // A fade started on this card keeps running until the state has had time to report it.
+      if (f?.local && now - f.at < 1500) return;
+      if (f) this._startGlide();
       this._fade = null;
       return;
     }
-    const started = Date.parse(a.fade_started),
-      ends = Date.parse(a.fade_ends);
-    const total = Math.max(0.001, (ends - started) / 1000);
-    if (this._fade && this._fade.key === a.fade_started) {
-      this._fade.pos = a.position;
-      this._fade.at = performance.now();
+    const total = Math.max(0.001, (Date.parse(a.fade_ends) - Date.parse(a.fade_started)) / 1000);
+    const done = (a.position - a.fade_from) / (a.target_position - a.fade_from || 1);
+    if (f && f.key === a.fade_started) {
+      f.done = done;
+      f.at = now;
       return;
     }
+    if (f?.local && Math.abs(f.target - a.target_position) < 0.01) {
+      f.key = a.fade_started;
+      f.local = false;
+      return;
+    }
+    this._startGlide();
     this._fade = {
       key: a.fade_started,
       from: a.fade_from,
       target: a.target_position,
       total,
-      rate: (a.target_position - a.fade_from) / total,
-      pos: a.position,
-      at: performance.now(),
+      eased: total <= EASE_MAX_SECONDS,
+      done,
+      at: now,
     };
   }
 
+  // The eased display and the even lights differ during a fade. A stop or a new fade must not make that jump.
+  _startGlide() {
+    if (this._shown !== undefined) this._glide = { from: this._shown, at: performance.now() };
+  }
+
   _position() {
-    if (this._drag && this._drag.kind === "main" && this._drag.moved) return this._drag.pos;
+    if (this._drag && this._drag.kind === "main" && this._drag.moved) {
+      this._glide = null;
+      return this._drag.pos;
+    }
+    let shown = this._value();
+    if (this._glide) {
+      const part = (performance.now() - this._glide.at) / 300;
+      if (part >= 1) this._glide = null;
+      else shown = this._glide.from + (shown - this._glide.from) * ease(part);
+    }
+    this._shown = shown;
+    return shown;
+  }
+
+  _value() {
     if (this._fade) {
       const f = this._fade;
-      const p = f.pos + (f.rate * (performance.now() - f.at)) / 1000;
-      return f.rate >= 0 ? Math.min(p, f.target) : Math.max(p, f.target);
+      const done = this._fadeDone();
+      return f.from + (f.target - f.from) * (f.eased ? ease(done) : done);
     }
     if (this._hold) {
       if (performance.now() < this._hold.until && Math.abs(this._ctl.pos - this._hold.pos) > 0.7) return this._hold.pos;
       this._hold = null;
     }
     return this._ctl.pos;
+  }
+
+  _fadeDone() {
+    const f = this._fade;
+    return clamp(f.done + (performance.now() - f.at) / 1000 / f.total, 0, 1);
   }
 
   _override() {
@@ -393,15 +495,132 @@ class CrescendoCard extends HTMLElement {
     return this._ctl.state?.attributes?.buttons || [];
   }
 
+  // -- the view of all single lights --------------------------------------------------------------
+
+  _detailsMode() {
+    const cfg = this._config;
+    if (!this._options || this._options.lights.length < 2 || cfg.design === "columns") return "off";
+    return cfg.details;
+  }
+
+  _detailsHtml() {
+    const t = this._t;
+    const o = this._options;
+    const canGroup = units(o, this._hass, true).length < o.lights.length;
+    const group = this._detailsGroup ?? this._config.group;
+    const title = esc(t("Single lights", "Einzelne Leuchten"));
+    return `<dialog class="details js-details" aria-label="${title}"><div class="details-in">
+      <div class="details-head"><div><h3 class="name js-name"></h3><p class="status">${title}</p></div><button class="icon-btn js-details-close" aria-label="${esc(t("Close", "Schließen"))}">${CLOSE_ICON}</button></div>
+      <div class="bars js-dbars"></div>
+      <div class="details-colors" hidden><b>${esc(t("Active light colors", "Aktive Lichtfarben"))}</b><div class="named-chips js-named-chips"></div></div>
+      ${canGroup ? `<label class="details-group"><input type="checkbox" class="js-dgroup"${group ? " checked" : ""}> ${esc(t("Combine identical lights", "Gleiche Leuchten zusammenfassen"))}</label>` : ""}
+      <div class="details-foot"><button class="reset js-reset" hidden></button><button class="reset js-colorback" hidden>${esc(t("Back to the stops", "Zurück zu den Stufen"))}</button></div>
+    </div></dialog>`;
+  }
+
+  // A single light's name opens its normal controls, for its color. A combined column has no single light to open.
+  _detailBars() {
+    const o = this._options;
+    if (!o) return "";
+    return units(o, this._hass, this._detailsGroup ?? this._config.group)
+      .map((u) => {
+        const ids = esc(u.ids.join(","));
+        const label =
+          u.ids.length === 1
+            ? `<button class="bar-name js-more" data-id="${ids}">${esc(u.name)}</button>`
+            : `<span>${esc(u.name)}</span>`;
+        return `<div class="bar"><b class="js-barv"></b><div class="well" data-slider="bar" data-ids="${ids}" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${ids}"></div></div>${label}</div>`;
+      })
+      .join("");
+  }
+
+  _openDetails() {
+    const dialog = this.shadowRoot.querySelector(".js-details");
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+    this._kick();
+  }
+
+  // A tap on the card opens the view, unless it was meant for a control. A tap in the dial's middle operates nothing.
+  _tapOpens(e) {
+    const mode = this._detailsMode();
+    if (mode !== "card" && mode !== "both") return false;
+    if (performance.now() - (this._dragEnded || 0) < 80) return false;
+    const t = e.target;
+    const dial = t.closest?.('[data-slider="arc"]');
+    if (dial) {
+      const r = dial.getBoundingClientRect();
+      return Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)) < r.width * 0.26;
+    }
+    return !t.closest?.("button, input, a, dialog, [data-slider], .js-colorbar");
+  }
+
+  _sliderRoles() {
+    this.shadowRoot.querySelectorAll("[data-slider]").forEach((el) => {
+      el.setAttribute("role", "slider");
+      el.setAttribute("tabindex", "0");
+      if (!el.hasAttribute("aria-label")) el.setAttribute("aria-label", this._t("Position", "Position"));
+      el.setAttribute("aria-valuemin", "0");
+      el.setAttribute("aria-valuemax", "100");
+    });
+  }
+
+  // Shows the colors the lights report. A mix of them would be a color no light has.
+  _paintActive(colors) {
+    const root = this.shadowRoot;
+    const paint = (c) => `rgb(${css(lightColor(c.rgb))})`;
+    const names = (c) => esc(c.ids.map((id) => friendly(this._hass, id)).join(", "));
+    root.querySelectorAll(".js-chips").forEach((el) => {
+      el.innerHTML = colors.map((c) => `<i class="chip" style="background:${paint(c)}" title="${names(c)}"></i>`).join("");
+    });
+    root.querySelectorAll(".js-named-chips").forEach((el) => {
+      el.innerHTML = colors.map((c) => `<span><i class="chip" style="background:${paint(c)}"></i>${names(c)}</span>`).join("");
+      el.parentElement.hidden = !colors.length;
+    });
+    if (this._config.color !== "solid") return;
+    root.querySelectorAll(".js-grad").forEach((el) => (el.style.backgroundImage = this._gradient("90deg")));
+    root.querySelectorAll(".js-vgrad").forEach((el) => (el.style.backgroundImage = this._gradient("0deg")));
+    root.querySelectorAll(".dial-seg").forEach((el) => (el.style.stroke = this._segColor(+el.dataset.p)));
+  }
+
+  _solidBands() {
+    if (!this._options) return [];
+    const colors = activeColors(this._options.lights.map((l) => l.entity_id), this._hass);
+    const total = colors.reduce((sum, c) => sum + c.ids.length, 0);
+    let at = 0;
+    return colors.map((c) => {
+      const from = at;
+      at += (c.ids.length / total) * 100;
+      return { color: `rgb(${css(lightColor(c.rgb))})`, from, to: at };
+    });
+  }
+
   _build() {
     const cfg = this._config,
       ctl = this._ctl;
     const design = TEMPLATES[cfg.design] ? cfg.design : "gradient";
     const pos = cfg.button_position === "auto" ? AUTO_POS[design] || "bottom" : cfg.button_position;
+    const detailsWereOpen = !!this.shadowRoot.querySelector(".js-details")?.open;
+    const mode = this._detailsMode();
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="card"><div class="progress js-progress" hidden><i></i></div>
-      <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}">${TEMPLATES[design]}<div class="colorrow js-colorrow" hidden><label class="js-colorpick"><span>${esc(this._t("Color", "Farbe"))}</span><input type="color" class="js-color"></label><button class="reset js-colorback">${esc(this._t("Back to the stops", "Zurück zu den Stufen"))}</button></div></div></ha-card>`;
+      <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}"${cfg.dial_wedge ? " data-wedge" : ""}>${TEMPLATES[design]}<div class="colorrow js-colorrow" hidden><span class="chips js-chips" role="group" aria-label="${esc(this._t("Active light colors", "Aktive Lichtfarben"))}" hidden></span><div class="colorbar js-colorbar" role="slider" tabindex="0" aria-label="${esc(this._t("Color", "Farbe"))}" aria-valuemin="0" aria-valuemax="100"><u class="js-colorwhite"></u><u class="js-colorhue"></u><i class="colorknob js-colorknob" hidden></i></div><button class="reset js-colorback">${esc(this._t("Back to the stops", "Zurück zu den Stufen"))}</button></div></div>${mode === "off" ? "" : this._detailsHtml()}</ha-card>`;
     this._built = true;
+    this._activeKey = null;
     const root = this.shadowRoot;
+    const opensBy = (...how) => how.includes(mode);
+    root.querySelector(".cc").toggleAttribute("data-tap", opensBy("card", "both"));
+    root.querySelectorAll(".js-details-open").forEach((el) => {
+      el.hidden = !opensBy("button", "both");
+      el.setAttribute("aria-label", this._t("Show single lights", "Einzelne Leuchten zeigen"));
+    });
+    if (opensBy("card", "both")) {
+      root.querySelectorAll(".js-title").forEach((el) => {
+        el.setAttribute("role", "button");
+        el.setAttribute("tabindex", "0");
+        el.setAttribute("aria-haspopup", "dialog");
+      });
+    }
+    root.querySelectorAll(".js-dbars").forEach((el) => (el.innerHTML = this._detailBars()));
     const dark = isDark(root.querySelector(".card"), this._hass);
     this._dark = dark;
     this.toggleAttribute("data-dark", dark);
@@ -411,6 +630,7 @@ class CrescendoCard extends HTMLElement {
     const lang = langOf(this._hass);
     const name = cfg.name || friendly(this._hass, cfg.entity);
     $$(".js-mix", (el) => (el.innerHTML = this._mixer()));
+    this._paintColorBar();
     $$(".js-name", (el) => (el.textContent = name));
     $$(".js-unit", (el) => (el.textContent = ctl.unit));
     root.querySelector(".cc").classList.toggle("readonly", ctl.readonly);
@@ -477,14 +697,9 @@ class CrescendoCard extends HTMLElement {
         .map((u) => `<span><i class="key" style="background:${seriesVar(u.slot)}"></i>${esc(u.name)}</span>`)
         .join("");
     });
-    $$("[data-slider]", (el) => {
-      el.setAttribute("role", "slider");
-      el.setAttribute("tabindex", "0");
-      if (!el.hasAttribute("aria-label")) el.setAttribute("aria-label", this._t("Position", "Position"));
-      el.setAttribute("aria-valuemin", "0");
-      el.setAttribute("aria-valuemax", "100");
-    });
+    this._sliderRoles();
     this._live(true);
+    if (detailsWereOpen && mode !== "off") this._openDetails();
   }
 
   _gradient(dir) {
@@ -493,7 +708,11 @@ class CrescendoCard extends HTMLElement {
     const dark = this._dark;
     const fade = (c) =>
       dark ? `linear-gradient(${dir}, ${c}, ${c})` : `linear-gradient(${dir}, color-mix(in srgb, ${c} 12%, transparent), ${c})`;
-    if (cfg.color === "solid") return "none";
+    if (cfg.color === "solid") {
+      const bands = this._solidBands();
+      if (!bands.length) return "none";
+      return `linear-gradient(${dir}, ${bands.map((b) => `${b.color} ${b.from.toFixed(1)}% ${b.to.toFixed(1)}%`).join(",")})`;
+    }
     if (cfg.color === "accent") return fade("var(--cr-accent)");
     if (cfg.color === "custom") return fade(cfg.custom_color);
     if (this._options) return roomGradient(this._options, dir, this._override(), dark);
@@ -533,7 +752,7 @@ class CrescendoCard extends HTMLElement {
     const cfg = this._config,
       ctl = this._ctl;
     const dark = this._dark;
-    if (cfg.color === "solid") return "var(--reg)";
+    if (cfg.color === "solid") return this._solidBands().find((b) => pct <= b.to)?.color || "var(--reg)";
     const mix = (c) => (dark ? c : `color-mix(in srgb, ${c} ${Math.round(12 + (88 * pct) / 100)}%, transparent)`);
     if (cfg.color === "accent") return mix("var(--cr-accent)");
     if (cfg.color === "custom") return mix(cfg.custom_color);
@@ -548,25 +767,28 @@ class CrescendoCard extends HTMLElement {
     return mix("var(--cr-accent)");
   }
 
-  // In the dark the dial is a wedge: the full light color, and the ring grows where the room gets brighter.
+  // As a wedge, the ring grows where the room gets brighter.
   _segWidth(pct) {
-    if (!this._dark) return "";
+    if (!this._config.dial_wedge) return "";
     const a = this._options ? roomLight(this._options, pct, this._override()).a : pct / 100;
-    return `;stroke-width:${(a > 0 ? 26 * (0.14 + 0.86 * a) : 0).toFixed(1)}`;
+    return `stroke-width:${(a > 0 ? 26 * (0.14 + 0.86 * a) : 0).toFixed(1)}`;
   }
 
   _arcSegments() {
     const count = 54;
-    let out = "";
+    let under = "",
+      out = "";
     for (let i = 0; i < count; i++) {
       const a0 = ((135 + (i / count) * 270 - 0.4) * Math.PI) / 180;
       const a1 = ((135 + ((i + 1) / count) * 270 + 0.4) * Math.PI) / 180;
       const pct = ((i + 0.5) / count) * 100;
       const p = (a) => `${(130 + 100 * Math.cos(a)).toFixed(2)} ${(130 + 100 * Math.sin(a)).toFixed(2)}`;
-      const color = this._segColor(pct);
-      out += `<path class="dial-seg" data-p="${pct.toFixed(1)}" data-c="${color}" style="stroke:${color}${this._segWidth(pct)}" d="M${p(a0)} A100 100 0 0 1 ${p(a1)}"/>`;
+      const width = this._segWidth(pct);
+      const arc = `d="M${p(a0)} A100 100 0 0 1 ${p(a1)}"`;
+      if (width) under += `<path class="dial-under" style="${width}" ${arc}/>`;
+      out += `<path class="dial-seg" data-p="${pct.toFixed(1)}" style="stroke:${this._segColor(pct)};${width}" ${arc}/>`;
     }
-    return out;
+    return under + out;
   }
 
   _arcTicks() {
@@ -636,23 +858,22 @@ class CrescendoCard extends HTMLElement {
     host.style.setProperty("--p", `${p}%`);
     host.style.setProperty("--pn", p / 100);
     const shown = formatValue(ctl, p, lang);
-    $$(".js-pos", (el) => (el.textContent = shown));
+    const named =
+      cfg.button_names && !this._fade ? this._buttons().find((b) => Math.abs(b.position - p) < 0.5) : null;
+    $$(".js-pos", (el) => (el.textContent = named && !el.closest(".ch") ? named.name : shown));
+    $$(".head .js-unit, .big .js-unit", (el) => (el.hidden = !!named));
+    $$(".head .value, .big", (el) => el.classList.toggle("named", !!named));
+    if ((named?.name ?? null) !== this._fitted) {
+      this._fitted = named?.name ?? null;
+      this._fitNames();
+    }
     $$('[data-slider]:not([data-slider="bar"]):not([data-slider="chan"])', (el) =>
       el.setAttribute("aria-valuenow", Math.round(p)),
     );
     const o = this._options;
     const override = this._override();
-    let tot = 0,
-      mix = [0, 0, 0];
-    if (o) {
-      for (const light of o.lights) {
-        const l = lampAt(o, light, p, override),
-          w = l.v / 100;
-        tot += w;
-        mix = [mix[0] + l.c[0] * w, mix[1] + l.c[1] * w, mix[2] + l.c[2] * w];
-      }
-    }
-    const avg = tot ? mix.map((x) => x / tot) : null;
+    const tot = o ? o.lights.reduce((sum, light) => sum + lampAt(o, light, p, override).v / 100, 0) : 0;
+    const avg = tot ? roomLight(o, p, override).c : null;
     let reg = "var(--cr-accent)";
     if (cfg.color === "custom") reg = cfg.custom_color;
     else if (cfg.color !== "accent") {
@@ -675,7 +896,7 @@ class CrescendoCard extends HTMLElement {
     const t = this._t;
     let status;
     if (long) {
-      const done = clamp((p - f.from) / (f.target - f.from || 1), 0, 1);
+      const done = this._fadeDone();
       if (bar) bar.firstElementChild.style.width = `${done * 100}%`;
       status = t(
         `${fmtDur(lang, (1 - done) * f.total)} left, to ${formatValue(ctl, f.target, lang)} ${ctl.unit}`,
@@ -694,11 +915,8 @@ class CrescendoCard extends HTMLElement {
       el.setAttribute("aria-pressed", String(on));
       el.setAttribute("aria-label", long ? t("Stop dimming", "Dimmen stoppen") : t("Switch on or off", "Ein- oder ausschalten"));
     });
-    $$(".dial-seg", (el) => {
-      const reached = +el.dataset.p <= p;
-      if (this._dark) el.style.stroke = reached ? el.dataset.c : "var(--cr-well)";
-      else el.style.opacity = reached ? 1 : 0.22;
-    });
+    const unreached = cfg.dial_wedge || this._dark ? 0 : 0.22;
+    $$(".dial-seg", (el) => (el.style.opacity = +el.dataset.p <= p ? 1 : unreached));
     const ang = ((135 + (p / 100) * 270) * Math.PI) / 180;
     $$(".dial-knob", (el) => {
       el.setAttribute("cx", (130 + 100 * Math.cos(ang)).toFixed(2));
@@ -711,33 +929,51 @@ class CrescendoCard extends HTMLElement {
     });
     $$(".js-self", (el) => (el.style.height = `${p}%`));
     const deviating = ctl.state.attributes.deviating || [];
+    const now = performance.now();
+    let holding = false;
     // Columns show the value set by the curve, because lights report only about once per second.
+    // A light taken out by hand shows what it reports, including a color set in its own controls.
     $$(".js-bar", (el) => {
       const ids = el.dataset.ids.split(",");
       const light = o?.lights.find((x) => x.entity_id === ids[0]);
       if (!light) return;
       const l = lampAt(o, light, p, override);
       const drag = this._drag?.kind === "bar" && this._drag.ids[0] === ids[0] ? this._drag.pos : null;
-      const away = deviating.includes(ids[0]);
-      const real = this._hass.states[ids[0]];
-      const v = drag ?? (away ? (real?.state === "on" ? (real.attributes.brightness || 0) / 2.55 : 0) : l.v);
+      const hold = this._barHolds[ids[0]];
+      const kept = hold && now < hold.until ? hold.pos : null;
+      if (kept !== null) holding = true;
+      const awayId = ids.find((id) => deviating.includes(id));
+      const real = awayId ? this._hass.states[awayId] : null;
+      const lit = real?.state === "on";
+      const v = drag ?? kept ?? (awayId ? (lit ? (real.attributes.brightness || 0) / 2.55 : 0) : l.v);
+      const color = lit && real.attributes.rgb_color ? real.attributes.rgb_color : l.c;
       el.style.height = `${v}%`;
-      el.style.background = this._dark ? lightA(l.c, 1) : `linear-gradient(0deg, ${lightA(l.c, 0.35)}, ${lightA(l.c, 1)})`;
-      el.parentElement.classList.toggle("dev", away || drag !== null);
+      el.style.background = this._dark ? lightA(color, 1) : `linear-gradient(0deg, ${lightA(color, 0.35)}, ${lightA(color, 1)})`;
+      el.parentElement.classList.toggle("dev", !!awayId || drag !== null);
       el.parentElement.setAttribute("aria-valuenow", Math.round(v));
+      const label = el.closest(".bar")?.querySelector(".js-barv");
+      if (label) label.textContent = `${Math.round(v)} %`;
     });
     $$(".js-reset", (el) => (el.hidden = !deviating.length));
     const attrs = ctl.state?.attributes || {};
-    const picks = cfg.color_control && (attrs.supported_color_modes || []).some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
+    const picks = cfg.color_control && (this._hasColor() || this._hasWhite());
     const back = !!attrs.color_override;
-    $$(".js-colorrow", (el) => (el.hidden = !picks && !back));
-    $$(".js-colorpick", (el) => (el.hidden = !picks));
-    $$(".js-colorback", (el) => (el.hidden = !back));
-    if (attrs.rgb_color) {
-      $$(".js-color", (el) => {
-        if (root.activeElement !== el) el.value = rgbHex(attrs.rgb_color);
-      });
+    const colors = o ? activeColors(o.lights.map((l) => l.entity_id), this._hass) : [];
+    const activeKey = colors.map((c) => `${css(c.rgb)}:${c.ids.join()}`).join("|");
+    if (activeKey !== this._activeKey) {
+      this._activeKey = activeKey;
+      this._paintActive(colors);
     }
+    const chips = colors.length > 0 && (cfg.colors_always || back || deviating.length > 0);
+    $$(".js-colorrow", (el) => (el.hidden = !picks && !back && !chips));
+    $$(".js-chips", (el) => (el.hidden = !chips));
+    $$(".js-colorbar", (el) => (el.hidden = !picks));
+    $$(".js-colorback", (el) => (el.hidden = !back));
+    const place = this._colorX ?? this._colorPlace();
+    $$(".js-colorknob", (el) => {
+      el.hidden = place === null;
+      if (place !== null) el.style.left = `${clamp(place, 0.012, 0.988) * 100}%`;
+    });
     $$("[data-chf]", (el) => {
       const id = el.dataset.chf;
       const c = controllerFor(this._hass, id);
@@ -759,7 +995,7 @@ class CrescendoCard extends HTMLElement {
       el.classList.toggle("on", f ? Math.abs(f.target - target) < 0.5 : Math.abs(p - target) < 0.6);
     });
     $$(".js-pic", (el) => this._drawPicture(el, p, override));
-    if (f || this._hold || this._drag) this._kick();
+    if (f || this._hold || this._drag || this._glide || holding) this._kick();
     void first;
   }
 
@@ -781,7 +1017,7 @@ class CrescendoCard extends HTMLElement {
   _point(entityId, index, count) {
     const saved = this._config.points?.[entityId];
     if (saved) return saved;
-    return [(index + 1) / (count + 1), 0.45];
+    return defaultMark(index, count);
   }
 
   _drawPicture(el, p, override) {
@@ -909,7 +1145,90 @@ class CrescendoCard extends HTMLElement {
     }
   }
 
+  // -- the color bar: whites on the left, colors on the right ------------------------------------
+
+  _hasColor() {
+    return (this._ctl.state?.attributes?.supported_color_modes || []).some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
+  }
+
+  _hasWhite() {
+    return (this._ctl.state?.attributes?.supported_color_modes || []).includes("color_temp");
+  }
+
+  _whiteShare() {
+    return !this._hasColor() ? 1 : this._hasWhite() ? 0.28 : 0;
+  }
+
+  _whiteRange() {
+    const a = this._ctl.state?.attributes || {};
+    return [a.min_color_temp_kelvin || 2000, a.max_color_temp_kelvin || 6500];
+  }
+
+  _paintColorBar() {
+    const white = this.shadowRoot.querySelector(".js-colorwhite");
+    const hue = this.shadowRoot.querySelector(".js-colorhue");
+    if (!white || !hue) return;
+    const share = this._whiteShare(),
+      [low, high] = this._whiteRange();
+    const stops = (count, color) =>
+      Array.from({ length: count + 1 }, (_, i) => `rgb(${css(color(i / count))}) ${((i / count) * 100).toFixed(1)}%`).join(",");
+    white.hidden = !share;
+    hue.hidden = share === 1;
+    white.style.cssText = `left:0;width:${share * 100}%;background-image:linear-gradient(90deg,${stops(4, (t) => kRgb(low + (high - low) * t))})`;
+    // Softer than the pure colors, which look harsh side by side. The light still gets the pure color.
+    const soft = (t) => hueRgb(t * 360).map((c) => c + (255 - c) * 0.14);
+    hue.style.cssText = `left:${share ? (share + 0.012) * 100 : 0}%;right:0;background-image:linear-gradient(90deg,${stops(12, soft)})`;
+  }
+
+  _colorPlace() {
+    const a = this._ctl.state?.attributes || {};
+    if (this._ctl.crescendo && !a.color_override) return null;
+    if (this._ctl.state?.state !== "on") return null;
+    const share = this._whiteShare(),
+      [low, high] = this._whiteRange();
+    if (a.color_mode === "color_temp" && a.color_temp_kelvin && share) {
+      return (share * (a.color_temp_kelvin - low)) / (high - low || 1);
+    }
+    if (!a.rgb_color || share === 1) return null;
+    const gap = share ? share + 0.012 : 0;
+    return gap + ((1 - gap) * rgbHue(a.rgb_color)) / 360;
+  }
+
+  _colorFrom(el, e) {
+    const r = el.getBoundingClientRect();
+    return clamp((e.clientX - r.left) / r.width, 0, 1);
+  }
+
+  _sendColor(place) {
+    const share = this._whiteShare(),
+      [low, high] = this._whiteRange();
+    let data;
+    if (place <= share) {
+      data = { color_temp_kelvin: Math.round((low + ((high - low) * place) / (share || 1)) / 50) * 50 };
+    } else {
+      const gap = share ? share + 0.012 : 0;
+      data = { rgb_color: hueRgb((clamp((place - gap) / (1 - gap), 0, 1) * 360) % 360) };
+    }
+    this._hass.callService("light", "turn_on", data, { entity_id: this._ctl.entityId });
+    this._colorX = place;
+    clearTimeout(this._colorTimer);
+    this._colorTimer = setTimeout(() => {
+      this._colorX = undefined;
+      this._kick();
+    }, 2500);
+    this._kick();
+  }
+
   _onDown(e) {
+    const colorBar = e.target.closest?.(".js-colorbar");
+    if (colorBar) {
+      this._colorDrag = colorBar;
+      clearTimeout(this._colorTimer);
+      this._colorX = this._colorFrom(colorBar, e);
+      colorBar.setPointerCapture(e.pointerId);
+      this._kick();
+      return;
+    }
     const el = e.target.closest?.("[data-slider]");
     if (!el || (this._ctl.readonly && el.dataset.slider !== "chan")) return;
     if (el.dataset.slider === "arc") {
@@ -924,7 +1243,7 @@ class CrescendoCard extends HTMLElement {
       x: e.clientX,
       y: e.clientY,
       moved: false,
-      pos: this._position(),
+      pos: kind === "bar" ? this._posFrom(el, e) : this._position(),
       last: this._position(),
       ids: kind === "bar" ? el.dataset.ids.split(",") : null,
       chan: el.dataset.chan,
@@ -934,6 +1253,11 @@ class CrescendoCard extends HTMLElement {
   }
 
   _onMove(e) {
+    if (this._colorDrag) {
+      this._colorX = this._colorFrom(this._colorDrag, e);
+      this._kick();
+      return;
+    }
     const d = this._drag;
     if (!d) return;
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) d.moved = true;
@@ -964,11 +1288,21 @@ class CrescendoCard extends HTMLElement {
   }
 
   _onUp(e) {
+    if (this._colorDrag) {
+      const place = this._colorFrom(this._colorDrag, e);
+      this._colorDrag = null;
+      this._dragEnded = performance.now();
+      this._sendColor(place);
+      return;
+    }
     const d = this._drag;
     if (!d) return;
     this._drag = null;
+    this._dragEnded = performance.now();
     if (d.kind === "bar") {
-      this._sendLights(d.ids, this._posFrom(d.el, e));
+      const p = this._posFrom(d.el, e);
+      this._barHolds[d.ids[0]] = { pos: p, until: performance.now() + 2500 };
+      this._sendLights(d.ids, p);
     } else if (d.kind === "chan") {
       const p = this._posFrom(d.el, e);
       this._mix[d.chan] = p;
@@ -988,7 +1322,21 @@ class CrescendoCard extends HTMLElement {
 
   _go(pos, duration) {
     const ctl = this._ctl;
-    this._hold = { pos, until: performance.now() + (duration < 3 ? (duration + 1.5) * 1000 : 1500) };
+    if (ctl.crescendo && duration > 0) {
+      this._hold = null;
+      this._fade = {
+        key: null,
+        local: true,
+        from: this._position(),
+        target: pos,
+        total: duration,
+        eased: duration <= EASE_MAX_SECONDS,
+        done: 0,
+        at: performance.now(),
+      };
+    } else {
+      this._hold = { pos, until: performance.now() + (duration < 3 ? (duration + 1.5) * 1000 : 1500) };
+    }
     if (ctl.crescendo) {
       this._hass.callService(
         "cloudless_crescendo",
@@ -1003,12 +1351,36 @@ class CrescendoCard extends HTMLElement {
   }
 
   _onClick(e) {
+    const dialog = this.shadowRoot.querySelector(".js-details");
+    if (e.target.closest?.(".js-details-open")) {
+      this._openDetails();
+      return;
+    }
+    if (e.target.closest?.(".js-details-close") || e.target === dialog) {
+      dialog.close();
+      return;
+    }
+    const more = e.target.closest?.(".js-more");
+    if (more) {
+      // Home Assistant's dialog would open underneath this one.
+      dialog.close();
+      this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId: more.dataset.id } }));
+      return;
+    }
+    if (e.target.matches?.(".js-dgroup")) {
+      this._detailsGroup = e.target.checked;
+      this.shadowRoot.querySelector(".js-dbars").innerHTML = this._detailBars();
+      this._sliderRoles();
+      this._kick();
+      return;
+    }
     const preset = e.target.closest?.(".preset");
     if (preset) {
       this._go(+preset.dataset.pos, +preset.dataset.dur);
       return;
     }
     if (e.target.closest?.(".js-reset")) {
+      this._barHolds = {};
       this._hass.callWS({ type: "cloudless_crescendo/lights/reset", entity_id: this._ctl.entityId }).catch(() => {});
       return;
     }
@@ -1016,7 +1388,11 @@ class CrescendoCard extends HTMLElement {
       this._hass.callWS({ type: "cloudless_crescendo/color/reset", entity_id: this._ctl.entityId }).catch(() => {});
       return;
     }
-    if (e.target.closest?.(".js-power")) this._power();
+    if (e.target.closest?.(".js-power")) {
+      this._power();
+      return;
+    }
+    if (this._tapOpens(e)) this._openDetails();
   }
 
   _power() {
@@ -1025,7 +1401,6 @@ class CrescendoCard extends HTMLElement {
     const f = this._fade;
     const target = { entity_id: ctl.entityId };
     if (f && f.total >= 3) {
-      this._fade = null;
       hass.callService("cloudless_crescendo", "stop", {}, target);
       return;
     }
@@ -1042,6 +1417,19 @@ class CrescendoCard extends HTMLElement {
   }
 
   _onKey(e) {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('.js-title[role="button"]')) {
+      e.preventDefault();
+      this._openDetails();
+      return;
+    }
+    if (e.target.closest?.(".js-colorbar")) {
+      const change = { ArrowRight: 0.02, ArrowUp: 0.02, ArrowLeft: -0.02, ArrowDown: -0.02 }[e.key];
+      if (change) {
+        e.preventDefault();
+        this._sendColor(clamp((this._colorX ?? this._colorPlace() ?? 0.5) + change, 0, 1));
+      }
+      return;
+    }
     const el = e.target.closest?.("[data-slider]");
     if (!el) return;
     const step = e.shiftKey ? 10 : 1;
@@ -1058,7 +1446,9 @@ class CrescendoCard extends HTMLElement {
       this._mix[el.dataset.chan] = p;
       sendValue(this._hass, controllerFor(this._hass, el.dataset.chan), p);
     } else if (kind === "bar") {
-      this._sendLights(el.dataset.ids.split(","), p);
+      const ids = el.dataset.ids.split(",");
+      this._barHolds[ids[0]] = { pos: p, until: performance.now() + 2500 };
+      this._sendLights(ids, p);
     } else {
       this._hold = { pos: p, until: performance.now() + 2500 };
       this._sendMain(p, true);
@@ -1085,6 +1475,9 @@ button:hover { border-color: var(--accent); }
 .btn-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 62px 56px auto; gap: 4px; align-items: center; }
 .btn-row input[type="text"], .btn-row input[type="number"] { min-height: 30px; padding: 2px 6px; font-size: 13px; }
 details > summary { cursor: pointer; font-weight: 600; }
+.section { padding: 12px; border: 1px solid var(--divider-color, #d4dae6); border-radius: 10px; }
+.hint { margin: 0; font-size: 13px; line-height: 1.4; color: var(--secondary-text-color, #566077); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
 details[open] > summary { margin-bottom: 10px; }
 .stack { display: grid; gap: 10px; }
 .picture { position: relative; width: 100%; aspect-ratio: 16 / 10; border-radius: 10px; background: #0a0d1c center / cover no-repeat; overflow: hidden; }
@@ -1100,6 +1493,13 @@ class CrescendoCardEditor extends HTMLElement {
     this._mark = null;
     this.shadowRoot.addEventListener("change", (e) => this._onChange(e));
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
+    this.shadowRoot.addEventListener(
+      "toggle",
+      (e) => {
+        if (e.target.id === "advanced") this._advancedOpen = e.target.open;
+      },
+      true,
+    );
     this.shadowRoot.addEventListener("pointerdown", (e) => {
       const m = e.target.closest?.("[data-mark]");
       if (m) {
@@ -1127,8 +1527,12 @@ class CrescendoCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { ...DEFAULTS, ...config };
-    if (this._hass) this._load();
+    const next = { ...DEFAULTS, ...config };
+    const known = this._config;
+    this._config = next;
+    if (!this._hass) return;
+    if (!known || known.entity !== next.entity) this._load();
+    else if (Object.keys({ ...known, ...next }).some((k) => JSON.stringify(known[k]) !== JSON.stringify(next[k]))) this._render();
   }
 
   set hass(hass) {
@@ -1202,11 +1606,36 @@ class CrescendoCardEditor extends HTMLElement {
     const lights = this._options?.lights || [];
     const marks = lights
       .map((l, i) => {
-        const [x, y] = cfg.points?.[l.entity_id] || [(i + 1) / (lights.length + 1), 0.45];
+        const [x, y] = cfg.points?.[l.entity_id] || defaultMark(i, lights.length);
         return `<button class="mark" data-mark="${esc(l.entity_id)}" data-x="${x}" data-y="${y}" style="left:${x * 100}%;top:${y * 100}%">${esc(friendly(hass, l.entity_id))}</button>`;
       })
       .join("");
     const channels = cfg.channels || [];
+    const design = cfg.design;
+    const hasSlider = ["gradient", "scenes", "columns", "picture"].includes(design);
+    const offersDetails = ctl.crescendo && design !== "columns";
+    const combines = ["gradient", "columns", "chart"].includes(design) || (offersDetails && cfg.details !== "off");
+    const pictureSection =
+      design === "picture"
+        ? `<div class="ctl stack section">
+        <span class="lab">${esc(t("Room picture", "Raumbild"))}</span>
+        <p class="hint">${esc(t("Shows a photo of your room. The card darkens it and lets each light shine where you place it, with its current brightness and color.", "Zeigt ein Foto deines Raums. Die Karte dunkelt es ab und lässt jede Leuchte dort scheinen, wo du sie platzierst, mit ihrer aktuellen Helligkeit und Farbe."))}</p>
+        <div class="row"><button id="pick-photo">${esc(cfg.photo ? t("Upload another photo", "Anderes Foto hochladen") : t("Upload a photo", "Foto hochladen"))}</button>${cfg.photo ? `<button id="remove-photo">${esc(t("Remove photo", "Foto entfernen"))}</button>` : ""}<input type="file" id="upload" accept="image/*" hidden></div>
+        ${this._photoNote ? `<p class="hint">${esc(this._photoNote)}</p>` : ""}
+        <label for="photo">${esc(t("Or the address of a picture", "Oder die Adresse eines Bildes"))}</label>
+        <input type="text" id="photo" value="${esc(cfg.photo || "")}" placeholder="/local/bad.jpg">
+        ${lights.length ? `<span class="lab">${esc(t("Drag each light to its place", "Ziehe jede Leuchte an ihre Stelle"))}</span><div class="picture"${cfg.photo ? ` style="background-image:url('${esc(cfg.photo)}')"` : ""}>${marks}</div>` : ""}
+      </div>`
+        : "";
+    const mixerSection =
+      design === "mixer"
+        ? `<div class="ctl stack section">
+        <span class="lab">${esc(t("Mixer channels", "Kanäle im Mischpult"))}</span>
+        <p class="hint">${esc(t("Several controls side by side: this object first, then the devices you add here, such as a speaker, a thermostat or a blind. Each one works on its own.", "Mehrere Regler nebeneinander: zuerst dieses Objekt, daneben die Geräte, die du hier hinzufügst, zum Beispiel Lautsprecher, Thermostat oder Rollo. Jeder Regler arbeitet für sich."))}</p>
+        <select id="add-channel"><option value="">${esc(t("Add a channel", "Kanal hinzufügen"))}</option>${others.filter((id) => !channels.includes(id)).map((id) => `<option value="${esc(id)}">${esc(friendly(hass, id))}</option>`).join("")}</select>
+        ${channels.map((id) => `<div class="btn-row" style="grid-template-columns:minmax(0,1fr) auto"><span>${esc(friendly(hass, id))}</span><button data-rmchan="${esc(id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>`).join("")}
+      </div>`
+        : "";
     this.shadowRoot.innerHTML = `<style>${EDITOR_STYLE}</style><div class="form">
       <div class="ctl"><label for="entity">${esc(t("Connected to", "Verbunden mit"))}</label>
         <select id="entity">
@@ -1218,10 +1647,23 @@ class CrescendoCardEditor extends HTMLElement {
       <div class="ctl"><span class="lab">${esc(t("Design", "Design"))}</span><div class="designs">${DESIGNS.map(
         ([k, en, de]) => `<button data-design="${k}" aria-pressed="${cfg.design === k}">${esc(lang === "de" ? de : en)}</button>`,
       ).join("")}</div></div>
+      ${pictureSection}${mixerSection}
+      ${
+        offersDetails
+          ? `<div class="ctl"><label for="details">${esc(t("Open the single lights", "Einzelne Leuchten öffnen"))}</label>
+        ${select("details", cfg.details, [
+          ["button", t("With a button in the card's header", "Mit einem Knopf oben in der Karte")],
+          ["card", t("By tapping the card", "Durch Tippen auf die Karte")],
+          ["both", t("Both", "Beides")],
+          ["off", t("Not at all", "Gar nicht")],
+        ])}
+        <p class="hint">${esc(t("Opens a window with a column for each light, to set single lights apart from the object.", "Öffnet ein Fenster mit einer Säule je Leuchte, um einzelne Leuchten abweichend vom Objekt einzustellen."))}</p></div>`
+          : ""
+      }
       <div class="ctl"><label for="color">${esc(t("Control color", "Reglerfarbe"))}</label>
         ${select("color", cfg.color, [
           ["light", t("Light color as a gradient", "Lichtfarbe als Verlauf")],
-          ["solid", t("Current light color, flat", "Aktuelle Lichtfarbe, einfarbig")],
+          ["solid", t("Current light colors, without a gradient", "Aktuelle Lichtfarben, ohne Verlauf")],
           ["accent", t("Dashboard color", "Farbe des Dashboards")],
           ["custom", t("Own color", "Eigene Farbe")],
         ])}
@@ -1243,29 +1685,27 @@ class CrescendoCardEditor extends HTMLElement {
         ])}</div>`
           : ""
       }
-      <details><summary>${esc(t("Advanced settings", "Erweiterte Einstellungen"))}</summary><div class="stack">
+      <details id="advanced"${this._advancedOpen ? " open" : ""}><summary>${esc(t("Advanced settings", "Erweiterte Einstellungen"))}</summary><div class="stack">
+        ${check("button_names", cfg.button_names, t("Show a button's name instead of the value at its position", "An der Position eines Buttons seinen Namen statt des Werts zeigen"))}
         ${check("show_value", cfg.show_value, t("Show the value on buttons", "Wert auf den Buttons zeigen"))}
         ${check("show_duration", cfg.show_duration, t("Show the duration on buttons", "Dauer auf den Buttons zeigen"))}
-        <div class="ctl"><label for="slider">${esc(t("Horizontal slider", "Waagerechter Regler"))}</label>${select("slider", cfg.slider, [
-          ["wide", t("Wide", "Breit")],
-          ["slim", t("Slim", "Schmal")],
-          ["none", t("Off", "Aus")],
-        ])}</div>
-        ${check("group", cfg.group, t("Combine identical lights", "Gleiche Leuchten zusammenfassen"))}
-        ${check("show_lanes", cfg.show_lanes, t("Show a lane per light (room gradient)", "Spuren je Leuchte zeigen (Raumverlauf)"))}
-        ${check("columns_operable", cfg.columns_operable, t("Single lights can be operated (columns)", "Leuchten einzeln bedienbar (Säulen)"))}
+        ${
+          hasSlider
+            ? `<div class="ctl"><label for="slider">${esc(t("Horizontal slider", "Waagerechter Regler"))}</label>${select("slider", cfg.slider, [
+                ["wide", t("Wide", "Breit")],
+                ["slim", t("Slim", "Schmal")],
+                ["none", t("Off", "Aus")],
+              ])}</div>`
+            : ""
+        }
+        ${design === "dial" ? check("dial_wedge", cfg.dial_wedge, t("Dial as a wedge: wider where the room gets brighter", "Drehregler als Keil: breiter, wo der Raum heller wird")) : ""}
+        ${combines ? check("group", cfg.group, t("Combine identical lights", "Gleiche Leuchten zusammenfassen")) : ""}
+        ${design === "gradient" ? check("show_lanes", cfg.show_lanes, t("Show a lane per light", "Spuren je Leuchte zeigen")) : ""}
+        ${design === "columns" ? check("columns_operable", cfg.columns_operable, t("Single lights can be operated", "Leuchten einzeln bedienbar")) : ""}
         ${check("snap", cfg.snap, t("Snap to stops, with a short pulse on phones", "An Stufen einrasten, mit kurzem Impuls am Handy"))}
         ${check("glow", cfg.glow, t("Light glow around the card", "Lichtschein um die Karte"))}
         ${check("color_control", cfg.color_control, t("Show a color selection on the card", "Farbauswahl auf der Karte zeigen"))}
-        <div class="ctl"><label for="photo">${esc(t("Photo for the room picture (path or address)", "Foto für das Raumbild (Pfad oder Adresse)"))}</label>
-          <input type="text" id="photo" value="${esc(cfg.photo || "")}" placeholder="/local/bad.jpg">
-          <label for="upload">${esc(t("Or upload a photo", "Oder ein Foto hochladen"))}</label><input type="file" id="upload" accept="image/*">
-          ${lights.length ? `<span class="lab">${esc(t("Drag each light to its place", "Ziehe jede Leuchte an ihre Stelle"))}</span><div class="picture"${cfg.photo ? ` style="background-image:url('${esc(cfg.photo)}')"` : ""}>${marks}</div>` : ""}
-        </div>
-        <div class="ctl"><span class="lab">${esc(t("More channels in the mixer", "Weitere Kanäle im Mischpult"))}</span>
-          <select id="add-channel"><option value="">${esc(t("Add a channel", "Kanal hinzufügen"))}</option>${others.filter((id) => !channels.includes(id)).map((id) => `<option value="${esc(id)}">${esc(friendly(hass, id))}</option>`).join("")}</select>
-          ${channels.map((id) => `<div class="btn-row" style="grid-template-columns:minmax(0,1fr) auto"><span>${esc(friendly(hass, id))}</span><button data-rmchan="${esc(id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>`).join("")}
-        </div>
+        ${ctl.crescendo ? check("colors_always", cfg.colors_always, t("Always show the active light colors, not only when something differs from the stops", "Aktive Lichtfarben immer zeigen, nicht nur wenn etwas von den Stufen abweicht")) : ""}
       </div></details>
     </div>`;
   }
@@ -1298,6 +1738,7 @@ class CrescendoCardEditor extends HTMLElement {
       case "custom_color":
       case "button_position":
       case "slider":
+      case "details":
         this._set({ [t.id]: t.value });
         break;
       case "buttons_on":
@@ -1309,6 +1750,9 @@ class CrescendoCardEditor extends HTMLElement {
       case "snap":
       case "glow":
       case "color_control":
+      case "dial_wedge":
+      case "button_names":
+      case "colors_always":
         this._set({ [t.id]: t.checked });
         break;
       case "add-channel":
@@ -1321,22 +1765,28 @@ class CrescendoCardEditor extends HTMLElement {
   }
 
   async _upload(file) {
+    const t = tr(this._hass);
     const form = new FormData();
     form.append("file", file);
+    this._photoNote = t("Uploading the photo…", "Das Foto wird hochgeladen …");
+    this._render();
     try {
       const res = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: form });
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
+      this._photoNote = "";
       this._set({ photo: `/api/image/serve/${data.id}/original` });
     } catch (err) {
-      const t = tr(this._hass);
-      window.alert(t(`The photo could not be uploaded: ${err.message}`, `Das Foto ließ sich nicht hochladen: ${err.message}`));
+      this._photoNote = t(`The photo could not be uploaded (${err.message}). Try a JPEG or PNG file.`, `Das Foto ließ sich nicht hochladen (${err.message}). Versuche es mit einer JPEG- oder PNG-Datei.`);
+      this._render();
     }
   }
 
   _onClick(e) {
     const t = e.target;
-    if (t.dataset?.design) this._set({ design: t.dataset.design });
+    if (t.id === "pick-photo") this.shadowRoot.getElementById("upload").click();
+    else if (t.id === "remove-photo") this._set({ photo: undefined });
+    else if (t.dataset?.design) this._set({ design: t.dataset.design });
     else if (t.id === "add-button") {
       const list = this._own();
       list.push({ id: Math.random().toString(16).slice(2, 10), name: "Button", position: 50, duration: 3, use: true, own: true });
