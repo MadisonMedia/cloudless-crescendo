@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Neues Crescendo-Objekt",
+        "description": "Gib dem Objekt einen Namen und wähle seine Leuchten. Stufen, Farben und Buttons stellst du auf der Seite **Crescendo** in der Seitenleiste ein.",
+        "data": { "name": "Name", "lights": "Leuchten" }
+      }
+    }
+  },
+  "services": {
+    "fade_to": {
+      "name": "Auf Position dimmen",
+      "description": "Bewegt das Objekt über eine beliebige Dauer entlang seiner Skala. Jede Leuchte folgt dabei ihrer eigenen Reihenfolge.",
+      "fields": {
+        "position": { "name": "Position", "description": "Ziel auf der Skala von 0 bis 100. 0 schaltet alles aus." },
+        "duration": { "name": "Dauer", "description": "Wie lange das Dimmen dauert. Hier gibt es keine Obergrenze. Ohne Angabe gilt die Vorgabe des Objekts." }
+      }
+    },
+    "stop": { "name": "Dimmen stoppen", "description": "Stoppt ein laufendes Dimmen und lässt die Leuchten, wie sie gerade sind." },
+    "press_button": {
+      "name": "Button auslösen",
+      "description": "Führt einen der Standard-Buttons des Objekts aus.",
+      "fields": { "button": { "name": "Button", "description": "Der Name des Buttons." } }
+    },
+    "set_on_position": {
+      "name": "Einschaltposition festlegen",
+      "description": "Legt fest, wohin ein einfaches Einschalten führt, zum Beispiel nach Tageszeit aus einer anderen Automation oder Integration. Ohne Position gilt wieder die Einstellung des Objekts.",
+      "fields": { "position": { "name": "Position", "description": "Position auf der Skala." } }
+    },
+    "reset_color": { "name": "Farbe zurücksetzen", "description": "Beendet eine gewählte Farbe und kehrt zu den Farben der Stufen zurück." }
+  }
+}

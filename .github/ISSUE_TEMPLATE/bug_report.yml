@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work as described
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: For example which light reacted how, and at which position of the scale.
+    validations:
+      required: true
+  - type: input
+    id: crescendo
+    attributes:
+      label: Crescendo version
+      placeholder: 0.1.0b1
+    validations:
+      required: true
+  - type: input
+    id: homeassistant
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.11.0
+    validations:
+      required: true
+  - type: input
+    id: lights
+    attributes:
+      label: Lights involved
+      description: Manufacturer, model and network, for example Matter over Thread, Zigbee or Wi-Fi.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: The table from the Diagnostics tab on the Crescendo page helps a lot. Run the connection test if you can.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Lines from the Home Assistant log that mention cloudless_crescendo. Check them for anything private first.
+      render: text

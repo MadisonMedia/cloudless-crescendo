@@ -1,1 +1,115 @@
-# cloudless-crescendo
+# Cloudless Crescendo
+
+A Home Assistant integration that dims several lights as one object, along a sequence you design. At every stop on a scale from 0 to 100, each light has its own brightness and color. In between, the lights blend smoothly. Dimming down runs the same sequence in reverse.
+
+[Deutsche Version](README.de.md)
+
+![The Crescendo card in eight designs](https://raw.githubusercontent.com/MadisonMedia/cloudless-crescendo/main/docs/cards-en.png)
+
+![Setting up an object: every light has a value at every stop](https://raw.githubusercontent.com/MadisonMedia/cloudless-crescendo/main/docs/setup-en.png)
+
+## What you get
+
+- **One object, many lights.** In Home Assistant the object is a normal light. Tiles, voice commands ("50 percent") and automations work as usual, and its brightness is the position on the scale.
+- **Nothing hidden.** Every light has a value at every stop. You see all of them in a chart or a table and can change them there.
+- **Native fades.** Timed fades use the lights' own transitions through `light.turn_on`, so they run smoothly and don't depend on Home Assistant staying busy. Only a slider dragged by hand sends values in real time, 4 per second by default.
+- **Other devices on the same scale.** Volume and temperature can follow a range of the scale. Blinds, heating or music can start or stop at a threshold, with an optional opposite action below it.
+- **One card, eight designs.** Room gradient, upright fader, dial, scenes, columns for single lights, chart, a photo of your room with light points, and a mixer for several devices. The card also works with other lights, climate, covers, media players, fans, number entities and read-only sensors.
+- **Diagnostics.** Reaction times and failures from normal operation, plus a connection test that asks before it runs.
+- **German and English.**
+
+## Install
+
+**Home Assistant 2026.11 or newer (Marketplace)**
+
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=MadisonMedia&repository=cloudless-crescendo&category=integration)
+
+1. Select the button above, or go to **Settings → Marketplace** and add `https://github.com/MadisonMedia/cloudless-crescendo` with **Add from link**. This needs a connection to GitHub, which the Marketplace asks for.
+2. While Crescendo is in beta, turn on the **Pre-release** switch for the repository, then install it. Without the switch you get the newest state of the main branch instead of a numbered version.
+
+**Home Assistant 2026.10 or older (HACS)**
+
+1. In HACS, open the menu at the top right and choose **Custom repositories**.
+2. Add `https://github.com/MadisonMedia/cloudless-crescendo` with the type **Integration**.
+3. Install **Cloudless Crescendo** and restart Home Assistant.
+
+Requires Home Assistant 2026.2 or newer.
+
+## Create your first object
+
+[![Open your Home Assistant instance and start setting up Crescendo.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=cloudless_crescendo)
+
+Go to **Settings → Devices & services → Add integration → Cloudless Crescendo**, enter a name and choose the lights. **Crescendo** then appears in the sidebar, where you can create more objects.
+
+## Set up an object
+
+Open **Crescendo** in the sidebar.
+
+1. Choose the object, or enter a name and create another one.
+2. Add its lights and devices with the list below the chart.
+3. Drag the points in the chart to set each light's brightness, and tap a point to set its color. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
+4. Add **Standard buttons**. New cards take them as a template.
+
+To add the card to a dashboard, edit the dashboard, add a card and choose **Crescendo**. The card editor offers the design, control colors, buttons and more.
+
+## Per-light settings
+
+Turn on **Show advanced settings** to see these next to each light.
+
+| Setting | Options |
+| --- | --- |
+| Color | On/off only, single-color dimming, white (CCT), color (RGB), color + white (RGB+CCT). Only what the light can do is offered. |
+| Fade | **Smooth** (default): the light fades by itself. **On time**: if a light reaches its target too late, try this setting. It then moves in short steps and may stutter more. |
+| On the slider | Automatic, glide or direct. |
+
+Color + white can flicker when a light changes between the two, depending on its firmware. If that bothers you, choose one of them. Another object with the same lights can be set differently.
+
+## Actions
+
+The object is a light, so `light.turn_on` with `brightness_pct` and `transition` works. A single light transition is limited to about 1 hour 49 minutes by the Matter protocol's range, and Crescendo splits longer fades for you.
+
+| Action | Purpose |
+| --- | --- |
+| `cloudless_crescendo.fade_to` | Move to a position over any duration. |
+| `cloudless_crescendo.stop` | Stop a running fade and keep the lights as they are. |
+| `cloudless_crescendo.press_button` | Run one of the standard buttons by name. |
+| `cloudless_crescendo.set_on_position` | Set the position used when switching on without a value, for example by time of day. |
+| `cloudless_crescendo.reset_color` | End a color chosen by hand and return to the stops' colors. |
+
+```yaml
+# In 30 minutes to 80 %, for example as a wake-up light
+action: light.turn_on
+target:
+  entity_id: light.bathroom
+data:
+  brightness_pct: 80
+  transition: 1800
+```
+
+## How it behaves
+
+- If you change a single light by hand during a fade, only that light drops out. It rejoins at the next command to the object.
+- If a light belongs to several objects, the last command wins and the other object's fade stops.
+- Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant.
+- A color chosen in the object's normal light controls overrides the stops' colors until you switch off or choose **Back to the stops**. Lights without color keep their white.
+- A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
+
+## Thread and Matter
+
+The Matter server spaces its commands, and a Thread network shares its capacity among all lights. No integration can change this. On Thread, expect roughly 12 to 16 commands per second for all lights together. That's why timed fades use native transitions, and why a slider sends each light only its newest value. If a slider stutters, lower its updates per second in **More settings**.
+
+Some lights jump when changing between color and white. That comes from their firmware.
+
+## Development
+
+```bash
+pip install -r requirements_test.txt ruff
+pytest -q
+ruff check .
+```
+
+`tests/frontend/harness.html` runs the real card and setup page against an in-memory Home Assistant. Serve the repository's root with any local web server and open that file.
+
+## License
+
+MIT

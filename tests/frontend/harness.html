@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Crescendo frontend harness</title>
+<style>[hidden]{display:none!important} body{margin:0;background:#eef1f5;font:15px system-ui} .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:14px} #panel{display:block;height:auto}
+body.dark{background:#111418;--primary-background-color:#111418;--card-background-color:#1c2026;--secondary-background-color:#262b33;--primary-text-color:#e6e9ef;--secondary-text-color:#a2aab8;--divider-color:#39404b;--primary-color:#5b8def;--text-primary-color:#0c1018}</style></head>
+<body>
+<div class="cards" id="cards"></div>
+<crescendo-panel id="panel"></crescendo-panel>
+<script type="module">
+// Runs the real card and page with an in-memory Home Assistant, for checks without a server.
+if (new URLSearchParams(location.search).has("dark")) document.body.classList.add("dark");
+// Headless Chrome with virtual time does not reliably run animation frames, so run them on a timer.
+const realFrame = window.requestAnimationFrame.bind(window);
+window.requestAnimationFrame = (cb) => (new URLSearchParams(location.search).has("realframes") ? realFrame(cb) : setTimeout(() => cb(performance.now()), 16));
+window.cancelAnimationFrame = (id) => clearTimeout(id);
+const log = (...a) => console.log("HARNESS", ...a);
+const options = {
+  lights: [
+    { entity_id: "light.boden", mode: "rgbcct", fade: "soft", steps: 4, slider: "auto" },
+    { entity_id: "light.spiegel", mode: "cct", fade: "soft", steps: 4, slider: "auto" },
+    { entity_id: "light.links", mode: "cct", fade: "soft", steps: 4, slider: "auto" },
+    { entity_id: "light.rechts", mode: "cct", fade: "soft", steps: 4, slider: "auto" },
+  ],
+  stops: [
+    { position: 0, values: { "light.boden": { brightness: 0 }, "light.spiegel": { brightness: 0 }, "light.links": { brightness: 0 }, "light.rechts": { brightness: 0 } } },
+    { position: 25, values: { "light.boden": { brightness: 30, color: [255, 90, 20] }, "light.spiegel": { brightness: 0 }, "light.links": { brightness: 0 }, "light.rechts": { brightness: 0 } } },
+    { position: 50, values: { "light.boden": { brightness: 100, kelvin: 2700 }, "light.spiegel": { brightness: 40, kelvin: 3000 }, "light.links": { brightness: 0 }, "light.rechts": { brightness: 0 } } },
+    { position: 100, values: { "light.boden": { brightness: 100, kelvin: 4000 }, "light.spiegel": { brightness: 100, kelvin: 4000 }, "light.links": { brightness: 80, kelvin: 4000 }, "light.rechts": { brightness: 80, kelvin: 4000 } } },
+  ],
+  devices: [
+    { id: "d1", entity_id: "media_player.bad", kind: "ramp", from: 20, to: 100, min: 0, max: 40 },
+    { id: "d2", entity_id: "climate.bad", kind: "ramp", from: 40, to: 100, min: 19, max: 22 },
+    { id: "d3", entity_id: "cover.bad", kind: "threshold", at: 50, action: "open_cover", back: null },
+  ],
+  buttons: [
+    { id: "b1", name: "Nacht", position: 25, duration: 3 },
+    { id: "b2", name: "Morgen", position: 50, duration: 5 },
+    { id: "b3", name: "Hell", position: 100, duration: 5 },
+  ],
+  slider_rate: 4, on_mode: "last", on_position: 40, default_transition: 1,
+};
+const lightAttrs = { supported_color_modes: ["color_temp", "xy"], min_color_temp_kelvin: 2700, max_color_temp_kelvin: 6500, brightness: 120, color_mode: "color_temp", color_temp_kelvin: 3000 };
+const calls = [];
+const LANG = new URLSearchParams(location.search).get("lang") || "de";
+const hass = {
+  language: LANG, locale: { language: LANG }, themes: { darkMode: new URLSearchParams(location.search).has("dark") }, config: { unit_system: { temperature: "°C" } },
+  states: {
+    "light.bad": { entity_id: "light.bad", state: "on", attributes: { friendly_name: "Bad", crescendo: true, position: 62, curve_id: "x1", brightness: 158, buttons: options.buttons, stops: [0, 25, 50, 100], fading: false, deviating: [] } },
+    "light.boden": { state: "on", attributes: { friendly_name: "Boden", ...lightAttrs } },
+    "light.spiegel": { state: "on", attributes: { friendly_name: "Spiegel", ...lightAttrs } },
+    "light.links": { state: "off", attributes: { friendly_name: "Waschtisch links", ...lightAttrs } },
+    "light.rechts": { state: "off", attributes: { friendly_name: "Waschtisch rechts", ...lightAttrs } },
+    "light.bogen": { state: "on", attributes: { friendly_name: "Bogenlampe", ...lightAttrs } },
+    "climate.bad": { state: "heat", attributes: { friendly_name: "Thermostat Bad", temperature: 21, min_temp: 16, max_temp: 28, target_temp_step: 0.5 } },
+    "cover.bad": { state: "open", attributes: { friendly_name: "Rollo Bad", current_position: 50 } },
+    "media_player.bad": { state: "playing", attributes: { friendly_name: "Lautsprecher Bad", volume_level: 0.25 } },
+    "sensor.bad": { state: "21.4", attributes: { friendly_name: "Temperatur Bad", unit_of_measurement: "°C", device_class: "temperature" } },
+  },
+  callWS: async (m) => {
+    calls.push(m);
+    if (m.type === "cloudless_crescendo/objects") return [{ entry_id: "e1", title: "Bad", entity_id: "light.bad", options }];
+    if (m.type === "cloudless_crescendo/object") return { entry_id: "e1", title: "Bad", entity_id: "light.bad", options };
+    if (m.type === "cloudless_crescendo/object/save") return { options: m.options };
+    if (m.type === "cloudless_crescendo/diagnostics") return { lights: options.lights.map((l, i) => ({ entity_id: l.entity_id, network: "matter", state: "on", answers: 20 + i, failures: i === 1 ? 2 : 0, repeats: 0, average_ms: 80 + i * 9, last_ms: 90, last_error: null, following: true, rate: 3 })) };
+    if (m.type === "cloudless_crescendo/test_connection") return options.lights.map((l) => ({ entity_id: l.entity_id, ok: true, ms: 90, error: null }));
+    return null;
+  },
+  callService: async (...a) => { calls.push(a); },
+};
+if (LANG === "en") {
+  const names = { "light.bad": "Bathroom", "light.boden": "Floor", "light.spiegel": "Mirror", "light.links": "Sink left", "light.rechts": "Sink right", "climate.bad": "Thermostat", "cover.bad": "Blind", "media_player.bad": "Speaker" };
+  for (const [id, name] of Object.entries(names)) hass.states[id].attributes.friendly_name = name;
+  const buttons = { Nacht: "Night", Morgen: "Morning", Hell: "Bright" };
+  for (const button of options.buttons) button.name = buttons[button.name];
+}
+window.__hass = hass; window.__calls = calls;
+const base = new URLSearchParams(location.search).get("base") || "../../custom_components/cloudless_crescendo/frontend";
+// Home Assistant can hand a panel its data before the panel's script has finished loading.
+const panel = document.getElementById("panel");
+Object.assign(panel, { hass, narrow: false, route: { path: "" }, panel: {} });
+await import(`${base}/crescendo-card.js`);
+await import(`${base}/crescendo-panel.js`);
+console.log(`HARNESS ${panel.shadowRoot?.querySelector(".shell") || panel._hass ? "ok  " : "FAIL"} page gets data handed over before it loaded`);
+const designs = ["gradient", "fader", "dial", "scenes", "columns", "chart", "picture", "mixer"];
+const host = document.getElementById("cards");
+for (const design of designs) {
+  const c = document.createElement("crescendo-card");
+  c.setConfig({ type: "custom:crescendo-card", entity: "light.bad", design, channels: ["climate.bad", "cover.bad", "media_player.bad"] });
+  host.append(c);
+  c.hass = hass;
+}
+const designsOnly = new URLSearchParams(location.search).has("designs");
+for (const [entity, design] of designsOnly ? [] : [["climate.bad", "gradient"], ["cover.bad", "fader"], ["media_player.bad", "dial"], ["sensor.bad", "gradient"]]) {
+  const c = document.createElement("crescendo-card");
+  c.setConfig({ type: "custom:crescendo-card", entity, design });
+  host.append(c);
+  c.hass = hass;
+}
+const editor = document.createElement("crescendo-card-editor");
+editor.setConfig({ entity: "light.bad", design: "columns" });
+editor.hass = hass;
+editor.style.cssText = "background:#fff;padding:12px;border-radius:12px";
+if (!designsOnly) host.append(editor);
+window.__panel = panel;
+const params = new URLSearchParams(location.search);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const report = (name, ok, extra = "") => console.log(`HARNESS ${ok ? "ok  " : "FAIL"} ${name} ${extra}`);
+const point = (el, type, x, y) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 1, button: 0, isPrimary: true }));
+const capture = (el) => { el.setPointerCapture = () => {}; el.hasPointerCapture = () => true; el.releasePointerCapture = () => {}; };
+setTimeout(async () => {
+  const q = (sel) => panel.shadowRoot.querySelector(sel);
+  const cards = [...document.querySelectorAll("crescendo-card")];
+  const view = params.get("view") || "edit";
+  if (view === "cards") panel.hidden = true;
+  if (view === "panel") host.hidden = true;
+  if (view === "table") { host.hidden = true; q('[data-act="view-table"]').click(); q('[data-act="sel-cell"]:not(.locked)').click(); q("#edAdv").click(); }
+  if (view === "diag") { host.hidden = true; q('[data-v="diag"]').click(); await wait(300); q('[data-act="test-ask"]').click(); await wait(100); }
+  if (view === "behave") {
+    // Dragging the wide slider sends positions and a final one on release.
+    const card = cards[0];
+    const track = card.shadowRoot.querySelector(".track");
+    capture(track);
+    const r = track.getBoundingClientRect();
+    calls.length = 0;
+    point(track, "pointerdown", r.left + r.width * 0.3, r.top + 10);
+    await wait(40);
+    point(track, "pointermove", r.left + r.width * 0.6, r.top + 10);
+    await wait(300);
+    point(track, "pointermove", r.left + r.width * 0.8, r.top + 10);
+    await wait(300);
+    point(track, "pointerup", r.left + r.width * 0.8, r.top + 10);
+    await wait(50);
+    const pos = calls.filter((c) => c.type === "cloudless_crescendo/position");
+    report("drag sends positions", pos.length >= 2, JSON.stringify(pos.map((c) => [Math.round(c.position), c.final])));
+    report("release is final", pos.at(-1)?.final === true);
+    calls.length = 0;
+    card.shadowRoot.querySelector(".preset").click();
+    await wait(30);
+    report("button fades", calls.length > 0, JSON.stringify(calls).slice(0, 160));
+    calls.length = 0;
+    card.shadowRoot.querySelector(".js-power").click();
+    await wait(30);
+    report("power switches", calls.length > 0, JSON.stringify(calls).slice(0, 160));
+    // The color row: hidden by default, offered by choice, and a way back while a color is active.
+    const row = (c) => getComputedStyle(c.shadowRoot.querySelector(".js-colorrow")).display;
+    report("no color row by default", row(card) === "none");
+    const colored = document.createElement("crescendo-card");
+    colored.setConfig({ entity: "light.boden", design: "gradient", color_control: true });
+    host.append(colored);
+    colored.hass = hass;
+    await wait(30);
+    report("color selection on request", colored.shadowRoot.querySelector(".js-colorpick") && getComputedStyle(colored.shadowRoot.querySelector(".js-colorpick")).display !== "none");
+    calls.length = 0;
+    const input = colored.shadowRoot.querySelector(".js-color");
+    input.value = "#ff0000";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    report("choosing a color calls the light", JSON.stringify(calls).includes("[255,0,0]"), JSON.stringify(calls).slice(0, 120));
+    // Home Assistant hands over a new object with each change, so do the same here.
+    const bad = hass.states["light.bad"];
+    card.hass = { ...hass, states: { ...hass.states, "light.bad": { ...bad, attributes: { ...bad.attributes, color_override: true, rgb_color: [255, 0, 0], color_mode: "xy", supported_color_modes: ["color_temp", "xy"] } } } };
+    await wait(60);
+    report("way back shown while a color is active", row(card) !== "none" && getComputedStyle(card.shadowRoot.querySelector(".js-colorback")).display !== "none");
+    calls.length = 0;
+    card.shadowRoot.querySelector(".js-colorback").click();
+    await wait(20);
+    report("way back resets", calls.some((c) => c.type === "cloudless_crescendo/color/reset"));
+    report("empty lanes hidden", getComputedStyle(cards[8].shadowRoot.querySelector(".js-lanes")).display === "none");
+    report("mixer master has gradient", cards[7].shadowRoot.querySelector(".ch .well").style.backgroundImage !== "");
+    // In the page: dragging a point in the chart saves the new value.
+    calls.length = 0;
+    const box = q("#chartBox");
+    capture(box);
+    const hit = [...panel.shadowRoot.querySelectorAll(".c-hit")].find((c) => +c.getAttribute("cx") > 400);
+    const hr = hit.getBoundingClientRect();
+    point(hit, "pointerdown", hr.left + 5, hr.top + 5);
+    point(hit, "pointermove", hr.left + 5, hr.top + 45);
+    const after1 = panel.shadowRoot.querySelectorAll(".c-hit");
+    point(after1[0], "pointermove", hr.left + 5, hr.top + 65);
+    point(after1[0], "pointerup", hr.left + 5, hr.top + 65);
+    await wait(700);
+    const saves = calls.filter((c) => c.type === "cloudless_crescendo/object/save");
+    report("chart drag saves", saves.length === 1, saves[0] ? JSON.stringify(saves[0].options.stops.map((s) => Object.values(s.values).map((v) => v.brightness))) : "");
+    report("saved options have no helper ids", saves[0] && !JSON.stringify(saves[0].options).includes("_sid"));
+    report("chart drag previews", calls.some((c) => c.type === "cloudless_crescendo/preview"));
+    const shape = () => JSON.stringify(panel._o.options.stops.map((s) => Object.values(s.values).map((v) => v.brightness)));
+    const before = shape();
+    q('[data-act="undo"]').click();
+    await wait(20);
+    report("undo", before !== shape(), `${before} -> ${shape()}`);
+    const stops = panel._o.options.stops.length;
+    q('[data-act="add-stop"]').click();
+    report("add stop", panel._o.options.stops.length === stops + 1);
+    q("#addSel").value = "l:light.bogen";
+    q('[data-act="add-item"]').click();
+    report("add light", panel._o.options.lights.some((l) => l.entity_id === "light.bogen"));
+    report("new light has a value at every stop", panel._o.options.stops.every((s) => s.values["light.bogen"]));
+    q('[data-v="diag"]').click();
+    await wait(200);
+    report("test question closed at start", getComputedStyle(q("#testAsk")).display === "none");
+    calls.length = 0;
+    q('[data-act="test-ask"]').click();
+    report("asking warns and does not test yet", getComputedStyle(q("#testAsk")).display !== "none" && !calls.some((c) => c.type === "cloudless_crescendo/test_connection"), q("#testAskText").textContent);
+    q('[data-act="test-run"]').click();
+    await wait(100);
+    report("test runs after confirming", calls.some((c) => c.type === "cloudless_crescendo/test_connection"));
+  }
+  console.log(`HARNESS width ${window.innerWidth} horizontal-scroll=${document.documentElement.scrollWidth > window.innerWidth}`);
+  console.log("HARNESS-DONE");
+}, 400);
+window.addEventListener("error", (e) => console.log("HARNESS-ERROR", e.message, e.filename, e.lineno));
+window.addEventListener("unhandledrejection", (e) => console.log("HARNESS-ERROR", String(e.reason)));
+</script>
+</body></html>
