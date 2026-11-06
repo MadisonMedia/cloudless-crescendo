@@ -1,0 +1,61 @@
+fade_to:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light
+  fields:
+    position:
+      required: true
+      example: 80
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    duration:
+      example:
+        minutes: 30
+      selector:
+        duration:
+
+stop:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light
+
+press_button:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light
+  fields:
+    button:
+      required: true
+      example: Morgen
+      selector:
+        text:
+
+set_on_position:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light
+  fields:
+    position:
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+reset_color:
+  target:
+    entity:
+      integration: cloudless_crescendo
+      domain: light

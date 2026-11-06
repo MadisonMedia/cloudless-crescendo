@@ -1,0 +1,9 @@
+{
+  "services": {
+    "fade_to": { "service": "mdi:tune-vertical-variant" },
+    "stop": { "service": "mdi:stop" },
+    "press_button": { "service": "mdi:gesture-tap-button" },
+    "set_on_position": { "service": "mdi:power-settings" },
+    "reset_color": { "service": "mdi:palette-outline" }
+  }
+}
