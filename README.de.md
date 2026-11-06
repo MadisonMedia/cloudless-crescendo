@@ -14,7 +14,7 @@ Eine Home-Assistant-Integration, die mehrere Leuchten als ein Objekt dimmt, entl
 - **Nichts Verstecktes.** Jede Leuchte hat in jeder Stufe einen Wert. Du siehst alle im Diagramm oder in der Tabelle und änderst sie dort.
 - **Native Überblendungen.** Zeitgesteuertes Dimmen nutzt die eigenen Überblendungen der Leuchten über `light.turn_on`. Es läuft dadurch weich und hängt nicht daran, was Home Assistant gerade sonst tut. Nur ein von Hand gezogener Slider sendet Werte in Echtzeit, standardmäßig 4 pro Sekunde.
 - **Andere Geräte auf derselben Skala.** Lautstärke und Temperatur können einem Bereich der Skala folgen. Rollos, Heizung oder Musik können an einer Schwelle starten oder stoppen, auf Wunsch mit einer Gegenaktion darunter.
-- **Eine Karte, acht Designs.** Raumverlauf, Hochkant, Drehregler, Szenen, Säulen für einzelne Leuchten, Diagramm, ein Foto deines Raums mit Lichtpunkten und ein Mischpult für mehrere Geräte. Die Karte funktioniert auch mit anderen Leuchten, Klima, Rollos, Medienplayern, Lüftern, Zahlenwerten und reinen Anzeige-Sensoren.
+- **Eine Karte, acht Designs.** Raumverlauf, Hochkant, Drehregler, Szenen, Säulen für einzelne Leuchten, Diagramm, ein Foto deines Raums mit Lichtpunkten und ein Mischpult für mehrere Geräte. Jedes Design kann die Säulen aller Leuchten in einem Fenster öffnen, über einen Knopf oder durch Tippen auf die Karte. Die Karte funktioniert auch mit anderen Leuchten, Klima, Rollos, Medienplayern, Lüftern, Zahlenwerten und reinen Anzeige-Sensoren.
 - **Diagnose.** Reaktionszeiten und Fehler aus dem normalen Betrieb, dazu ein Verbindungstest, der vor dem Start nachfragt.
 - **Deutsch und Englisch.**
 
@@ -50,7 +50,7 @@ Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cl
 3. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an, um die Farbe zu wählen. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
 4. Lege **Standard-Buttons** an. Neue Karten übernehmen sie als Vorlage.
 
-Um die Karte zu einem Dashboard hinzuzufügen, bearbeitest du das Dashboard, fügst eine Karte hinzu und wählst **Crescendo**. Im Karten-Editor stellst du Design, Reglerfarbe, Buttons und mehr ein.
+Um die Karte zu einem Dashboard hinzuzufügen, bearbeitest du das Dashboard, fügst eine Karte hinzu und wählst **Crescendo**. Im Karten-Editor stellst du Design, Reglerfarbe, Buttons, das Öffnen der einzelnen Leuchten und mehr ein.
 
 ## Einstellungen pro Leuchte
 
@@ -91,7 +91,7 @@ data:
 - Änderst du während des Dimmens eine einzelne Leuchte von Hand, fällt nur diese Leuchte heraus. Beim nächsten Befehl an das Objekt ist sie wieder dabei.
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
 - Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter.
-- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Zurück zu den Stufen** wählst. Leuchten ohne Farbe behalten ihr Weiß.
+- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Zurück zu den Stufen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Die Karte zeigt dann die Farben, die die Leuchten wirklich haben.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
 
 ## Thread und Matter

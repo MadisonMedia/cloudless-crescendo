@@ -64,6 +64,11 @@ function fromLab(o) {
   ];
 }
 export const mixLab = (a, b, t) => fromLab(lerp3(toLab(a), toLab(b), t));
+export const colorGap = (a, b) => {
+  const x = toLab(a),
+    y = toLab(b);
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
+};
 
 // Brightness shows as fill and opacity. Whites stay bright instead of being darkened toward brown.
 export function lightColor(c) {
@@ -72,6 +77,29 @@ export function lightColor(c) {
   return fromLab([Math.max(o[0], 0.86), o[1] * 0.9, o[2] * 0.9]);
 }
 export const lightA = (c, a) => `rgba(${css(lightColor(c))},${clamp(a, 0, 1).toFixed(2)})`;
+// How the interface shows a fade: slow at both ends. The lights themselves fade evenly, so longer fades stay
+// even here too, or the display would visibly run away from the lights.
+export const ease = (u) => {
+  const x = clamp(u, 0, 1);
+  return x * x * (3 - 2 * x);
+};
+export const EASE_MAX_SECONDS = 15;
+
+export function hueRgb(hue) {
+  const part = (n) => {
+    const k = (n + hue / 30) % 12;
+    return Math.round(255 * (0.5 - 0.5 * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+  };
+  return [part(0), part(8), part(4)];
+}
+export function rgbHue([r, g, b]) {
+  const max = Math.max(r, g, b),
+    d = max - Math.min(r, g, b);
+  if (!d) return 0;
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return h * 60;
+}
+
 export const lumOf = (c) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
 
 // On a dark ground a dimmed warm light turns brown. There a control shows the full light color, and only
@@ -116,8 +144,14 @@ export function lampAt(options, light, pos, override) {
   const ca = rgbOf(light, va),
     cb = rgbOf(light, vb);
   let c = va.brightness === 0 ? cb : vb.brightness === 0 ? ca : lerp3(ca, cb, t);
-  if (override && light.mode !== "dim" && (light.mode !== "cct" || override.white)) c = override.rgb;
+  if (followsOverride(light, override)) c = override.rgb;
   return { v: lerp(va.brightness, vb.brightness, t), c };
+}
+
+// White lights keep their white under a chosen color, and only change with a chosen white.
+function followsOverride(light, override) {
+  if (!override || light.mode === "onoff" || light.mode === "dim") return false;
+  return light.mode !== "cct" || !!override.white;
 }
 
 export function roomLight(options, pos, override) {
@@ -125,7 +159,8 @@ export function roomLight(options, pos, override) {
     r = 0,
     g = 0,
     b = 0,
-    top = 0;
+    top = 0,
+    follows = false;
   for (const light of options.lights) {
     const l = lampAt(options, light, pos, override),
       w = l.v / 100;
@@ -134,10 +169,27 @@ export function roomLight(options, pos, override) {
     g += l.c[1] * w;
     b += l.c[2] * w;
     top = Math.max(top, w);
+    if (w > 0 && followsOverride(light, override)) follows = true;
   }
   if (!tot) return { c: [255, 255, 255], a: 0 };
   const avg = Math.pow(Math.min(1, tot / Math.max(1, options.lights.length)), 0.55);
-  return { c: [r / tot, g / tot, b / tot], a: 0.5 * avg + 0.5 * Math.pow(top, 0.6) };
+  // A chosen color shows as itself. Mixed with white lights it would be a color no light has.
+  return { c: follows ? override.rgb : [r / tot, g / tot, b / tot], a: 0.5 * avg + 0.5 * Math.pow(top, 0.6) };
+}
+
+// The colors the lights report right now, largest group first. Nearly equal colors count as one.
+const SAME_COLOR = 0.035;
+export function activeColors(entityIds, hass) {
+  const found = [];
+  for (const id of entityIds) {
+    const state = hass?.states?.[id];
+    if (state?.state !== "on") continue;
+    const rgb = state.attributes?.rgb_color || kRgb(2900);
+    const same = found.find((f) => colorGap(f.rgb, rgb) < SAME_COLOR);
+    if (same) same.ids.push(id);
+    else found.push({ rgb, ids: [id] });
+  }
+  return found.sort((a, b) => b.ids.length - a.ids.length);
 }
 
 export function roomGradient(options, dir, override, dark) {

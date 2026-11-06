@@ -201,6 +201,13 @@ class CrescendoLight(LightEntity, RestoreEntity):
                 xy_weight += state.brightness
         if total <= 0:
             return None, None
+        # A chosen color is the object's color, even where white lights outweigh the lights that follow it.
+        override = self.engine.override
+        if override is not None:
+            if override.get("kelvin") is not None:
+                return float(override["kelvin"]), None
+            if ColorMode.XY in self.supported_color_modes:
+                return None, tuple(override["xy"])
         if xy_weight > kelvin_weight:
             return None, (x / xy_weight, y / xy_weight)
         return (kelvin / kelvin_weight if kelvin_weight else None), None

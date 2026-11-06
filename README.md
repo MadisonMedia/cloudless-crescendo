@@ -14,7 +14,7 @@ A Home Assistant integration that dims several lights as one object, along a seq
 - **Nothing hidden.** Every light has a value at every stop. You see all of them in a chart or a table and can change them there.
 - **Native fades.** Timed fades use the lights' own transitions through `light.turn_on`, so they run smoothly and don't depend on Home Assistant staying busy. Only a slider dragged by hand sends values in real time, 4 per second by default.
 - **Other devices on the same scale.** Volume and temperature can follow a range of the scale. Blinds, heating or music can start or stop at a threshold, with an optional opposite action below it.
-- **One card, eight designs.** Room gradient, upright fader, dial, scenes, columns for single lights, chart, a photo of your room with light points, and a mixer for several devices. The card also works with other lights, climate, covers, media players, fans, number entities and read-only sensors.
+- **One card, eight designs.** Room gradient, upright fader, dial, scenes, columns for single lights, chart, a photo of your room with light points, and a mixer for several devices. Any design can open the columns of all lights in a window, by a button or a tap on the card. The card also works with other lights, climate, covers, media players, fans, number entities and read-only sensors.
 - **Diagnostics.** Reaction times and failures from normal operation, plus a connection test that asks before it runs.
 - **German and English.**
 
@@ -50,7 +50,7 @@ Open **Crescendo** in the sidebar.
 3. Drag the points in the chart to set each light's brightness, and tap a point to set its color. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
 4. Add **Standard buttons**. New cards take them as a template.
 
-To add the card to a dashboard, edit the dashboard, add a card and choose **Crescendo**. The card editor offers the design, control colors, buttons and more.
+To add the card to a dashboard, edit the dashboard, add a card and choose **Crescendo**. The card editor offers the design, control colors, buttons, how the single lights open, and more.
 
 ## Per-light settings
 
@@ -91,7 +91,7 @@ data:
 - If you change a single light by hand during a fade, only that light drops out. It rejoins at the next command to the object.
 - If a light belongs to several objects, the last command wins and the other object's fade stops.
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant.
-- A color chosen in the object's normal light controls overrides the stops' colors until you switch off or choose **Back to the stops**. Lights without color keep their white.
+- A color chosen in the object's normal light controls overrides the stops' colors until you switch off or choose **Back to the stops**. Lights without color keep their white. The card then shows the colors the lights really have.
 - A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
 
 ## Thread and Matter

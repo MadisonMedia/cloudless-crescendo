@@ -142,6 +142,29 @@ async def test_a_chosen_color_overrides_the_stops_until_off(
     assert entity.engine.override is None
 
 
+async def test_the_object_reports_a_chosen_color_even_where_white_lights_outweigh_it(
+    hass: HomeAssistant, setup_object, lights: FakeLights
+) -> None:
+    entity = await setup_object()
+    await entity.engine.async_fade_to(100, 0.1)
+    await _wait(hass)
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "xy_color": [0.6, 0.35], "transition": 0.1}, blocking=True
+    )
+    await _wait(hass)
+    assert "xy_color" not in lights.last(MIRROR)["data"]
+    attributes = hass.states.get("light.bad").attributes
+    assert attributes["color_mode"] == "xy"
+    assert tuple(attributes["xy_color"]) == (0.6, 0.35)
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "color_temp_kelvin": 4500, "transition": 0.1}, blocking=True
+    )
+    await _wait(hass)
+    attributes = hass.states.get("light.bad").attributes
+    assert attributes["color_mode"] == "color_temp"
+    assert attributes["color_temp_kelvin"] == 4500
+
+
 async def test_a_change_from_outside_takes_only_that_light_out(
     hass: HomeAssistant, setup_object, lights: FakeLights
 ) -> None:
