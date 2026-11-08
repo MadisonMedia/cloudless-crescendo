@@ -19,12 +19,25 @@ fade_to:
         minutes: 30
       selector:
         duration:
+    source:
+      example: cloudless_maestro
+      selector:
+        text:
+    devices:
+      default: true
+      selector:
+        boolean:
 
 stop:
   target:
     entity:
       integration: cloudless_crescendo
       domain: light
+  fields:
+    source:
+      example: cloudless_maestro
+      selector:
+        text:
 
 press_button:
   target:

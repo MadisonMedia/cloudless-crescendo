@@ -14,8 +14,10 @@ import voluptuous as vol
 
 from .const import (
     ATTR_BUTTON,
+    ATTR_DEVICES,
     ATTR_DURATION,
     ATTR_POSITION,
+    ATTR_SOURCE,
     DOMAIN,
     SERVICE_FADE_TO,
     SERVICE_PRESS_BUTTON,
@@ -29,6 +31,12 @@ from .websocket_api import async_register_websocket_commands
 
 PLATFORMS = [Platform.LIGHT]
 
+SOURCE = vol.All(cv.string, vol.Length(max=255))
+"""Free text from the caller, shown unchanged in the command_source attribute."""
+
+ON_POSITION = vol.All(vol.Coerce(float), vol.Range(min=0, max=100, min_included=False))
+"""A switch-on position of 0 would make switching on switch off."""
+
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
@@ -37,12 +45,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     actions = (
         (
             SERVICE_FADE_TO,
-            {vol.Required(ATTR_POSITION): PERCENT, vol.Optional(ATTR_DURATION): cv.positive_time_period},
+            {
+                vol.Required(ATTR_POSITION): PERCENT,
+                vol.Optional(ATTR_DURATION): cv.positive_time_period,
+                vol.Optional(ATTR_SOURCE): SOURCE,
+                vol.Optional(ATTR_DEVICES): cv.boolean,
+            },
             "async_fade_to",
         ),
-        (SERVICE_STOP, None, "async_stop_fade"),
+        (SERVICE_STOP, {vol.Optional(ATTR_SOURCE): SOURCE}, "async_stop_fade"),
         (SERVICE_PRESS_BUTTON, {vol.Required(ATTR_BUTTON): cv.string}, "async_press_button"),
-        (SERVICE_SET_ON_POSITION, {vol.Optional(ATTR_POSITION): vol.Any(None, PERCENT)}, "async_set_on_position"),
+        (
+            SERVICE_SET_ON_POSITION,
+            {vol.Optional(ATTR_POSITION): vol.Any(None, ON_POSITION)},
+            "async_set_on_position",
+        ),
         (SERVICE_RESET_COLOR, None, "async_reset_color"),
     )
     for name, schema, func in actions:

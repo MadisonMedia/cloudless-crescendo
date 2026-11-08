@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 import hashlib
 import json
@@ -30,8 +30,14 @@ from homeassistant.util import dt as dt_util
 from .const import (
     ATTR_BUTTONS,
     ATTR_COLOR_OVERRIDE,
+    ATTR_COMMAND,
+    ATTR_COMMAND_AT,
+    ATTR_COMMAND_SOURCE,
+    ATTR_COMMAND_USER_ID,
     ATTR_CRESCENDO,
+    ATTR_CRESCENDO_API,
     ATTR_CURVE_ID,
+    ATTR_EXTERNAL_ON_POSITION,
     ATTR_FADE_ENDS,
     ATTR_FADE_FROM,
     ATTR_FADE_STARTED,
@@ -41,8 +47,10 @@ from .const import (
     ATTR_POSITION,
     ATTR_STOPS,
     ATTR_TARGET_POSITION,
+    COMMAND_SWITCH_ON,
     CONF_BUTTONS,
     CONF_DEFAULT_TRANSITION,
+    CRESCENDO_API,
     DEFAULT_TRANSITION,
     DOMAIN,
     MODE_CCT,
@@ -51,7 +59,7 @@ from .const import (
     PANEL_URL,
     SHORT_FADE,
 )
-from .engine import Engine
+from .engine import Engine, Origin
 
 
 async def async_setup_entry(
@@ -67,13 +75,18 @@ async def async_setup_entry(
 
 @dataclass
 class _ObjectMark(ExtraStoredData):
-    """Marks saved state as this object's. A new object must not inherit from a deleted one of the same name."""
+    """Marks saved state as this object's. A new object must not inherit from a deleted one of the same name.
+
+    It also carries what survives a restart besides the position: the last command, a switch-on position set
+    from outside, where devices were left behind, whether a running fade moves devices, and a chosen color.
+    """
 
     entry_id: str
+    saved: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         """Return what is stored."""
-        return {"entry_id": self.entry_id}
+        return {"entry_id": self.entry_id, **self.saved}
 
 
 class CrescendoLight(LightEntity, RestoreEntity):
@@ -108,13 +121,16 @@ class CrescendoLight(LightEntity, RestoreEntity):
         mark = await self.async_get_last_extra_data()
         if last is None or mark is None or mark.as_dict().get("entry_id") != self._entry.entry_id:
             return
+        saved = mark.as_dict()
         attrs = last.attributes
         position = attrs.get(ATTR_POSITION)
         last_on = attrs.get(ATTR_LAST_ON)
         self.engine.restore(
             float(position) if isinstance(position, (int, float)) else 0.0,
             float(last_on) if isinstance(last_on, (int, float)) else None,
+            saved,
         )
+        devices = saved.get("fade_devices") is not False
         target = attrs.get(ATTR_TARGET_POSITION)
         start = attrs.get(ATTR_FADE_FROM)
         started = dt_util.parse_datetime(str(attrs.get(ATTR_FADE_STARTED) or ""))
@@ -134,14 +150,14 @@ class CrescendoLight(LightEntity, RestoreEntity):
         @callback
         def _resume(_hass: HomeAssistant) -> None:
             remaining = (ends - dt_util.utcnow()).total_seconds()
-            self.hass.async_create_task(self.engine.async_fade_to(float(target), max(0.0, remaining)))
+            self.hass.async_create_task(self.engine.async_fade_to(float(target), max(0.0, remaining), devices=devices))
 
         self.async_on_remove(async_at_started(self.hass, _resume))
 
     @property
     def extra_restore_state_data(self) -> ExtraStoredData:
-        """Store which object this state belongs to."""
-        return _ObjectMark(self._entry.entry_id)
+        """Store which object this state belongs to, and what else has to survive a restart."""
+        return _ObjectMark(self._entry.entry_id, self.engine.saved_state())
 
     async def async_will_remove_from_hass(self) -> None:
         """Stop the engine."""
@@ -150,7 +166,16 @@ class CrescendoLight(LightEntity, RestoreEntity):
     @callback
     def _engine_changed(self) -> None:
         if self.hass is not None and self.entity_id:
+            # Home Assistant keeps a command's context for 5 seconds; a long fade keeps it to its end.
+            command = self.engine.command
+            if command is not None and command.context is not None:
+                self.async_set_context(command.context)
             self.async_write_ha_state()
+
+    def _origin(self, source: str | None = None) -> Origin:
+        """Return who gave the command being handled, from the context Home Assistant set for it."""
+        context = self._context
+        return Origin(source, context.user_id if context is not None else None, context)
 
     @callback
     def options_changed(self) -> None:
@@ -269,7 +294,14 @@ class CrescendoLight(LightEntity, RestoreEntity):
             ATTR_CURVE_ID: hashlib.sha256(json.dumps(options, sort_keys=True).encode()).hexdigest()[:10],
             ATTR_COLOR_OVERRIDE: engine.override is not None,
             "deviating": list(engine.deviating),
+            ATTR_EXTERNAL_ON_POSITION: engine.external_on_position,
+            ATTR_CRESCENDO_API: CRESCENDO_API,
         }
+        command = engine.command
+        attrs[ATTR_COMMAND] = command.kind if command is not None else None
+        attrs[ATTR_COMMAND_SOURCE] = command.source if command is not None else None
+        attrs[ATTR_COMMAND_USER_ID] = command.user_id if command is not None else None
+        attrs[ATTR_COMMAND_AT] = command.at.isoformat() if command is not None else None
         fade = engine.fade
         if fade is not None:
             attrs[ATTR_TARGET_POSITION] = round(fade.target, 2)
@@ -288,46 +320,56 @@ class CrescendoLight(LightEntity, RestoreEntity):
         return float(self.engine.options.get(CONF_DEFAULT_TRANSITION, DEFAULT_TRANSITION))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Move to a position, choose a color, or both."""
+        """Move to a position, choose a color, or both.
+
+        A color alone changes no position, so it leaves the command shown to other integrations as it is.
+        """
         engine = self.engine
         transition = self._transition(kwargs)
         kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
         xy = kwargs.get(ATTR_XY_COLOR)
         brightness = kwargs.get(ATTR_BRIGHTNESS)
         if kelvin is not None or xy is not None:
-            if brightness is None and engine.current_position() <= 0:
-                brightness = round(engine.on_position() * 255 / 100)
             if xy is not None:
                 engine.override = {"xy": tuple(xy)}
             else:
                 engine.override = {"kelvin": float(kelvin)}
             if brightness is None:
-                await engine.async_set_color(kelvin, tuple(xy) if xy is not None else None, min(transition, 2.0))
+                if engine.current_position() <= 0:
+                    await engine.async_fade_to(
+                        engine.on_position(), transition, origin=self._origin(), kind=COMMAND_SWITCH_ON
+                    )
+                else:
+                    await engine.async_set_color(kelvin, tuple(xy) if xy is not None else None, min(transition, 2.0))
                 return
         if brightness is not None:
-            await engine.async_fade_to(brightness * 100 / 255, transition)
+            await engine.async_fade_to(brightness * 100 / 255, transition, origin=self._origin())
         elif not (engine.fade.target > 0 if engine.fade is not None else engine.current_position() > 0):
-            await engine.async_fade_to(engine.on_position(), transition)
+            await engine.async_fade_to(engine.on_position(), transition, origin=self._origin(), kind=COMMAND_SWITCH_ON)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Run the sequence backward to off."""
-        await self.engine.async_fade_to(0.0, self._transition(kwargs))
+        await self.engine.async_fade_to(0.0, self._transition(kwargs), origin=self._origin())
 
-    async def async_fade_to(self, position: float, duration: timedelta | None = None) -> None:
+    async def async_fade_to(
+        self, position: float, duration: timedelta | None = None, source: str | None = None, devices: bool = True
+    ) -> None:
         """Handle the fade_to action, which has no limit on the duration."""
         seconds = duration.total_seconds() if duration is not None else self._transition({})
-        await self.engine.async_fade_to(position, seconds)
+        await self.engine.async_fade_to(position, seconds, origin=self._origin(source), devices=devices)
 
-    async def async_stop_fade(self) -> None:
+    async def async_stop_fade(self, source: str | None = None) -> None:
         """Handle the stop action."""
-        await self.engine.async_stop()
+        await self.engine.async_stop(origin=self._origin(source))
 
     async def async_press_button(self, button: str) -> None:
         """Run one of the object's buttons by name."""
         wanted = button.casefold()
         for candidate in self.engine.options.get(CONF_BUTTONS, ()):
             if candidate["name"].casefold() == wanted or candidate.get("id") == button:
-                await self.engine.async_fade_to(float(candidate["position"]), float(candidate["duration"]))
+                await self.engine.async_fade_to(
+                    float(candidate["position"]), float(candidate["duration"]), origin=self._origin()
+                )
                 return
         raise ServiceValidationError(f"{self.entity_id} has no button named {button}")
 

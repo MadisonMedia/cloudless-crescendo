@@ -7,14 +7,14 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import SOURCE_USER, ConfigEntry
 from homeassistant.const import CONF_NAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 
 from .const import CONF_LIGHTS, DOMAIN
 from .curve import curve_from_options
-from .engine import Engine
+from .engine import Engine, Origin
 from .model import normalize_options
 from .planner import settle
 
@@ -161,8 +161,10 @@ def ws_position(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
     if engine is None:
         connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Not a Crescendo object")
         return
-    engine.context.user_id = connection.user.id
-    engine.set_position(msg["position"], final=msg["final"])
+    # Each drag gets its own context with the user. The engine's context stays without a user, because the
+    # engine recognizes its own commands to the lights by it.
+    user_id = connection.user.id
+    engine.set_position(msg["position"], final=msg["final"], origin=Origin(None, user_id, Context(user_id=user_id)))
     connection.send_result(msg["id"])
 
 

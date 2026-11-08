@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Iterable, Mapping
 import contextlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 import logging
 import math
@@ -27,6 +27,10 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    COMMAND_SET,
+    COMMAND_STOP,
+    COMMAND_SWITCH_OFF,
+    COMMANDS,
     CONF_DEVICES,
     CONF_ON_MODE,
     CONF_ON_POSITION,
@@ -59,6 +63,55 @@ NOT_FOLLOWING = Target(-1.0)
 """Stands for a light that left the curve, so it differs from every state on it."""
 
 
+@dataclass(frozen=True, slots=True)
+class Origin:
+    """Who gave a command: free text from the caller, the user, and Home Assistant's context."""
+
+    source: str | None = None
+    user_id: str | None = None
+    context: Context | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectCommand:
+    """The command that decides the object's current state, shown to other integrations."""
+
+    kind: str
+    source: str | None
+    user_id: str | None
+    at: datetime
+    context: Context | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return what is stored across a restart."""
+        return {"kind": self.kind, "source": self.source, "user_id": self.user_id, "at": self.at.isoformat()}
+
+    @classmethod
+    def from_dict(cls, data: Any) -> ObjectCommand | None:
+        """Read a stored command, or None if it is missing or unreadable."""
+        if not isinstance(data, Mapping) or data.get("kind") not in COMMANDS:
+            return None
+        at = dt_util.parse_datetime(str(data.get("at") or ""))
+        if at is None:
+            return None
+        source, user_id = data.get("source"), data.get("user_id")
+        return cls(
+            data["kind"], source if isinstance(source, str) else None, user_id if isinstance(user_id, str) else None, at
+        )
+
+
+def _override_from(data: Any) -> dict[str, Any] | None:
+    """Read a stored chosen color."""
+    if not isinstance(data, Mapping):
+        return None
+    if isinstance(data.get("kelvin"), (int, float)):
+        return {"kelvin": float(data["kelvin"])}
+    xy = data.get("xy")
+    if isinstance(xy, (list, tuple)) and len(xy) == 2 and all(isinstance(v, (int, float)) for v in xy):
+        return {"xy": (float(xy[0]), float(xy[1]))}
+    return None
+
+
 @dataclass(slots=True)
 class Fade:
     """A running fade."""
@@ -68,6 +121,7 @@ class Fade:
     duration: float
     started: float
     started_at: datetime
+    devices: bool = True
 
     def position(self, now: float) -> float:
         """Return the position at a monotonic time."""
@@ -96,25 +150,49 @@ def ramp_value(device: Mapping[str, Any], position: float) -> float:
 
 
 def threshold_steps(
-    devices: Iterable[Mapping[str, Any]], start: float, target: float, duration: float
+    devices: Iterable[Mapping[str, Any]],
+    start: float,
+    target: float,
+    duration: float,
+    *,
+    devices_from: float | None = None,
+    sent: Mapping[str, float] | None = None,
 ) -> list[DeviceStep]:
-    """Plan threshold actions and ramp values for a fade."""
+    """Plan threshold actions and ramp values for a fade.
+
+    Devices may have been left behind at another position by commands without devices. A threshold then
+    acts once if that position and the target lie on different sides of it: when the fade crosses it, or
+    at once if the fade already starts on the target's side. A ramp moves from the value it last got.
+    """
     steps: list[DeviceStep] = []
+    behind = start if devices_from is None else devices_from
     distance = abs(target - start)
     for device in devices:
         if device["kind"] == DEVICE_THRESHOLD:
             at = float(device["at"])
-            if start < at <= target and device.get("action"):
-                steps.append(DeviceStep(duration * (at - start) / distance, device, action=device["action"]))
-            elif target < at <= start and device.get("back"):
-                steps.append(DeviceStep(duration * (start - at) / distance, device, action=device["back"]))
-        elif device["kind"] == DEVICE_RAMP:
-            first, last = ramp_value(device, start), ramp_value(device, target)
-            if abs(first - last) < 1e-6:
+            reached = target >= at
+            if (behind >= at) == reached:
                 continue
-            count = max(1, min(math.ceil(abs(first - last)), math.floor(duration / DEVICE_MIN_INTERVAL)))
+            action = device.get("action") if reached else device.get("back")
+            if not action:
+                continue
+            already = (start >= at) == reached
+            when = 0.0 if already or not distance else duration * abs(at - start) / distance
+            steps.append(DeviceStep(when, device, action=action))
+        elif device["kind"] == DEVICE_RAMP:
+            begin, last = ramp_value(device, start), ramp_value(device, target)
+            first = (sent or {}).get(device.get("id") or device["entity_id"], begin)
+            offset = first - begin
+            if abs(begin - last) < 1e-6 and abs(offset) < 1e-6:
+                continue
+            spread = max(abs(begin - last), abs(first - last))
+            count = max(1, min(math.ceil(spread), math.floor(duration / DEVICE_MIN_INTERVAL)))
             steps.extend(
-                DeviceStep(duration * i / count, device, value=ramp_value(device, start + (target - start) * i / count))
+                DeviceStep(
+                    duration * i / count,
+                    device,
+                    value=ramp_value(device, start + (target - start) * i / count) + offset * (1 - i / count),
+                )
                 for i in range(1, count + 1)
             )
     return steps
@@ -145,6 +223,10 @@ class Engine:
         self.position = 0.0
         self.last_on = 100.0
         self.external_on_position: float | None = None
+        self.command: ObjectCommand | None = None
+        self._devices_at: float | None = None
+        """Where commands without devices left the devices behind; None while they follow the position."""
+        self._slider_command: ObjectCommand | None = None
         self.fade: Fade | None = None
         self.override: dict[str, Any] | None = None
         self.deviating: dict[str, float] = {}
@@ -270,21 +352,30 @@ class Engine:
             return float(self.options.get(CONF_ON_POSITION, self.last_on))
         return self.last_on
 
+    def _note(self, kind: str, origin: Origin) -> None:
+        """Record the command that decides the state from now on, before the state is written."""
+        self.command = ObjectCommand(kind, origin.source, origin.user_id, dt_util.utcnow(), origin.context)
+
     def _claim(self) -> None:
         """The last command wins: another object's fade over the same lights stops."""
         own = set(self.base_curve.lights)
         for other in self.hass.data.get(DOMAIN, {}).get("engines", ()):
             if other is not self and (other.fade is not None) and own & set(other.base_curve.lights):
-                other.interrupted()
+                other.interrupted(self.command)
 
     @callback
-    def interrupted(self) -> None:
-        """Stop this object's fade without touching its lights."""
+    def interrupted(self, by: ObjectCommand | None = None) -> None:
+        """Stop this object's fade without touching its lights.
+
+        The stop counts as coming from the command that took the lights, so others can tell who stopped it.
+        """
         self.position = self.current_position()
         self.fade = None
         if self._task is not None:
             self._task.cancel()
             self._task = None
+        if by is not None:
+            self.command = replace(by, kind=COMMAND_STOP)
         self._on_change()
 
     async def _cancel_tasks(self) -> None:
@@ -301,18 +392,56 @@ class Engine:
         if step.target is not None:
             self.last_targets[step.entity_id] = step.target
 
-    def restore(self, position: float, last_on: float | None) -> None:
-        """Set the position after a restart without sending anything."""
+    def restore(self, position: float, last_on: float | None, saved: Mapping[str, Any] | None = None) -> None:
+        """Set the position after a restart without sending anything, and what else was saved."""
         self.position = max(0.0, min(100.0, position))
         if last_on:
             self.last_on = last_on
+        if saved is None:
+            return
+        self.command = ObjectCommand.from_dict(saved.get("command"))
+        on = saved.get("external_on_position")
+        self.external_on_position = float(on) if isinstance(on, (int, float)) and 0 < on <= 100 else None
+        behind = saved.get("devices_at")
+        self._devices_at = float(behind) if isinstance(behind, (int, float)) else None
+        self.override = _override_from(saved.get("override"))
+
+    def saved_state(self) -> dict[str, Any]:
+        """Return what has to survive a restart besides the position. Values that are the default stay out."""
+        saved: dict[str, Any] = {}
+        if self.command is not None:
+            saved["command"] = self.command.as_dict()
+        if self.external_on_position is not None:
+            saved["external_on_position"] = self.external_on_position
+        if self._devices_at is not None:
+            saved["devices_at"] = self._devices_at
+        if self.fade is not None and not self.fade.devices:
+            saved["fade_devices"] = False
+        if self.override is not None:
+            kelvin = self.override.get("kelvin")
+            saved["override"] = {"kelvin": kelvin} if kelvin is not None else {"xy": list(self.override["xy"])}
+        return saved
 
     # -- fades -------------------------------------------------------------------
 
-    async def async_fade_to(self, target: float, duration: float) -> None:
-        """Move to a position over a duration. Replaces whatever is running."""
+    async def async_fade_to(
+        self,
+        target: float,
+        duration: float,
+        *,
+        origin: Origin | None = None,
+        kind: str | None = None,
+        devices: bool = True,
+    ) -> None:
+        """Move to a position over a duration. Replaces whatever is running.
+
+        Without an origin the fade continues the current command, as after a restart or a new color.
+        Without devices, thresholds and ramps stay where they are until a command with devices.
+        """
         target = max(0.0, min(100.0, target))
         duration = max(0.0, duration)
+        if origin is not None:
+            self._note(kind or (COMMAND_SWITCH_OFF if target <= 0 else COMMAND_SET), origin)
         start = self.current_position()
         await self._cancel_tasks()
         self.fade = None
@@ -328,12 +457,25 @@ class Engine:
         elif target > 0:
             self.last_on = target
         steps = plan_fade(self.curve, start, target, duration, lit=self._lit(), last=last)
-        device_steps = threshold_steps(self.options.get(CONF_DEVICES, ()), start, target, duration)
+        if devices:
+            device_steps = threshold_steps(
+                self.options.get(CONF_DEVICES, ()),
+                start,
+                target,
+                duration,
+                devices_from=self._devices_at,
+                sent=self._device_sent,
+            )
+            self._devices_at = None
+        else:
+            device_steps = []
+            if self._devices_at is None:
+                self._devices_at = start
         if duration <= 0 and not device_steps and not steps:
             self.position = target
             self._on_change()
             return
-        self.fade = Fade(start, target, duration, time.monotonic(), dt_util.utcnow())
+        self.fade = Fade(start, target, duration, time.monotonic(), dt_util.utcnow(), devices)
         self._task = self.hass.async_create_background_task(
             self._run_fade(self.fade, steps, device_steps), f"cloudless_crescendo fade to {target}"
         )
@@ -373,10 +515,12 @@ class Engine:
             self._task = None
             self._on_change()
 
-    async def async_stop(self) -> None:
-        """Stop a fade and hold the lights where they are."""
+    async def async_stop(self, *, origin: Origin | None = None) -> None:
+        """Stop a fade and hold the lights where they are. Without a fade, nothing changes."""
         if self.fade is None:
             return
+        if origin is not None:
+            self._note(COMMAND_STOP, origin)
         position = self.current_position()
         await self._cancel_tasks()
         self.fade = None
@@ -395,8 +539,8 @@ class Engine:
 
     # -- slider ------------------------------------------------------------------
 
-    def set_position(self, position: float, *, final: bool = False) -> None:
-        """Follow a hand on a slider."""
+    def set_position(self, position: float, *, final: bool = False, origin: Origin | None = None) -> None:
+        """Follow a hand on a slider. One drag is one command."""
         position = max(0.0, min(100.0, position))
         if self._task is not None:
             self._task.cancel()
@@ -405,7 +549,12 @@ class Engine:
             self.position = self.current_position()
             self.fade = None
         if self._slider_start is None:
-            self._slider_start = self.position
+            if origin is not None:
+                self._note(COMMAND_SET, origin)
+            self._slider_command = self.command if origin is not None else None
+            # Thresholds count from where the devices were last left, which a command without them may have kept.
+            self._slider_start = self._devices_at if self._devices_at is not None else self.position
+            self._devices_at = None
             self._claim()
             for eid in self.deviating:
                 self.last_targets[eid] = NOT_FOLLOWING
@@ -466,6 +615,10 @@ class Engine:
             self.last_on = self.position
         else:
             self.override = None
+        # A drag that ends at 0 switched the object off.
+        if self.position <= 0 and self._slider_command is not None and self.command is self._slider_command:
+            self.command = replace(self._slider_command, kind=COMMAND_SWITCH_OFF)
+        self._slider_command = None
         self._on_change()
 
     # -- color and single lights -------------------------------------------------
@@ -485,7 +638,7 @@ class Engine:
     async def _recolor(self, transition: float) -> None:
         fade = self.fade
         if fade is not None:
-            await self.async_fade_to(fade.target, self.remaining or 0.0)
+            await self.async_fade_to(fade.target, self.remaining or 0.0, devices=fade.devices)
             return
         for step in settle(self.curve, self.position, self._lit(), transition, skip=self.deviating):
             self._send_step(step)

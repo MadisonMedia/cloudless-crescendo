@@ -70,10 +70,10 @@ Das Objekt ist ein Licht, also funktioniert `light.turn_on` mit `brightness_pct`
 
 | Aktion | Zweck |
 | --- | --- |
-| `cloudless_crescendo.fade_to` | Über eine beliebige Dauer auf eine Position fahren. |
-| `cloudless_crescendo.stop` | Ein laufendes Dimmen stoppen und die Leuchten lassen, wie sie gerade sind. |
+| `cloudless_crescendo.fade_to` | Über eine beliebige Dauer auf eine Position fahren. Das optionale Feld `source` nennt den Aufrufer in den Attributen des Objekts, und `devices: false` lässt andere Geräte bei diesem Befehl unberührt. |
+| `cloudless_crescendo.stop` | Ein laufendes Dimmen stoppen und die Leuchten lassen, wie sie gerade sind. Nimmt das optionale Feld `source` wie `fade_to`. |
 | `cloudless_crescendo.press_button` | Einen der Standard-Buttons über seinen Namen ausführen. |
-| `cloudless_crescendo.set_on_position` | Die Position festlegen, die beim Einschalten ohne Wert gilt, zum Beispiel nach Tageszeit. |
+| `cloudless_crescendo.set_on_position` | Die Position festlegen, die beim Einschalten ohne Wert gilt, zum Beispiel nach Tageszeit. Sie übersteht einen Neustart. Ohne Position gilt wieder die Einstellung des Objekts. |
 | `cloudless_crescendo.reset_color` | Eine von Hand gewählte Farbe beenden und zu den Farben der Stufen zurückkehren. |
 
 ```yaml
@@ -90,9 +90,28 @@ data:
 
 - Änderst du während des Dimmens eine einzelne Leuchte von Hand, fällt nur diese Leuchte heraus. Beim nächsten Befehl an das Objekt ist sie wieder dabei.
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
-- Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter.
+- Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter, und eine gewählte Farbe bleibt.
 - Eine Farbe, die du in der normalen Lichtsteuerung des Objekts wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Zurück zu den Stufen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Die Karte zeigt dann die Farben, die die Leuchten wirklich haben.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
+
+## Für andere Integrationen
+
+Andere Integrationen, zum Beispiel Cloudless Maestro, erkennen an den Attributen des Objekts, welcher Befehl seinen aktuellen Zustand bestimmt. Die Attribute bleiben bei allen Zuständen eines Befehls gleich, auch beim Fortschritt eines langen Dimmens, und sie überstehen einen Neustart. Diese Zustände behalten auch den Kontext des Befehls.
+
+| Attribut | Inhalt |
+| --- | --- |
+| `command` | `switch_on`, `set`, `switch_off` oder `stop` |
+| `command_source` | Das Feld `source` aus `fade_to` oder `stop`, sonst `null` |
+| `command_user_id` | Der Benutzer in Home Assistant, der den Befehl gegeben hat, sonst `null` |
+| `command_at` | Wann der Befehl kam, in ISO 8601 |
+| `external_on_position` | Die mit `set_on_position` gesetzte Position, sonst `null` |
+| `crescendo_api` | Die Version dieser Attribute und Felder, derzeit `1` |
+
+- Einschalten ohne Wert ist `switch_on`, auch mit einer Farbe. Eine Helligkeit, ein Button, `fade_to` über 0 oder ein Ziehen am Slider einer Karte ist `set`. Ausschalten, ein Ziel von 0 oder ein Ziehen, das bei 0 endet, ist `switch_off`.
+- Eine Farbe allein, einzelne Leuchten, `set_on_position` und geänderte Einstellungen lassen die Attribute, wie sie sind. Eine gewählte Farbe zeigt `color_override`, einzelne Leuchten zeigt `deviating`.
+- Ein Befehl, der nichts ändert, lässt sie ebenfalls stehen: Einschalten eines Objekts, das an ist oder hochdimmt, `stop` ohne laufendes Dimmen und `reset_color` ohne gewählte Farbe.
+- Übernimmt ein anderes Objekt die Leuchten, stoppt das Dimmen dieses Objekts mit `command: stop` und der Herkunft des Befehls, der sie übernommen hat.
+- Mit `devices: false` bleiben Schwellen und mitlaufende Werte, wo sie sind. Der nächste Befehl mit Geräten holt sie nach: Eine Schwelle löst einmal aus, wenn das Ziel auf ihrer anderen Seite liegt, und ein mitlaufender Wert läuft von dem Wert weiter, den er zuletzt bekam.
 
 ## Thread und Matter
 

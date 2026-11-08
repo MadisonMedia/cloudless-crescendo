@@ -106,6 +106,23 @@ ATTR_CURVE_ID: Final = "curve_id"
 ATTR_COLOR_OVERRIDE: Final = "color_override"
 ATTR_DURATION: Final = "duration"
 ATTR_BUTTON: Final = "button"
+ATTR_SOURCE: Final = "source"
+ATTR_DEVICES: Final = "devices"
+ATTR_COMMAND: Final = "command"
+ATTR_COMMAND_SOURCE: Final = "command_source"
+ATTR_COMMAND_USER_ID: Final = "command_user_id"
+ATTR_COMMAND_AT: Final = "command_at"
+ATTR_EXTERNAL_ON_POSITION: Final = "external_on_position"
+ATTR_CRESCENDO_API: Final = "crescendo_api"
+
+CRESCENDO_API: Final = 1
+"""Version of the attributes and fields other integrations rely on. Raise it when they change."""
+
+COMMAND_SWITCH_ON: Final = "switch_on"
+COMMAND_SET: Final = "set"
+COMMAND_SWITCH_OFF: Final = "switch_off"
+COMMAND_STOP: Final = "stop"
+COMMANDS: Final = (COMMAND_SWITCH_ON, COMMAND_SET, COMMAND_SWITCH_OFF, COMMAND_STOP)
 
 SERVICE_FADE_TO: Final = "fade_to"
 SERVICE_STOP: Final = "stop"
