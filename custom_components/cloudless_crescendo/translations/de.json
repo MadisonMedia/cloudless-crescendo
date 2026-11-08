@@ -14,10 +14,18 @@
       "description": "Bewegt das Objekt über eine beliebige Dauer entlang seiner Skala. Jede Leuchte folgt dabei ihrer eigenen Reihenfolge.",
       "fields": {
         "position": { "name": "Position", "description": "Ziel auf der Skala von 0 bis 100. 0 schaltet alles aus." },
-        "duration": { "name": "Dauer", "description": "Wie lange das Dimmen dauert. Hier gibt es keine Obergrenze. Ohne Angabe gilt die Vorgabe des Objekts." }
+        "duration": { "name": "Dauer", "description": "Wie lange das Dimmen dauert. Hier gibt es keine Obergrenze. Ohne Angabe gilt die Vorgabe des Objekts." },
+        "source": { "name": "Quelle", "description": "Freier Text, der den Aufrufer nennt, zum Beispiel cloudless_maestro. Das Objekt zeigt ihn unverändert im Attribut command_source." },
+        "devices": { "name": "Andere Geräte", "description": "Aus lässt Schwellen und mitlaufende Werte wie die Lautstärke bei diesem Befehl unberührt. Der nächste Befehl mit Geräten holt sie nach." }
       }
     },
-    "stop": { "name": "Dimmen stoppen", "description": "Stoppt ein laufendes Dimmen und lässt die Leuchten, wie sie gerade sind." },
+    "stop": {
+      "name": "Dimmen stoppen",
+      "description": "Stoppt ein laufendes Dimmen und lässt die Leuchten, wie sie gerade sind.",
+      "fields": {
+        "source": { "name": "Quelle", "description": "Freier Text, der den Aufrufer nennt, zum Beispiel cloudless_maestro. Das Objekt zeigt ihn unverändert im Attribut command_source." }
+      }
+    },
     "press_button": {
       "name": "Button auslösen",
       "description": "Führt einen der Standard-Buttons des Objekts aus.",

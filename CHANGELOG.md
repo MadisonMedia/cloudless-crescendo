@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.0b3
+
+Restart Home Assistant after updating.
+
+### Added
+
+- Attributes for other integrations that show which command decides the object's state: `command`, `command_source`, `command_user_id` and `command_at`. They stay the same for every state of a command and survive a restart. `crescendo_api` gives the version of this interface, currently 1.
+- `fade_to` and `stop` take an optional `source`, shown unchanged in `command_source`.
+- `fade_to` takes `devices: false` to leave thresholds and following values alone, for example for a short dip before switching off. The next command with devices catches up: a threshold acts once if the target lies on its other side, and a following value moves on from the value it last got.
+- The attribute `external_on_position` shows the position set with `set_on_position`.
+
+### Changed
+
+- The states of a long fade keep the context of the command that started it, so the logbook names the right user.
+- A drag on a card's slider no longer passes its user on to later commands to single lights.
+- `set_on_position` refuses 0, which would have made switching on switch off.
+
+### Fixed
+
+- A restart forgot a switch-on position set with `set_on_position` and a color chosen by hand. Both survive now.
+- Switching on with only a color went close to the switch-on position, and now goes exactly there.
+
 ## 0.1.0b2
 
 Restart Home Assistant after updating, then reload open dashboards.
