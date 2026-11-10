@@ -446,6 +446,30 @@ setTimeout(async () => {
     report("many buttons make the columns grow", many.well.height > 260 && Math.abs(many.slider.bottom - many.last.bottom) < 2, `columns ${many.well.height.toFixed(0)} high, slider ends ${many.slider.bottom.toFixed(0)}, buttons end ${many.last.bottom.toFixed(0)}`);
     const below = (s) => s.slider.top - s.well.bottom;
     report("many buttons leave no gap above the slider", below(many) <= below(few) + 1, `${below(many).toFixed(0)} px under the columns, ${below(few).toFixed(0)} px with few buttons`);
+    // "Bottom" keeps the buttons below the control on a wide card too. Only "matching the design" moves them beside it.
+    const wideBottom = document.createElement("div");
+    wideBottom.style.width = "560px";
+    document.body.append(wideBottom);
+    const below2 = document.createElement("crescendo-card");
+    below2.setConfig({ entity: "light.bad", design: "columns", button_position: "bottom" });
+    wideBottom.append(below2);
+    below2.hass = hass;
+    await wait(80);
+    const regBox = below2.shadowRoot.querySelector(".reg").getBoundingClientRect();
+    const firstButton = below2.shadowRoot.querySelector(".preset").getBoundingClientRect();
+    report("buttons set to bottom stay below on a wide card", firstButton.top >= regBox.bottom, `button top ${firstButton.top.toFixed(0)}, control bottom ${regBox.bottom.toFixed(0)}`);
+    // On the columns design a single light's name opens its own controls, for its color.
+    const named = below2.shadowRoot.querySelector('.bars .bar-name.js-more[data-id="light.boden"]');
+    let opened = null;
+    below2.addEventListener("hass-more-info", (e) => (opened = e.detail.entityId), { once: true });
+    named?.click();
+    report("a column's name opens the light's own controls", opened === "light.boden", opened);
+    report("a combined column's name opens nothing", !!below2.shadowRoot.querySelector(".bars .bar > span") && below2.shadowRoot.querySelectorAll(".bars .bar-name").length < below2.shadowRoot.querySelectorAll(".bars .bar").length);
+    wideBottom.remove();
+    // The color dots only appear where the control does not show the lights' colors itself.
+    const dotsColumns = await newCard({ design: "columns" }, redFloor());
+    const dotsSolid = await newCard({ color: "solid" }, redFloor());
+    report("no color dots where columns or current light colors show them", chipCount(dotsColumns) === 0 && chipCount(dotsSolid) === 0, `${chipCount(dotsColumns)} ${chipCount(dotsSolid)}`);
     // The card's settings.
     editor.addEventListener("config-changed", (e) => editor.setConfig(e.detail.config));
     const ed = (sel) => editor.shadowRoot.querySelector(sel);

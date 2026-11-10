@@ -79,6 +79,17 @@ def on_command(target: Target, transition: float = 0.0, *, color: bool = True) -
     return Command("turn_on", tuple(items))
 
 
+def color_command(target: Target, transition: float = 0.0) -> Command | None:
+    """Build a turn_on that changes only the color and keeps the brightness, or None for a light without color."""
+    items = _color_items(target)
+    if not items:
+        return None
+    transition = round(max(0.0, transition), 1)
+    if transition > 0:
+        items.append(("transition", transition))
+    return Command("turn_on", tuple(items))
+
+
 def minimum_command(color_from: Target | None, transition: float = 0.0) -> Command:
     """Build a turn_on to the lowest level, optionally setting the color."""
     items: list[tuple[str, Any]] = [("brightness", MIN_BRIGHTNESS)]
