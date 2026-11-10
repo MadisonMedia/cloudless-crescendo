@@ -73,9 +73,11 @@ const DEFAULTS = {
   power: "header",
   button_style: "tint_icon",
   color_bar: "both",
+  columns_mode: "dim_settings",
 };
 
-const PICKABLE = ["cct", "rgb", "rgbcct"];
+// Below this, a slider or a column switches off instead of hanging at 1 or 2 %.
+const OFF_SNAP = 3;
 
 const STYLE = `
 :host { display: block; --cr-ink: var(--primary-text-color, #171d2d); --cr-muted: var(--secondary-text-color, #566077);
@@ -113,8 +115,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 [data-sl="slim"] .regline > .power { width: 40px; height: 34px; }
 .resets { display: flex; flex-wrap: wrap; gap: 8px; }
 .resets:not(:has(.reset:not([hidden]))) { display: none; }
-.resets .reset { transition: opacity .3s ease, transform .3s ease; }
-@starting-style { .resets .reset { opacity: 0; transform: translateY(-4px); } }
+.reset-wrap { position: relative; display: inline-grid; flex: none; width: 36px; transition: opacity .25s ease, transform .25s ease, width .25s ease, margin .25s ease; }
+.reset-wrap:not(.show) { opacity: 0; transform: scale(.6); width: 0; margin-left: -12px; pointer-events: none; }
+.reset-float { position: absolute; top: 10px; right: 10px; z-index: 3; }
+.reset-float .reset-wrap:not(.show) { margin-left: 0; }
+.reset-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 6; display: grid; gap: 2px; padding: 6px; border-radius: 12px; background: var(--cr-bg); border: 1px solid var(--cr-line); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.reset-menu button { border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 8px; font-size: 14px; white-space: nowrap; }
+.reset-menu button:hover { background: var(--cr-well); }
+.well.js-pick { cursor: pointer; }
+.well .gear { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: grid; color: var(--cr-ink); opacity: .55; pointer-events: none; }
+.bar-name.plain { text-decoration: none; }
+.lp-ctl { display: grid; gap: 6px; }
+.lp-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--cr-muted); }
+.lp-row b { font-weight: 500; color: var(--cr-ink); font-variant-numeric: tabular-nums; }
+.lp-members { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--cr-line); font-size: 13px; }
+.lp-members > b { font-weight: 600; }
+.lp-member { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; align-items: center; }
+.lp-mname { border: 0; background: none; padding: 0; text-align: left; font-size: 13px; color: var(--cr-ink); text-decoration: underline dotted; text-underline-offset: 2px; }
+.lp-bar.lp-mini { height: 22px; border-radius: 7px; }
 .preset ha-icon { --mdc-icon-size: 22px; display: block; opacity: .9; }
 .preset.tint { border: 0; }
 .preset.tint span { color: inherit; opacity: .8; }
@@ -127,7 +145,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lp-in { display: grid; gap: 14px; padding: 16px; }
 .lp-bar { position: relative; height: 34px; border-radius: 10px; cursor: pointer; touch-action: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cr-ink) 12%, transparent); }
 .lp-bar:focus-visible { outline: 2px solid var(--cr-accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .fill, .resets .reset { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .fill, .reset-wrap { transition: none !important; } }
 .body { display: grid; gap: 14px; min-width: 0; }
 .reg { display: grid; gap: 10px; min-width: 0; }
 [data-pos="top"] .btns { order: -1; }
@@ -292,25 +310,13 @@ const BTNS = `<div class="btns"><div class="presets js-presets"></div></div>`;
 const RESETS = `<div class="resets"><button class="reset js-reset-dim" hidden></button><button class="reset js-reset-color" hidden></button></div>`;
 const ARC = "M59.29 200.71 A100 100 0 1 1 200.71 200.71";
 
-// A button without an icon of its own gets one by its name.
-const AUTO_ICONS = [
-  [/nacht|night|schlaf|sleep/i, "mdi:weather-night"],
-  [/morgen|morning|aufwach|wake/i, "mdi:weather-sunset-up"],
-  [/abend|evening/i, "mdi:weather-sunset-down"],
-  [/hell|bright|voll|full|max/i, "mdi:brightness-7"],
-  [/\btag\b|day/i, "mdi:white-balance-sunny"],
-  [/dunkel|dim|gedimmt/i, "mdi:brightness-4"],
-  [/lesen|read|buch|book/i, "mdi:book-open-variant"],
-  [/dusch|shower/i, "mdi:shower-head"],
-  [/wanne|bath/i, "mdi:bathtub"],
-  [/putz|clean/i, "mdi:spray-bottle"],
-  [/kino|film|movie|tv|fernseh/i, "mdi:television"],
-  [/essen|dinner|food/i, "mdi:silverware-fork-knife"],
-  [/arbeit|work|büro|office/i, "mdi:laptop"],
-  [/party|feier/i, "mdi:party-popper"],
-  [/relax|entspann|chill/i, "mdi:sofa"],
-];
-export const buttonIcon = (b) => b.icon || AUTO_ICONS.find(([re]) => re.test(b.name || ""))?.[1] || "";
+// A button shows an icon only when one was chosen for it.
+const buttonIcon = (b) => b.icon || "";
+const BACK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>`;
+const GEAR_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
+const RESET_ICON = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`;
+// Shown only while something differs from the stops; it opens a small menu instead of taking room on the card.
+const RESET_WRAP = `<span class="reset-wrap"><button class="icon-btn js-resets-open" aria-haspopup="menu">${RESET_ICON}</button><span class="reset-menu js-reset-menu" role="menu" hidden><button class="js-reset-dim" role="menuitem"></button><button class="js-reset-color" role="menuitem"></button></span></span>`;
 
 // {{HEAD}} is the header, {{HEADP}} one without the value (the control shows it), {{REG}} the slider. Each card fills them in.
 const TEMPLATES = {
@@ -318,7 +324,7 @@ const TEMPLATES = {
   fader: `{{HEADP}}<div class="body"><div class="reg"><div class="fader-row"><div class="fader js-vgrad" data-slider="y"><div class="cover"></div><div class="fader-line"></div></div>${BIG}</div></div>${BTNS}</div>`,
   dial: `{{HEADP}}<div class="body"><div class="reg"><div class="dial-wrap"><div class="dial" data-slider="arc"><svg viewBox="0 0 260 260" aria-hidden="true"><path class="dial-base" d="${ARC}"/><g class="js-segs"></g><g class="js-dticks"></g><circle class="dial-knob" cx="59.29" cy="200.71" r="11"/></svg></div><div class="dial-center">${BIG}</div></div></div>${BTNS}</div>`,
   scenes: `{{HEAD}}<div class="body"><div class="reg">{{REG}}</div><div class="btns"><div class="scenes js-scenes"></div></div></div>`,
-  columns: `{{HEAD}}<div class="body"><div class="reg"><div class="bars js-bars"></div>${RESETS}{{REG}}</div>${BTNS}</div>`,
+  columns: `{{HEAD}}<div class="body"><div class="reg"><div class="bars js-bars"></div>{{REG}}</div>${BTNS}</div>`,
   chart: `{{HEAD}}<div class="body"><div class="reg"><div class="js-chart"></div><div class="legend js-legend"></div></div>${BTNS}</div>`,
   picture: `{{HEAD}}<div class="body"><div class="reg"><canvas class="pic js-pic" aria-hidden="true"></canvas>{{REG}}</div>${BTNS}</div>`,
   mixer: `{{HEADP}}<div class="body"><div class="reg"><div class="mix js-mix"></div></div>${BTNS}</div>`,
@@ -370,6 +376,7 @@ class CrescendoCard extends HTMLElement {
     this._config = { ...DEFAULTS, ...config };
     // The side-by-side colors of 0.1.0b2 to 0.1.0b7 became the stripes.
     if (this._config.color === "solid") this._config.color = "stripes";
+    if (config.columns_mode === undefined && config.columns_operable === false) this._config.columns_mode = "off";
     this._built = false;
     if (this._config.photo !== this._photoUrl) this._loadPhoto();
     if (this._hass) this._update(true);
@@ -596,12 +603,10 @@ class CrescendoCard extends HTMLElement {
   _detailBars() {
     const o = this._options;
     if (!o) return "";
-    return units(o, this._hass, this._detailsGroup ?? this._config.group)
+    return units(o, this._hass, this._detailsGroup ?? this._config.group, false)
       .map((u) => {
         const ids = esc(u.ids.join(","));
-        const label = PICKABLE.includes(u.light.mode)
-          ? `<button class="bar-name js-pick" data-ids="${ids}" data-mode="${u.light.mode}">${esc(u.name)}</button>`
-          : `<span>${esc(u.name)}</span>`;
+        const label = `<button class="bar-name js-pick" data-ids="${ids}" data-mode="${u.light.mode}" data-name="${esc(u.name)}">${esc(u.name)}</button>`;
         return `<div class="bar"><b class="js-barv"></b><div class="well" data-slider="bar" data-ids="${ids}" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${ids}"></div></div>${label}</div>`;
       })
       .join("");
@@ -672,9 +677,9 @@ class CrescendoCard extends HTMLElement {
       .replace("{{HEAD}}", this._headHtml(true, powerAt))
       .replace("{{HEADP}}", this._headHtml(false, powerAt))
       .replace("{{REG}}", powerAt === "slider" ? `<div class="regline">${POWER}<div>${REG}</div></div>` : REG);
-    const resetsInside = template.includes('class="resets"');
+    const floating = !template.includes('class="head"');
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="card"><div class="progress js-progress" hidden><i></i></div>
-      <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}"${cfg.dial_wedge ? " data-wedge" : ""}${cfg.show_header_value ? "" : " data-novalue"}>${template}<div class="colorrow js-colorrow" hidden><span class="chips js-chips" role="group" aria-label="${esc(this._t("Active light colors", "Aktive Lichtfarben"))}" hidden></span><div class="colorbar js-colorbar" role="slider" tabindex="0" aria-label="${esc(this._t("Color", "Farbe"))}" aria-valuemin="0" aria-valuemax="100"><u class="js-colorwhite"></u><u class="js-colorhue"></u><i class="colorknob js-colorknob" hidden></i></div></div>${resetsInside ? "" : RESETS}</div>${mode === "off" ? "" : this._detailsHtml()}${this._pickerHtml()}</ha-card>`;
+      <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}"${cfg.dial_wedge ? " data-wedge" : ""}${cfg.show_header_value ? "" : " data-novalue"}>${template}<div class="colorrow js-colorrow" hidden><span class="chips js-chips" role="group" aria-label="${esc(this._t("Active light colors", "Aktive Lichtfarben"))}" hidden></span><div class="colorbar js-colorbar" role="slider" tabindex="0" aria-label="${esc(this._t("Color", "Farbe"))}" aria-valuemin="0" aria-valuemax="100"><u class="js-colorwhite"></u><u class="js-colorhue"></u><i class="colorknob js-colorknob" hidden></i></div></div>${floating ? `<div class="reset-float">${RESET_WRAP}</div>` : ""}</div>${mode === "off" ? "" : this._detailsHtml()}${this._pickerHtml()}</ha-card>`;
     this._built = true;
     this._activeKey = null;
     this._paintKey = null;
@@ -709,7 +714,7 @@ class CrescendoCard extends HTMLElement {
     $$(".js-power", (el) => el.setAttribute("aria-label", this._t("Switch on or off", "Ein- oder ausschalten")));
     root.querySelector(".cc").classList.toggle("readonly", ctl.readonly);
     $$(".js-ticks", (el) => (el.innerHTML = this._ticks()));
-    const us = o ? units(o, this._hass, cfg.group) : [];
+    const us = o ? units(o, this._hass, cfg.group, false) : [];
     this._units = us;
     const list = this._buttons();
     const sub = (b) => {
@@ -737,22 +742,25 @@ class CrescendoCard extends HTMLElement {
           )
           .join("") + '<div class="playhead"></div>';
     });
+    // Columns can dim, open a light's settings, both, or only show.
+    const cmode = cfg.columns_mode;
+    const pickData = (u) => `data-ids="${esc(u.ids.join(","))}" data-mode="${u.light.mode}" data-name="${esc(u.name)}"`;
     const nameOf = (u) =>
-      cfg.columns_operable && PICKABLE.includes(u.light.mode)
-        ? `<button class="bar-name js-pick" data-ids="${esc(u.ids.join(","))}" data-mode="${u.light.mode}">${esc(u.name)}</button>`
+      cmode === "dim_settings" || cmode === "settings"
+        ? `<button class="bar-name${cmode === "settings" ? " plain" : ""} js-pick" ${pickData(u)}>${esc(u.name)}</button>`
         : `<span>${esc(u.name)}</span>`;
+    const wellOf = (u) =>
+      cmode === "settings"
+        ? `<div class="well js-pick" ${pickData(u)} role="button" tabindex="0" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${esc(u.ids.join(","))}"></div><i class="gear">${GEAR_ICON}</i></div>`
+        : `<div class="well" ${cmode === "dim" || cmode === "dim_settings" ? 'data-slider="bar"' : ""} data-ids="${esc(u.ids.join(","))}" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${esc(u.ids.join(","))}"></div></div>`;
     $$(".js-bars", (el) => {
       el.innerHTML = o
-        ? us
-            .map(
-              (u) =>
-                `<div class="bar"><div class="well" ${cfg.columns_operable ? 'data-slider="bar"' : ""} data-ids="${esc(u.ids.join(","))}" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${esc(u.ids.join(","))}"></div></div>${nameOf(u)}</div>`,
-            )
-            .join("")
+        ? us.map((u) => `<div class="bar">${wellOf(u)}${nameOf(u)}</div>`).join("")
         : `<div class="bar"><div class="well"><div class="fill js-self"></div></div><span>${esc(name)}</span></div>`;
     });
     $$(".js-reset-dim", (el) => (el.textContent = this._t("Reset dimming", "Dimming zurücksetzen")));
     $$(".js-reset-color", (el) => (el.textContent = this._t("Reset colors", "Farben zurücksetzen")));
+    $$(".js-resets-open", (el) => el.setAttribute("aria-label", this._t("Reset", "Zurücksetzen")));
     $$(".js-segs", (el) => (el.innerHTML = this._arcSegments()));
     $$(".js-dticks", (el) => (el.innerHTML = this._arcTicks()));
     $$(".js-chart", (el) => (el.innerHTML = this._chart(us)));
@@ -783,7 +791,7 @@ class CrescendoCard extends HTMLElement {
     const value = withValue && cfg.show_header_value;
     const power = powerAt === "header";
     if (!cfg.show_title && !value && !power && !details) return "";
-    return `<div class="head">${cfg.show_title ? TITLE : '<div class="head-space"></div>'}${value ? VALUE : ""}${details ? OPEN_DETAILS : ""}${power ? POWER : ""}</div>`;
+    return `<div class="head">${cfg.show_title ? TITLE : '<div class="head-space"></div>'}${value ? VALUE : ""}${RESET_WRAP}${details ? OPEN_DETAILS : ""}${power ? POWER : ""}</div>`;
   }
 
   // A button can show its light: tinted with it (color and brightness), with an icon, or with a small preview per light.
@@ -792,16 +800,8 @@ class CrescendoCard extends HTMLElement {
     const style = this._config.button_style || "tint_icon";
     const icon = style === "tint_icon" || style === "icon_preview" ? buttonIcon(b) : "";
     let cls = scene ? "preset scene" : "preset";
-    let attr = "";
-    if (style === "tint" || style === "tint_icon") {
-      const l = o ? roomLight(o, b.position, override) : { c: [108, 140, 240], a: 0.2 + (0.8 * b.position) / 100 };
-      const a = 0.14 + 0.86 * l.a;
-      // The text color follows how bright the button really looks: its light over the card's ground.
-      const looks = 0.8 * a * lumOf(lightColor(l.c)) + (1 - 0.8 * a) * (dark ? 0.12 : 0.96);
-      const fg = looks > 0.55 ? "#171d2d" : dark ? "var(--cr-ink)" : "#ffffff";
-      cls += " tint";
-      attr = ` style="background:linear-gradient(135deg, ${lightA(l.c, a * 0.55)}, ${lightA(l.c, a)});color:${fg}"`;
-    }
+    const attr = "";
+    if (style === "tint" || style === "tint_icon") cls += " tint";
     const preview =
       (style === "preview" || style === "icon_preview") && o
         ? `<span class="pv" aria-hidden="true">${us
@@ -818,60 +818,133 @@ class CrescendoCard extends HTMLElement {
 
   _pickerHtml() {
     const t = this._t;
-    return `<dialog class="lightpick js-lightpick" aria-label="${esc(t("Light color", "Lichtfarbe"))}"><div class="lp-in">
-      <div class="details-head"><div><h3 class="name js-lp-name"></h3><p class="status js-lp-mode"></p></div><button class="icon-btn js-lp-close" aria-label="${esc(t("Close", "Schließen"))}">${CLOSE_ICON}</button></div>
-      <div class="lp-bar js-pickbar" data-kind="white" role="slider" tabindex="0" aria-label="${esc(t("White tone", "Weißton"))}"><i class="colorknob js-lp-knob" hidden></i></div>
-      <div class="lp-bar js-pickbar" data-kind="hue" role="slider" tabindex="0" aria-label="${esc(t("Color", "Farbe"))}"><i class="colorknob js-lp-knob" hidden></i></div>
+    const control = (kind, label) =>
+      `<div class="lp-ctl" data-ctl="${kind}"><div class="lp-row"><span>${esc(label)}</span><b class="js-lp-val"></b></div><div class="lp-bar js-pickbar" data-kind="${kind}" role="slider" tabindex="0" aria-label="${esc(label)}"><i class="colorknob js-lp-knob" hidden></i></div></div>`;
+    return `<dialog class="lightpick js-lightpick" aria-label="${esc(t("Light settings", "Leuchte einstellen"))}"><div class="lp-in">
+      <div class="details-head"><button class="icon-btn js-lp-back" hidden aria-label="${esc(t("Back", "Zurück"))}">${BACK_ICON}</button><div><h3 class="name js-lp-name"></h3><p class="status js-lp-mode"></p></div><button class="icon-btn js-lp-close" aria-label="${esc(t("Close", "Schließen"))}">${CLOSE_ICON}</button></div>
+      ${control("bri", t("Brightness", "Helligkeit"))}
+      <button class="reset js-lp-onoff" hidden></button>
+      ${control("white", t("White tone", "Weißton"))}
+      ${control("hue", t("Color", "Farbe"))}
+      ${control("sat", t("Saturation", "Sättigung"))}
+      <div class="lp-members js-lp-members" hidden></div>
+      <button class="reset js-lp-reset" hidden>${esc(t("Reset this light", "Diese Leuchte zurücksetzen"))}</button>
     </div></dialog>`;
   }
 
-  // Offers only what the light can show by its mode in the setup: white tones, colors, or both.
-  _openPicker(btn) {
+  // A light's settings: its brightness, and white tones, colors and saturation as far as its mode allows.
+  // A combined column also lists its lights, each with its own brightness and its own settings.
+  _openPicker(ids, mode, name, back = null) {
     const dialog = this.shadowRoot.querySelector(".js-lightpick");
     if (!dialog) return;
     const t = this._t;
-    const ids = btn.dataset.ids.split(",");
-    const mode = btn.dataset.mode;
     const state = this._hass.states[ids[0]];
     const a = state?.attributes || {};
+    const on = state?.state === "on";
     const range = [a.min_color_temp_kelvin || 2000, a.max_color_temp_kelvin || 6500];
-    this._pick = { ids, range };
-    dialog.querySelector(".js-lp-name").textContent = btn.textContent;
-    dialog.querySelector(".js-lp-mode").textContent =
-      { cct: t("White tones", "Weißtöne"), rgb: t("Colors", "Farben"), rgbcct: t("Colors and white tones", "Farben und Weißtöne") }[mode] || "";
-    const [white, hue] = dialog.querySelectorAll(".js-pickbar");
-    white.hidden = mode === "rgb";
-    hue.hidden = mode === "cct";
+    const rgb = on && a.color_mode !== "color_temp" && a.rgb_color ? a.rgb_color : null;
+    const top = rgb ? Math.max(...rgb) : 0;
+    this._pick = { ids, mode, name, range, back, hue: rgb ? rgbHue(rgb) : 0, sat: rgb && top ? (top - Math.min(...rgb)) / top : 1 };
+    dialog.querySelector(".js-lp-name").textContent = name;
+    const label =
+      { onoff: t("On and off", "Ein und aus"), dim: t("Dimmable", "Dimmbar"), cct: t("White tones", "Weißtöne"), rgb: t("Colors", "Farben"), rgbcct: t("Colors and white tones", "Farben und Weißtöne") }[mode] || "";
+    dialog.querySelector(".js-lp-mode").textContent = ids.length > 1 ? `${label} · ${t(`${ids.length} lights`, `${ids.length} Leuchten`)}` : label;
+    dialog.querySelector(".js-lp-back").hidden = !back;
+    const show = (kind, yes) => (dialog.querySelector(`[data-ctl="${kind}"]`).hidden = !yes);
+    show("bri", mode !== "onoff");
+    show("white", mode === "cct" || mode === "rgbcct");
+    show("hue", mode === "rgb" || mode === "rgbcct");
+    show("sat", mode === "rgb" || mode === "rgbcct");
+    const onoff = dialog.querySelector(".js-lp-onoff");
+    onoff.hidden = mode !== "onoff";
+    onoff.textContent = on ? t("Switch off", "Ausschalten") : t("Switch on", "Einschalten");
     const stops = (n, f) => Array.from({ length: n + 1 }, (_, i) => `rgb(${css(f(i / n))}) ${((i / n) * 100).toFixed(1)}%`).join(",");
-    white.style.backgroundImage = `linear-gradient(90deg,${stops(6, (x) => kRgb(range[0] + (range[1] - range[0]) * x))})`;
-    hue.style.backgroundImage = `linear-gradient(90deg,${stops(12, (x) => hueRgb((x * 360) % 360))})`;
-    const [wk, hk] = [white.querySelector(".js-lp-knob"), hue.querySelector(".js-lp-knob")];
-    wk.hidden = hk.hidden = true;
-    if (state?.state === "on" && a.color_mode === "color_temp" && a.color_temp_kelvin) {
-      wk.hidden = false;
-      wk.style.left = `${clamp((a.color_temp_kelvin - range[0]) / (range[1] - range[0] || 1), 0, 1) * 100}%`;
-    } else if (state?.state === "on" && a.rgb_color) {
-      hk.hidden = false;
-      hk.style.left = `${(rgbHue(a.rgb_color) / 360) * 100}%`;
-    }
+    const bar = (kind) => dialog.querySelector(`[data-ctl="${kind}"] .js-pickbar`);
+    const shine = rgb || (a.color_temp_kelvin ? kRgb(a.color_temp_kelvin) : kRgb(2900));
+    bar("bri").style.backgroundImage = `linear-gradient(90deg, var(--cr-well), ${lightA(shine, 1)})`;
+    bar("white").style.backgroundImage = `linear-gradient(90deg,${stops(6, (x) => kRgb(range[0] + (range[1] - range[0]) * x))})`;
+    bar("hue").style.backgroundImage = `linear-gradient(90deg,${stops(12, (x) => hueRgb((x * 360) % 360))})`;
+    this._paintSaturation();
+    const place = (kind, x) => {
+      const knob = bar(kind).querySelector(".js-lp-knob");
+      knob.hidden = x === null;
+      if (x !== null) knob.style.left = `${clamp(x, 0, 1) * 100}%`;
+    };
+    const level = on ? (a.brightness ?? 255) / 255 : 0;
+    place("bri", level);
+    this._pickValue("bri", `${Math.round(level * 100)} %`);
+    place("white", on && a.color_mode === "color_temp" && a.color_temp_kelvin ? (a.color_temp_kelvin - range[0]) / (range[1] - range[0] || 1) : null);
+    place("hue", rgb ? this._pick.hue / 360 : null);
+    place("sat", rgb ? this._pick.sat : null);
+    const members = dialog.querySelector(".js-lp-members");
+    members.hidden = ids.length < 2;
+    members.innerHTML =
+      ids.length < 2
+        ? ""
+        : `<b>${esc(t("Each light", "Einzeln"))}</b>` +
+          ids
+            .map((id) => {
+              const s = this._hass.states[id];
+              const v = s?.state === "on" ? (s.attributes.brightness ?? 255) / 255 : 0;
+              const n = friendly(this._hass, id);
+              return `<div class="lp-member"><button class="lp-mname js-lp-member" data-id="${esc(id)}">${esc(n)}</button><div class="lp-bar lp-mini js-pickbar" data-kind="bri" data-id="${esc(id)}" role="slider" tabindex="0" aria-label="${esc(n)}" style="background-image:linear-gradient(90deg, var(--cr-well), ${lightA(shine, 1)})"><i class="colorknob js-lp-knob" style="left:${(v * 100).toFixed(0)}%"></i></div></div>`;
+            })
+            .join("");
+    const deviating = this._ctl.state?.attributes?.deviating || [];
+    dialog.querySelector(".js-lp-reset").hidden = !ids.some((id) => deviating.includes(id));
     if (!dialog.open) dialog.showModal();
+  }
+
+  _paintSaturation() {
+    const bar = this.shadowRoot.querySelector('.js-lightpick [data-ctl="sat"] .js-pickbar');
+    if (bar && this._pick) bar.style.backgroundImage = `linear-gradient(90deg, #ffffff, rgb(${css(hueRgb(this._pick.hue % 360))}))`;
+  }
+
+  _pickValue(kind, text) {
+    const el = this.shadowRoot.querySelector(`.js-lightpick [data-ctl="${kind}"] .js-lp-val`);
+    if (el) el.textContent = text;
   }
 
   // Follows the finger like the slider: sent a few times a second, and once more on release.
   _pickAt(bar, e, final) {
     const r = bar.getBoundingClientRect();
-    const place = clamp((e.clientX - r.left) / (r.width || 1), 0, 1);
-    this.shadowRoot.querySelectorAll(".js-lp-knob").forEach((k) => (k.hidden = true));
+    const kind = bar.dataset.kind;
+    let place = clamp((e.clientX - r.left) / (r.width || 1), 0, 1);
+    if (kind === "bri" && place * 100 < OFF_SNAP) place = 0;
     const knob = bar.querySelector(".js-lp-knob");
     knob.hidden = false;
     knob.style.left = `${place * 100}%`;
+    const pick = this._pick;
+    const dialog = bar.closest("dialog");
+    const knobOf = (k) => dialog.querySelector(`[data-ctl="${k}"] .js-lp-knob`);
+    // A light shows a white tone or a color, so choosing one hides the other's mark.
+    if (kind === "white") ["hue", "sat"].forEach((k) => (knobOf(k).hidden = true));
+    if (kind === "hue" || kind === "sat") knobOf("white").hidden = true;
+    if (kind === "hue") {
+      pick.hue = (place * 360) % 360;
+      this._paintSaturation();
+      knobOf("sat").hidden = false;
+      knobOf("sat").style.left = `${pick.sat * 100}%`;
+    }
+    if (kind === "sat") {
+      pick.sat = place;
+      knobOf("hue").hidden = false;
+      knobOf("hue").style.left = `${(pick.hue / 360) * 100}%`;
+    }
+    if (kind === "bri" && !bar.dataset.id) this._pickValue("bri", `${Math.round(place * 100)} %`);
     const now = performance.now();
     if (!final && now - (this._pickSent || 0) < this._interval()) return;
     this._pickSent = now;
-    const pick = this._pick;
-    const msg = { type: "cloudless_crescendo/lights/color", entity_id: this._ctl.entityId, lights: pick.ids };
-    if (bar.dataset.kind === "white") msg.kelvin = Math.round(pick.range[0] + (pick.range[1] - pick.range[0]) * place);
-    else msg.xy = rgbToXy(hueRgb((place * 360) % 360)).map((v) => Math.round(v * 10000) / 10000);
+    const lights = bar.dataset.id ? [bar.dataset.id] : pick.ids;
+    if (kind === "bri") {
+      this._hass
+        .callWS({ type: "cloudless_crescendo/lights/set", entity_id: this._ctl.entityId, lights, brightness: Math.round(place * 100) })
+        .catch(() => {});
+      return;
+    }
+    const msg = { type: "cloudless_crescendo/lights/color", entity_id: this._ctl.entityId, lights };
+    if (kind === "white") msg.kelvin = Math.round(pick.range[0] + (pick.range[1] - pick.range[0]) * place);
+    else msg.xy = rgbToXy(hueRgb(pick.hue % 360).map((v) => v + (255 - v) * (1 - pick.sat))).map((v) => Math.round(v * 10000) / 10000);
     this._hass.callWS(msg).catch(() => {});
   }
 
@@ -880,7 +953,7 @@ class CrescendoCard extends HTMLElement {
   // Repaints only when what it shows changed: the color mode, a chosen color, the theme or the curve.
   _paintControl() {
     const cfg = this._config;
-    const key = JSON.stringify([cfg.color, cfg.custom_color, this._override(), this._dark, this._curveId, this._units?.length]);
+    const key = JSON.stringify([cfg.color, cfg.custom_color, cfg.button_style, this._override(), this._dark, this._curveId, this._units?.length]);
     if (key === this._paintKey) return;
     this._paintKey = key;
     const set = (el, layers) => {
@@ -890,10 +963,41 @@ class CrescendoCard extends HTMLElement {
       el.style.backgroundRepeat = layers.size ? "no-repeat" : "";
     };
     const across = this._controlLayers(false),
-      up = this._controlLayers(true);
-    this.shadowRoot.querySelectorAll(".js-grad").forEach((el) => set(el, across));
+      up = this._controlLayers(true),
+      slim = { image: this._gradient("90deg") };
+    this.shadowRoot.querySelectorAll(".js-grad").forEach((el) => set(el, el.classList.contains("slim-track") ? slim : across));
     this.shadowRoot.querySelectorAll(".js-vgrad").forEach((el) => set(el, up));
     this.shadowRoot.querySelectorAll(".dial-seg").forEach((el) => (el.style.stroke = this._segColor(+el.dataset.p, el.dataset.u)));
+    this._tintButtons();
+  }
+
+  // A tinted button shows every light color it switches on, side by side, as bright as the room gets there.
+  _tintButtons() {
+    const o = this._options;
+    const override = this._override();
+    const dark = this._dark;
+    this.shadowRoot.querySelectorAll(".preset.tint[data-pos]").forEach((el) => {
+      const pos = +el.dataset.pos;
+      const room = o ? roomLight(o, pos, override) : { c: [108, 140, 240], a: 0.2 + (0.8 * pos) / 100 };
+      const a = 0.14 + 0.86 * room.a;
+      const lit = o ? (this._units || []).map((u) => lampAt(o, u.light, pos, override)).filter((l) => l.v > 0.3) : [];
+      const colors = lit.length ? lit.map((l) => l.c) : [room.c];
+      const total = lit.reduce((sum, l) => sum + Math.sqrt(l.v), 0);
+      let at = 0;
+      const stops =
+        colors.length > 1
+          ? lit.map((l) => {
+              const from = at;
+              at += (Math.sqrt(l.v) / total) * 100;
+              return `${lightA(l.c, a)} ${((from + at) / 2).toFixed(0)}%`;
+            })
+          : [lightA(colors[0], a * 0.55), lightA(colors[0], a)];
+      // The text color follows how bright the button really looks: its light over the card's ground.
+      const lum = colors.reduce((sum, c) => sum + lumOf(lightColor(c)), 0) / colors.length;
+      const looks = 0.8 * a * lum + (1 - 0.8 * a) * (dark ? 0.12 : 0.96);
+      el.style.background = `linear-gradient(135deg, ${stops.join(", ")})`;
+      el.style.color = looks > 0.55 ? "#171d2d" : dark ? "var(--cr-ink)" : "#ffffff";
+    });
   }
 
   _controlLayers(vertical) {
@@ -1069,8 +1173,9 @@ class CrescendoCard extends HTMLElement {
     host.style.setProperty("--p", `${p}%`);
     host.style.setProperty("--pn", p / 100);
     const shown = formatValue(ctl, p, lang);
-    // The lit button already says where the object stands, so the value stays a number.
-    const named = null;
+    // At a button's position the value shows the button's name.
+    const named =
+      cfg.button_names && !this._fade ? this._buttons().find((b) => Math.abs(b.position - p) < 0.5) : null;
     $$(".js-pos", (el) => (el.textContent = named && !el.closest(".ch") ? named.name : shown));
     $$(".head .js-unit, .big .js-unit", (el) => (el.hidden = !!named));
     $$(".head .value, .big", (el) => el.classList.toggle("named", !!named));
@@ -1172,6 +1277,9 @@ class CrescendoCard extends HTMLElement {
     const apartColor = ctl.state.attributes.deviating_color ?? [];
     $$(".js-reset-dim", (el) => (el.hidden = !apartDim.length));
     $$(".js-reset-color", (el) => (el.hidden = !ctl.state.attributes.color_override && !apartColor.length));
+    const differs = apartDim.length > 0 || apartColor.length > 0 || !!ctl.state.attributes.color_override;
+    $$(".reset-wrap", (el) => el.classList.toggle("show", differs));
+    if (!differs) $$(".js-reset-menu", (el) => (el.hidden = true));
     const attrs = ctl.state?.attributes || {};
     const picks = cfg.color_control && (this._hasColor() || this._hasWhite());
     const back = !!attrs.color_override;
@@ -1522,7 +1630,7 @@ class CrescendoCard extends HTMLElement {
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) d.moved = true;
     if (!d.moved) return;
     const now = performance.now();
-    let p = this._posFrom(d.el, e);
+    let p = this._offSnap(this._posFrom(d.el, e));
     if (d.kind === "main") {
       p = this._snap(p);
       if (this._config.snap && this._snapPoints().some((s) => (d.last < s && p >= s) || (d.last > s && p <= s))) this._tick();
@@ -1538,6 +1646,10 @@ class CrescendoCard extends HTMLElement {
       else sendValue(this._hass, controllerFor(this._hass, d.chan), p);
     }
     this._kick();
+  }
+
+  _offSnap(p) {
+    return p < OFF_SNAP ? 0 : p;
   }
 
   _sendLights(ids, brightness) {
@@ -1565,7 +1677,7 @@ class CrescendoCard extends HTMLElement {
     this._drag = null;
     this._dragEnded = performance.now();
     if (d.kind === "bar") {
-      const p = this._posFrom(d.el, e);
+      const p = this._offSnap(this._posFrom(d.el, e));
       this._barHolds[d.ids[0]] = { pos: p, until: performance.now() + 2500 };
       this._sendLights(d.ids, p);
     } else if (d.kind === "chan") {
@@ -1580,7 +1692,7 @@ class CrescendoCard extends HTMLElement {
       this._hold = { pos: d.pos, until: performance.now() + 2500 };
       this._sendMain(d.pos, true);
     } else {
-      this._go(this._posFrom(d.el, e), this._config.tap_duration);
+      this._go(this._offSnap(this._posFrom(d.el, e)), this._config.tap_duration);
     }
     this._kick();
   }
@@ -1623,9 +1735,39 @@ class CrescendoCard extends HTMLElement {
     }
     const pick = e.target.closest?.(".js-pick");
     if (pick) {
-      this._openPicker(pick);
+      this._openPicker(pick.dataset.ids.split(","), pick.dataset.mode, pick.dataset.name || pick.textContent, null);
       return;
     }
+    if (picker?.open) {
+      const p = this._pick;
+      if (e.target.closest?.(".js-lp-back") && p?.back) {
+        this._openPicker(p.back.ids, p.back.mode, p.back.name, null);
+        return;
+      }
+      const member = e.target.closest?.(".js-lp-member");
+      if (member) {
+        this._openPicker([member.dataset.id], p.mode, member.textContent, { ids: p.ids, mode: p.mode, name: p.name });
+        return;
+      }
+      if (e.target.closest?.(".js-lp-onoff")) {
+        const on = this._hass.states[p.ids[0]]?.state === "on";
+        this._sendLights(p.ids, on ? 0 : 100);
+        e.target.closest(".js-lp-onoff").textContent = on ? this._t("Switch on", "Einschalten") : this._t("Switch off", "Ausschalten");
+        return;
+      }
+      if (e.target.closest?.(".js-lp-reset")) {
+        this._hass.callWS({ type: "cloudless_crescendo/lights/reset", entity_id: this._ctl.entityId, what: "all", lights: p.ids }).catch(() => {});
+        e.target.closest(".js-lp-reset").hidden = true;
+        return;
+      }
+    }
+    // The reset menu opens from its icon and closes with any other tap.
+    const menu = this.shadowRoot.querySelector(".js-reset-menu");
+    if (e.target.closest?.(".js-resets-open")) {
+      menu.hidden = !menu.hidden;
+      return;
+    }
+    if (menu && !menu.hidden && !e.target.closest?.(".js-reset-menu")) menu.hidden = true;
     const dialog = this.shadowRoot.querySelector(".js-details");
     if (e.target.closest?.(".js-details-open")) {
       this._openDetails();
@@ -1649,11 +1791,12 @@ class CrescendoCard extends HTMLElement {
       this._kick();
       return;
     }
-    const preset = e.target.closest?.(".preset");
+    const preset = e.target.closest?.(".preset:not(.js-power)");
     if (preset) {
       this._go(+preset.dataset.pos, +preset.dataset.dur);
       return;
     }
+    if (e.target.closest?.(".js-reset-menu")) this.shadowRoot.querySelector(".js-reset-menu").hidden = true;
     if (e.target.closest?.(".js-reset-dim")) {
       this._barHolds = {};
       this._hass.callWS({ type: "cloudless_crescendo/lights/reset", entity_id: this._ctl.entityId, what: "brightness" }).catch(() => {});
@@ -1876,8 +2019,8 @@ class CrescendoCardEditor extends HTMLElement {
       `<select id="${id}">${pairs.map(([v, label, off]) => `<option value="${v}"${v === value ? " selected" : ""}${off ? " disabled" : ""}>${esc(label)}</option>`).join("")}</select>`;
     const iconField = (b, i) =>
       customElements.get("ha-icon-picker")
-        ? `<ha-icon-picker class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" placeholder="${esc(buttonIcon({ name: b.name }) || "mdi:lightbulb")}" label="${esc(t("Icon", "Symbol"))}"></ha-icon-picker>`
-        : `<input type="text" class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" placeholder="${esc(buttonIcon({ name: b.name }) || "mdi:lightbulb")}" aria-label="${esc(t("Icon", "Symbol"))}">`;
+        ? `<ha-icon-picker class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" label="${esc(t("Icon (optional)", "Symbol (optional)"))}"></ha-icon-picker>`
+        : `<input type="text" class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" placeholder="${esc(t("Icon, for example mdi:weather-night", "Symbol, zum Beispiel mdi:weather-night"))}" aria-label="${esc(t("Icon", "Symbol"))}">`;
     const check = (id, on, label) => `<label class="check"><input type="checkbox" id="${id}"${on ? " checked" : ""}> ${esc(label)}</label>`;
     const rows = this._list()
       .map(
@@ -1970,6 +2113,7 @@ class CrescendoCardEditor extends HTMLElement {
         t("Header", "Kopfzeile"),
         `${check("show_title", cfg.show_title, t("Show the name and status", "Name und Status zeigen"))}
       ${check("show_header_value", cfg.show_header_value, t("Show the value, for example 40 %", "Wert zeigen, zum Beispiel 40 %"))}
+      ${cfg.show_header_value ? check("button_names", cfg.button_names, t("At a button's position show its name instead of the value", "An der Position eines Buttons seinen Namen statt des Werts zeigen")) : ""}
       ${
         ctl.readonly
           ? ""
@@ -1984,24 +2128,25 @@ class CrescendoCardEditor extends HTMLElement {
       )}
       ${group(
         t("Control", "Regler"),
-        `<div class="ctl"><label for="color">${esc(t("What the control shows", "Was der Regler zeigt"))}</label>
-        ${select("color", cfg.color, [
-          ["stripes", t("Each light as a stripe", "Jede Leuchte als Streifen")],
-          ["light", t("Room light as a gradient", "Raumlicht als Verlauf")],
-          ["accent", t("Dashboard color", "Farbe des Dashboards")],
-          ["custom", t("Own color", "Eigene Farbe")],
-        ])}
-        ${colorHint ? `<p class="hint">${esc(colorHint)}</p>` : ""}
-        ${cfg.color === "custom" ? `<input type="color" id="custom_color" value="${esc(cfg.custom_color)}" aria-label="${esc(t("Own color", "Eigene Farbe"))}">` : ""}</div>
-      ${
-        hasSlider
-          ? `<div class="ctl"><label for="slider">${esc(t("Horizontal slider", "Waagerechter Regler"))}</label>${select("slider", cfg.slider, [
-              ["wide", t("Wide", "Breit")],
-              ["slim", t("Slim", "Schmal")],
-              ["none", t("Off", "Aus")],
-            ])}</div>`
-          : ""
-      }
+        `${
+          hasSlider
+            ? `<div class="ctl"><label for="control">${esc(t("Slider", "Regler"))}</label>${select("control", cfg.slider === "none" ? "none" : cfg.slider === "slim" ? "slim" : `wide:${cfg.color}`, [
+                ["wide:stripes", t("Wide, each light as a stripe", "Breit, jede Leuchte als Streifen")],
+                ["wide:light", t("Wide, room light as a gradient", "Breit, Raumlicht als Verlauf")],
+                ["wide:accent", t("Wide, dashboard color", "Breit, Farbe des Dashboards")],
+                ["wide:custom", t("Wide, own color", "Breit, eigene Farbe")],
+                ["slim", t("Slim", "Schmal")],
+                ["none", t("Off", "Aus")],
+              ])}`
+            : `<div class="ctl"><label for="color">${esc(t("What the control shows", "Was der Regler zeigt"))}</label>${select("color", cfg.color, [
+                ["stripes", t("Each light as a stripe", "Jede Leuchte als Streifen")],
+                ["light", t("Room light as a gradient", "Raumlicht als Verlauf")],
+                ["accent", t("Dashboard color", "Farbe des Dashboards")],
+                ["custom", t("Own color", "Eigene Farbe")],
+              ])}`
+        }
+        ${colorHint && (!hasSlider || cfg.slider === "wide") ? `<p class="hint">${esc(colorHint)}</p>` : ""}
+        ${cfg.color === "custom" && (!hasSlider || cfg.slider === "wide") ? `<input type="color" id="custom_color" value="${esc(cfg.custom_color)}" aria-label="${esc(t("Own color", "Eigene Farbe"))}">` : ""}</div>
       ${design === "dial" ? check("dial_wedge", cfg.dial_wedge, t("Dial as a wedge: wider where the room gets brighter", "Drehregler als Keil: breiter, wo der Raum heller wird")) : ""}
       ${check("snap", cfg.snap, t("Snap to stops, with a short pulse on phones", "An Stufen einrasten, mit kurzem Impuls am Handy"))}`,
       )}
@@ -2013,7 +2158,7 @@ class CrescendoCardEditor extends HTMLElement {
           ? `<div class="ctl stack">
         <span class="lab">${esc(cfg.buttons ? t("Adjusted for this card", "Für diese Karte angepasst") : t("Template: standard buttons", "Vorlage: Standard-Buttons"))}</span>
         ${rows}
-        <div><button id="add-button">${esc(t("Button only for this card", "Button nur für diese Karte"))}</button> ${cfg.buttons ? `<button id="reset-buttons">${esc(t("Reset", "Zurücksetzen"))}</button>` : ""}</div></div>
+        <div><button id="add-button">${esc(t("Add your own button", "Eigenen Button hinzufügen"))}</button> ${cfg.buttons ? `<button id="reset-buttons">${esc(t("Reset", "Zurücksetzen"))}</button>` : ""}</div></div>
       <div class="ctl"><label for="button_style">${esc(t("Look", "Aussehen"))}</label>${select("button_style", cfg.button_style, [
         ["tint_icon", t("In their light, with an icon", "In ihrer Lichtfarbe, mit Symbol")],
         ["tint", t("In their light", "In ihrer Lichtfarbe")],
@@ -2030,31 +2175,30 @@ class CrescendoCardEditor extends HTMLElement {
           ["left", t("Left", "Links")],
           ["right", t("Right", "Rechts")],
         ])}</div>
-      ${check("show_value", cfg.show_value, t("Show the value on buttons", "Wert auf den Buttons zeigen"))}
-      ${check("show_duration", cfg.show_duration, t("Show the duration on buttons", "Dauer auf den Buttons zeigen"))}`
+      ${check("show_value", cfg.show_value, t("Show the value on buttons", "Wert auf den Buttons zeigen"))}`
           : ""
       }`,
       )}
       ${group(
         t("Colors", "Farben"),
-        `${kinds.white || kinds.color ? check("color_control", cfg.color_control, t("Show a color selection on the card", "Farbauswahl auf der Karte zeigen")) : ""}
-      ${
-        cfg.color_control && (kinds.white || kinds.color)
-          ? `<div class="ctl"><label for="color_bar">${esc(t("Offer", "Anbieten"))}</label>${select("color_bar", bar, [
-              ["both", t("White tones and colors", "Weißtöne und Farben"), !(kinds.white && kinds.color)],
-              ["white", t("White tones only", "Nur Weißtöne"), !kinds.white],
-              ["color", t("Colors only", "Nur Farben"), !kinds.color],
-            ])}
+        `${
+          kinds.white || kinds.color
+            ? `<div class="ctl"><label for="color_choice">${esc(t("Color selection on the card", "Farbauswahl auf der Karte"))}</label>${select("color_choice", cfg.color_control ? bar : "off", [
+                ["off", t("Off", "Aus")],
+                ["both", t("White tones and colors", "Weißtöne und Farben"), !(kinds.white && kinds.color)],
+                ["white", t("White tones only", "Nur Weißtöne"), !kinds.white],
+                ["color", t("Colors only", "Nur Farben"), !kinds.color],
+              ])}
         <p class="hint">${esc(canShow)} ${esc(
-          ctl.crescendo
+          ctl.crescendo && cfg.color_control
             ? t(
                 "The selection colors every light of the object that can show it, also lights dimmed by hand. Lights with a color of their own keep it. A single light gets its color through its name under the columns or in the window of single lights.",
                 "Die Auswahl färbt alle Leuchten des Objekts, die das können, auch von Hand gedimmte. Leuchten mit eigener Farbe behalten sie. Eine einzelne Leuchte färbst du über ihren Namen unter den Säulen oder im Fenster der einzelnen Leuchten.",
               )
             : "",
         )}</p></div>`
-          : ""
-      }
+            : ""
+        }
       ${check("glow", cfg.glow, t("Light glow around the card", "Lichtschein um die Karte"))}
       <p class="hint">${esc(t("A glow around the card in the current light color, stronger the brighter the room is.", "Ein Schein um die Karte in der aktuellen Lichtfarbe, umso stärker, je heller der Raum ist."))}</p>
       ${showsDots ? check("colors_always", cfg.colors_always, t("Always show the active light colors as dots, not only when something differs from the stops", "Aktive Lichtfarben immer als Punkte zeigen, nicht nur wenn etwas von den Stufen abweicht")) : ""}`,
@@ -2073,7 +2217,16 @@ class CrescendoCardEditor extends HTMLElement {
         <p class="hint">${esc(t("Opens a window with a column for each light, to set single lights apart from the object.", "Öffnet ein Fenster mit einer Säule je Leuchte, um einzelne Leuchten abweichend vom Objekt einzustellen."))}</p></div>`
             : ""
         }
-      ${design === "columns" ? check("columns_operable", cfg.columns_operable, t("Single lights can be operated", "Leuchten einzeln bedienbar")) : ""}
+      ${
+        design === "columns"
+          ? `<div class="ctl"><label for="columns_mode">${esc(t("Lights in the columns", "Leuchten in den Säulen"))}</label>${select("columns_mode", cfg.columns_mode, [
+              ["dim_settings", t("Dim with the column, settings through the name", "Dimmen über die Säule, Einstellungen über den Namen")],
+              ["dim", t("Dim with the column", "Dimmen über die Säule")],
+              ["settings", t("Settings by tapping the column or the name", "Einstellungen durch Tippen auf Säule oder Namen")],
+              ["off", t("Display only", "Nur anzeigen")],
+            ])}</div>`
+          : ""
+      }
       ${combines ? check("group", cfg.group, t("Combine identical lights", "Gleiche Leuchten zusammenfassen")) : ""}
       ${design === "gradient" ? check("show_lanes", cfg.show_lanes, t("Show a lane per light", "Spuren je Leuchte zeigen")) : ""}`,
       )}
@@ -2096,6 +2249,15 @@ class CrescendoCardEditor extends HTMLElement {
       return;
     }
     switch (t.id) {
+      case "control":
+        this._set(t.value === "none" || t.value === "slim" ? { slider: t.value } : { slider: "wide", color: t.value.split(":")[1] });
+        break;
+      case "color_choice":
+        this._set(t.value === "off" ? { color_control: false } : { color_control: true, color_bar: t.value });
+        break;
+      case "columns_mode":
+        this._set({ columns_mode: t.value });
+        break;
       case "entity":
         this._config = { ...this._config, entity: t.value, buttons: undefined };
         this._set({});

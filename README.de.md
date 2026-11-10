@@ -91,7 +91,7 @@ data:
 - Änderst du während des Dimmens eine einzelne Leuchte von Hand, fällt nur diese Leuchte heraus. Beim nächsten Befehl an das Objekt ist sie wieder dabei.
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
 - Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter, und eine gewählte Farbe bleibt.
-- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Farben zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte eine Farbauswahl nur für sie, mit dem, was ihr Modus erlaubt. **Dimming zurücksetzen** bringt die Helligkeit einzelner Leuchten zurück zu den Stufen, **Farben zurücksetzen** ihre Farben.
+- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Farben zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte ihre Einstellungen: Helligkeit sowie Weißton, Farbe und Sättigung, soweit ihr Modus das erlaubt. Eine zusammengefasste Säule listet dort ihre Leuchten, jede mit eigenen Einstellungen. **Dimming zurücksetzen** bringt die Helligkeit einzelner Leuchten zurück zu den Stufen, **Farben zurücksetzen** ihre Farben.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
 
 ## Für andere Integrationen

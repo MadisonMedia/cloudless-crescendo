@@ -293,7 +293,7 @@ export function stripeLayers(options, list, override, dark, vertical = false) {
 export const friendly = (hass, entityId) => hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
 
 // Lights with the same mode and the same values at every stop count as one unit.
-export function units(options, hass, group) {
+export function units(options, hass, group, count = true) {
   const list = options.lights.map((light, slot) => ({ light, slot, ids: [light.entity_id] }));
   if (!group) return list.map((u) => ({ ...u, name: friendly(hass, u.light.entity_id) }));
   const map = new Map();
@@ -310,7 +310,7 @@ export function units(options, hass, group) {
     ...u,
     name:
       u.ids.length > 1
-        ? `${commonName(u.ids.map((id) => friendly(hass, id)))} (${u.ids.length})`
+        ? `${commonName(u.ids.map((id) => friendly(hass, id)))}${count ? ` (${u.ids.length})` : ""}`
         : friendly(hass, u.ids[0]),
   }));
 }

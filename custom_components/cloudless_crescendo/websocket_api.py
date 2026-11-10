@@ -222,6 +222,7 @@ def ws_color_lights(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         vol.Required("type"): f"{DOMAIN}/lights/reset",
         vol.Required("entity_id"): str,
         vol.Optional("what", default="all"): vol.In(["all", "brightness", "colors"]),
+        vol.Optional("lights"): [str],
     }
 )
 @websocket_api.async_response
@@ -231,7 +232,9 @@ async def ws_reset_lights(hass: HomeAssistant, connection: websocket_api.ActiveC
     if engine is None:
         connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Not a Crescendo object")
         return
-    if msg["what"] == "colors":
+    if "lights" in msg:
+        engine.reset_lights(msg["what"], msg["lights"])
+    elif msg["what"] == "colors":
         await engine.async_reset_color()
     else:
         engine.reset_lights(msg["what"])
