@@ -111,6 +111,7 @@ BUTTON_SCHEMA = vol.Schema(
         vol.Required("name"): vol.All(str, vol.Length(min=1)),
         vol.Required("position"): PERCENT,
         vol.Required("duration"): vol.All(vol.Coerce(float), vol.Range(min=0, max=86400)),
+        vol.Optional("icon"): vol.All(str, vol.Length(max=64)),
     }
 )
 

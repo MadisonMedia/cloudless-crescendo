@@ -125,3 +125,29 @@ async def test_a_card_without_admin_rights_gets_no_device_actions(
     admin = await hass_ws_client(hass)
     await admin.send_json_auto_id({"type": "cloudless_crescendo/object", "entity_id": "light.bad"})
     assert (await admin.receive_json())["result"]["options"]["devices"]
+
+
+async def test_single_light_colors_and_resets_over_the_websocket(
+    hass: HomeAssistant, setup_object, hass_ws_client, lights: FakeLights
+) -> None:
+    entity = await setup_object()
+    client = await _client(hass, hass_ws_client)
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "brightness_pct": 60, "transition": 0}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    await client.send_json_auto_id(
+        {"type": "cloudless_crescendo/lights/color", "entity_id": "light.bad", "lights": [FLOOR], "kelvin": 5000}
+    )
+    assert (await client.receive_json())["success"]
+    assert entity.engine.apart_color == {FLOOR: {"kelvin": 5000.0}}
+    await client.send_json_auto_id(
+        {"type": "cloudless_crescendo/lights/color", "entity_id": "light.bad", "lights": [FLOOR]}
+    )
+    assert not (await client.receive_json())["success"]
+    await client.send_json_auto_id(
+        {"type": "cloudless_crescendo/lights/reset", "entity_id": "light.bad", "what": "colors"}
+    )
+    assert (await client.receive_json())["success"]
+    assert entity.engine.apart_color == {}
+    assert entity.engine.deviating == {}

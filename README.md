@@ -74,7 +74,7 @@ The object is a light, so `light.turn_on` with `brightness_pct` and `transition`
 | `cloudless_crescendo.stop` | Stop a running fade and keep the lights as they are. Takes the optional `source` like `fade_to`. |
 | `cloudless_crescendo.press_button` | Run one of the standard buttons by name. |
 | `cloudless_crescendo.set_on_position` | Set the position used when switching on without a value, for example by time of day. It survives a restart. Without a position, the object's own setting applies again. |
-| `cloudless_crescendo.reset_color` | End a color chosen by hand and return to the stops' colors. |
+| `cloudless_crescendo.reset_color` | End a color chosen by hand, also single lights' own colors, and return to the stops' colors. |
 
 ```yaml
 # In 30 minutes to 80 %, for example as a wake-up light
@@ -91,7 +91,7 @@ data:
 - If you change a single light by hand during a fade, only that light drops out. It rejoins at the next command to the object.
 - If a light belongs to several objects, the last command wins and the other object's fade stops.
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant, and a chosen color stays.
-- A color chosen in the object's normal light controls overrides the stops' colors until you switch off or choose **Back to the stops**. Lights without color keep their white. The card then shows the colors the lights really have.
+- A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset colors**. Lights without color keep their white. On the card, a light's name opens a color choice for that light alone, with only what its mode allows. **Reset dimming** brings single lights' brightness back to the stops, **Reset colors** their colors.
 - A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
 
 ## For other integrations
@@ -108,7 +108,7 @@ Other integrations, for example Cloudless Maestro, can tell from the object's at
 | `crescendo_api` | The version of these attributes and fields, currently `1` |
 
 - Switching on without a value is `switch_on`, also with a color. A brightness, a button, `fade_to` above 0 or a drag on a card's slider is `set`. Switching off, a target of 0 or a drag that ends at 0 is `switch_off`.
-- A color alone, single lights, `set_on_position` and changed settings leave the attributes as they are. A chosen color shows in `color_override`, single lights in `deviating`.
+- A color alone, single lights, `set_on_position` and changed settings leave the attributes as they are. A chosen color shows in `color_override`, single lights in `deviating`: those dimmed apart also in `deviating_brightness`, those with a color of their own also in `deviating_color`.
 - A command that changes nothing leaves them too: switching on an object that is on or dimming up, `stop` without a fade, and `reset_color` without a chosen color.
 - If another object takes the lights, this object's fade stops with `command: stop` and the origin of the command that took them.
 - With `devices: false`, thresholds and following values stay where they are. The next command with devices catches up: a threshold acts once if the target lies on its other side, and a following value moves on from the value it last got.

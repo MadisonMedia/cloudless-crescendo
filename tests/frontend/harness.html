@@ -156,7 +156,7 @@ setTimeout(async () => {
     calls.length = 0;
     point(bar, "pointerdown", barBox.left + barBox.width * 0.7, barBox.top + 5);
     point(bar, "pointermove", barBox.left + barBox.width * 0.75, barBox.top + 5);
-    report("no command while dragging the color", calls.length === 0);
+    report("the color follows the finger while dragging", calls.some((c) => Array.isArray(c) && c[1] === "turn_on"), JSON.stringify(calls).slice(0, 100));
     point(bar, "pointerup", barBox.left + barBox.width * 0.75, barBox.top + 5);
     await wait(10);
     report("a color on the right of the bar", JSON.stringify(calls).includes("rgb_color"), JSON.stringify(calls).slice(0, 110));
@@ -169,32 +169,20 @@ setTimeout(async () => {
     const bad = hass.states["light.bad"];
     card.hass = { ...hass, states: { ...hass.states, "light.bad": { ...bad, attributes: { ...bad.attributes, color_override: true, rgb_color: [255, 0, 0], color_mode: "xy", supported_color_modes: ["color_temp", "xy"] } } } };
     await wait(60);
-    report("way back shown while a color is active", row(card) !== "none" && getComputedStyle(card.shadowRoot.querySelector(".js-colorback")).display !== "none");
+    report("colors can be reset while a color is chosen", getComputedStyle(card.shadowRoot.querySelector(".js-reset-color")).display !== "none" && card.shadowRoot.querySelector(".js-reset-dim").hidden);
     calls.length = 0;
-    card.shadowRoot.querySelector(".js-colorback").click();
+    card.shadowRoot.querySelector(".js-reset-color").click();
     await wait(20);
-    report("way back resets", calls.some((c) => c.type === "cloudless_crescendo/color/reset"));
+    report("resetting colors asks for the colors only", calls.some((c) => c.type === "cloudless_crescendo/lights/reset" && c.what === "colors"));
     // A button's name replaces the value at its position.
     const fader = cards[1];
     const big = () => fader.shadowRoot.querySelector(".big .js-pos").textContent;
     const atPosition = (position, extra = {}) => ({ ...hass, states: { ...hass.states, "light.bad": { ...hass.states["light.bad"], attributes: { ...hass.states["light.bad"].attributes, position, brightness: Math.round(position * 2.55), ...extra } } } });
     fader.hass = atPosition(50);
     await wait(60);
-    report("button name at its position", big() === options.buttons[1].name && fader.shadowRoot.querySelector(".big .js-unit").hidden, big());
-    const bigBox = fader.shadowRoot.querySelector(".big");
-    const oneLine = () => bigBox.scrollWidth <= bigBox.clientWidth && bigBox.getBoundingClientRect().height < parseFloat(getComputedStyle(bigBox).fontSize) * 1.6;
-    report("button name stays in one piece", oneLine(), `${bigBox.getBoundingClientRect().height} high at ${getComputedStyle(bigBox).fontSize}`);
-    const shortName = options.buttons[1].name;
-    options.buttons[1].name = "Entspannung";
+    report("the value stays a number at a button's position", big() === "50", big());
     fader.hass = atPosition(62);
     await wait(60);
-    fader.hass = atPosition(50);
-    await wait(60);
-    report("long button name shrinks instead of breaking", big() === "Entspannung" && oneLine(), `${big()} at ${getComputedStyle(bigBox).fontSize}`);
-    options.buttons[1].name = shortName;
-    fader.hass = atPosition(62);
-    await wait(60);
-    report("number elsewhere", big() === "62" && !bigBox.style.fontSize, big());
     // The dial has one shape in light and dark, a wedge unless switched off.
     const dial = cards[2];
     report("dial is a wedge", dial.shadowRoot.querySelectorAll(".dial-under").length === 54 && getComputedStyle(dial.shadowRoot.querySelector(".dial-base")).display === "none");
@@ -294,12 +282,23 @@ setTimeout(async () => {
     viaButton.shadowRoot.querySelector(".js-dgroup").click();
     await wait(40);
     report("single lights: combining can be switched off there", columns().length === 4, columns().length);
-    let moreInfo = null;
-    viaButton.addEventListener("hass-more-info", (e) => (moreInfo = e.detail.entityId), { once: true });
-    viaButton.shadowRoot.querySelector(".js-more").click();
-    report("single lights: a name opens the light's normal controls", moreInfo === "light.boden" && !dialogOf(viaButton).open, moreInfo);
-    viaButton.shadowRoot.querySelector(".js-details-open").click();
-    await wait(30);
+    // A light's name opens its own color choice, with only what its mode allows.
+    const picker = viaButton.shadowRoot.querySelector(".js-lightpick");
+    const bars = () => [...picker.querySelectorAll(".js-pickbar")].map((b) => (b.hidden ? "-" : b.dataset.kind)).join(" ");
+    viaButton.shadowRoot.querySelector('.js-details .js-pick[data-ids="light.boden"]').click();
+    report("single lights: a color light offers white tones and colors", picker.open && bars() === "white hue", bars());
+    capture(picker.querySelector('[data-kind="hue"]'));
+    const hueBox = picker.querySelector('[data-kind="hue"]').getBoundingClientRect();
+    calls.length = 0;
+    point(picker.querySelector('[data-kind="hue"]'), "pointerdown", hueBox.left + hueBox.width * 0.6, hueBox.top + 5);
+    point(picker.querySelector('[data-kind="hue"]'), "pointerup", hueBox.left + hueBox.width * 0.6, hueBox.top + 5);
+    const colored1 = calls.find((c) => c.type === "cloudless_crescendo/lights/color");
+    report("single lights: the color goes to that light only", colored1?.lights?.join() === "light.boden" && Array.isArray(colored1.xy), JSON.stringify(colored1));
+    picker.querySelector(".js-lp-close").click();
+    viaButton.shadowRoot.querySelector('.js-details .js-pick[data-ids="light.spiegel"]').click();
+    report("single lights: a white light offers white tones only", picker.open && bars() === "white -", bars());
+    picker.querySelector(".js-lp-close").click();
+    report("single lights: the window stays open behind the color choice", dialogOf(viaButton).open && !picker.open);
     const redFloor = (extra = {}) => ({
       ...hass,
       states: {
@@ -354,7 +353,7 @@ setTimeout(async () => {
     report("single lights: not offered for other devices", !device.shadowRoot.querySelector(".js-details") && !shown(device.shadowRoot.querySelector(".js-details-open")));
     // The active light colors, as the lights report them.
     const chipCount = (c) => (shown(c.shadowRoot.querySelector(".colorrow .js-chips")) ? c.shadowRoot.querySelectorAll(".colorrow .chip").length : 0);
-    const painted = await newCard({});
+    const painted = await newCard({ color: "light" });
     const paintBefore = painted.shadowRoot.querySelector(".js-grad").style.backgroundImage;
     report("active colors: not in the way while the stops apply", chipCount(painted) === 0);
     painted.hass = redFloor();
@@ -366,37 +365,31 @@ setTimeout(async () => {
     painted.hass = hass;
     await wait(60);
     report("active colors: gone with the chosen color", chipCount(painted) === 0 && painted.shadowRoot.querySelector(".js-grad").style.backgroundImage === paintBefore);
-    const always = await newCard({ colors_always: true });
+    const always = await newCard({ colors_always: true, color: "light" });
     report("active colors: can always be shown", chipCount(always) === 1, chipCount(always));
     const member = redFloor();
     always.hass = { ...hass, states: { ...hass.states, "light.boden": member.states["light.boden"], "light.spiegel": member.states["light.spiegel"] } };
     await wait(60);
     report("active colors: follow a single light without the object changing", chipCount(always) === 2, chipCount(always));
-    // Flat controls show the lights' real colors side by side, from the curve, so they move with the position and not with each report.
+    // The control shows each light as a stripe along the scale, with its color and brightness at every position.
     const paintOf = (c) => c.shadowRoot.querySelector(".js-grad").style.backgroundImage;
-    const flat = await newCard({ color: "solid" }, redFloor());
-    report("real colors: the chosen color beside the others", paintOf(flat).includes("255, 51, 0") && new Set(paintOf(flat).match(/rgb\([^)]+\)/g)).size >= 2, paintOf(flat).slice(0, 120));
-    const flatDial = await newCard({ color: "solid", design: "dial" }, redFloor());
-    const strokes = new Set([...flatDial.shadowRoot.querySelectorAll(".dial-seg")].map((s) => s.style.stroke));
-    report("real colors: on the dial too", strokes.size >= 2 && strokes.has("rgb(255, 51, 0)"), [...strokes].join(" "));
-    const flatOne = await newCard({ color: "solid" }, atPosition(25));
-    const flat25 = paintOf(flatOne);
-    const reportedOnly = atPosition(25);
+    const striped = await newCard({});
+    const layers = (paintOf(striped).match(/linear-gradient/g) || []).length;
+    report("stripes: one stripe per light by default", layers === 3 && striped.shadowRoot.querySelector(".js-grad").style.backgroundSize.includes("calc("), `${layers} ${striped.shadowRoot.querySelector(".js-grad").style.backgroundSize}`);
+    const stripedRed = await newCard({}, redFloor());
+    report("stripes: a chosen color shows in its lights' stripes", paintOf(stripedRed).includes("255, 51, 0") && paintOf(stripedRed) !== paintOf(striped));
+    const stripesBefore = paintOf(striped);
+    const reportedOnly = atPosition(62);
     reportedOnly.states["light.boden"] = { ...reportedOnly.states["light.boden"], attributes: { ...reportedOnly.states["light.boden"].attributes, color_mode: "xy", rgb_color: [20, 80, 255] } };
-    flatOne.hass = reportedOnly;
+    striped.hass = reportedOnly;
     await wait(60);
-    const flatReported = paintOf(flatOne);
-    flatOne.hass = atPosition(100);
-    await wait(60);
-    report("real colors: follow the position, not each report", flat25 === flatReported && paintOf(flatOne) !== flat25, `${flat25.slice(0, 60)} | ${paintOf(flatOne).slice(0, 60)}`);
-    const byHand = atPosition(100, { deviating: ["light.spiegel"] });
-    byHand.states["light.spiegel"] = { ...byHand.states["light.spiegel"], state: "on", attributes: { ...byHand.states["light.spiegel"].attributes, brightness: 255, color_mode: "xy", rgb_color: [20, 80, 255] } };
-    flatOne.hass = byHand;
-    await wait(60);
-    report("real colors: a light set by hand shows its own color", paintOf(flatOne) !== paintOf(await newCard({ color: "solid" }, atPosition(100))), paintOf(flatOne).slice(0, 90));
-    const softly = await newCard({ color: "solid" }, atPosition(50));
-    const edges = (softly.shadowRoot.querySelector(".js-grad").style.backgroundImage.match(/rgb\([^)]+\) [\d.]+%/g) || []).map((x) => parseFloat(x.split(") ")[1]));
-    report("real colors: neighbors blend instead of meeting in a hard edge", edges.length >= 4 && edges[2] - edges[1] > 1, edges.join(" "));
+    report("stripes: a light's report does not repaint them", paintOf(striped) === stripesBefore);
+    const stripedDial = await newCard({ design: "dial" });
+    report("stripes: rings on the dial", stripedDial.shadowRoot.querySelectorAll(".dial-seg[data-u]").length === 54 * 3, stripedDial.shadowRoot.querySelectorAll(".dial-seg[data-u]").length);
+    const stripedFader = await newCard({ design: "fader" });
+    report("stripes: side by side on the fader", stripedFader.shadowRoot.querySelector(".js-vgrad").style.backgroundSize.includes(" 100%"), stripedFader.shadowRoot.querySelector(".js-vgrad").style.backgroundSize.slice(0, 40));
+    const roomCard = await newCard({ color: "light" });
+    report("room light stays a single gradient", (paintOf(roomCard).match(/linear-gradient/g) || []).length === 1);
     // The card blends colors like the lights do: color temperature in mireds, color to white in CIE xy.
     // Expected values come from Home Assistant's own color functions.
     const shared = await import(`${base}/crescendo-shared.js`);
@@ -408,19 +401,42 @@ setTimeout(async () => {
     const plain = await newCard({});
     plain._hass = { ...hass, states: { ...hass.states, "light.plain": { state: "on", attributes: { friendly_name: "Plain" } } } };
     report("a plain on/off light set by hand counts as fully on", Math.round(plain._reported("light.plain").v) === 100, plain._reported("light.plain").v);
-    // During a fade the real colors repaint about ten times a second, which spares slow wall tablets.
-    const repainting = await newCard({ color: "solid" }, atPosition(50, { ...fadeFor(2), fade_from: 50 }));
-    await wait(300);
-    let repaints = 0,
-      lastPaint = paintOf(repainting);
-    for (let i = 0; i < 40; i++) {
-      await wait(16);
-      if (paintOf(repainting) !== lastPaint) {
-        repaints++;
-        lastPaint = paintOf(repainting);
-      }
-    }
-    report("real colors repaint about ten times a second during a fade", repaints >= 3 && repaints <= 9, repaints);
+    // Each part of the header can be switched off; without any part there is no header.
+    const bare = await newCard({ show_title: false, show_header_value: false, power: "buttons", details: "off" });
+    report("header: gone when every part is off", !bare.shadowRoot.querySelector(".head"));
+    report("header: the power button can sit among the buttons", !!bare.shadowRoot.querySelector(".js-presets .power-tile.js-power"));
+    const beside = await newCard({ power: "slider" });
+    report("header: the power button can sit left of the slider", !!beside.shadowRoot.querySelector(".regline > .js-power") && !beside.shadowRoot.querySelector(".head .js-power"));
+    const noValue = await newCard({ show_header_value: false });
+    report("header: the value can be hidden", !noValue.shadowRoot.querySelector(".head .value") && !!noValue.shadowRoot.querySelector(".head .js-name"));
+    // Buttons show their light and an icon by default.
+    const styled = await newCard({});
+    const night = styled.shadowRoot.querySelector('.preset[data-pos="25"]');
+    report("buttons: tinted with an icon by default", night?.classList.contains("tint") && night.querySelector("ha-icon")?.getAttribute("icon") === "mdi:weather-night", night?.outerHTML.slice(0, 120));
+    const previewed = await newCard({ button_style: "icon_preview" });
+    report("buttons: a light preview with one field per light", previewed.shadowRoot.querySelectorAll('.preset[data-pos="25"] .pv i').length === 3);
+    // Dimming and colors reset separately.
+    const apart = await newCard({}, atPosition(62, { deviating: ["light.boden"], deviating_brightness: ["light.boden"], deviating_color: [] }));
+    report("reset: dimming offered for a light dimmed apart", !apart.shadowRoot.querySelector(".js-reset-dim").hidden && apart.shadowRoot.querySelector(".js-reset-color").hidden);
+    calls.length = 0;
+    apart.shadowRoot.querySelector(".js-reset-dim").click();
+    await wait(20);
+    report("reset: dimming asks for the brightness only", calls.some((c) => c.type === "cloudless_crescendo/lights/reset" && c.what === "brightness"));
+    const fills = await newCard({ design: "columns" });
+    report("columns glide to a new value instead of jumping", getComputedStyle(fills.shadowRoot.querySelector(".js-bar")).transitionDuration.includes("0.45s"));
+    // The color bar offers what the lights can show.
+    const whitesOnly = await newCard({ color_control: true, color_bar: "white" });
+    report("color bar: white tones only on request", !whitesOnly.shadowRoot.querySelector(".js-colorwhite").hidden && whitesOnly.shadowRoot.querySelector(".js-colorhue").hidden);
+    const livePaint = await newCard({ color_control: true });
+    const liveBar = livePaint.shadowRoot.querySelector(".js-colorbar");
+    capture(liveBar);
+    const liveBox = liveBar.getBoundingClientRect();
+    const beforeDrag = paintOf(livePaint);
+    point(liveBar, "pointerdown", liveBox.left + liveBox.width * 0.8, liveBox.top + 5);
+    point(liveBar, "pointermove", liveBox.left + liveBox.width * 0.85, liveBox.top + 5);
+    await wait(40);
+    report("color bar: the card shows the color while dragging", paintOf(livePaint) !== beforeDrag);
+    point(liveBar, "pointerup", liveBox.left + liveBox.width * 0.85, liveBox.top + 5);
     // Beside the buttons there is no gap: few buttons grow to the columns' height, many make the columns grow.
     const sideBy = async (count) => {
       const box = document.createElement("div");
@@ -458,13 +474,11 @@ setTimeout(async () => {
     const regBox = below2.shadowRoot.querySelector(".reg").getBoundingClientRect();
     const firstButton = below2.shadowRoot.querySelector(".preset").getBoundingClientRect();
     report("buttons set to bottom stay below on a wide card", firstButton.top >= regBox.bottom, `button top ${firstButton.top.toFixed(0)}, control bottom ${regBox.bottom.toFixed(0)}`);
-    // On the columns design a single light's name opens its own controls, for its color.
-    const named = below2.shadowRoot.querySelector('.bars .bar-name.js-more[data-id="light.boden"]');
-    let opened = null;
-    below2.addEventListener("hass-more-info", (e) => (opened = e.detail.entityId), { once: true });
-    named?.click();
-    report("a column's name opens the light's own controls", opened === "light.boden", opened);
-    report("a combined column's name opens nothing", !!below2.shadowRoot.querySelector(".bars .bar > span") && below2.shadowRoot.querySelectorAll(".bars .bar-name").length < below2.shadowRoot.querySelectorAll(".bars .bar").length);
+    // On the columns design a light's name opens its color choice, a combined column's for all its lights.
+    below2.shadowRoot.querySelector('.bars .js-pick[data-ids="light.boden"]')?.click();
+    report("a column's name opens the light's color choice", below2.shadowRoot.querySelector(".js-lightpick").open);
+    below2.shadowRoot.querySelector(".js-lp-close").click();
+    report("a combined column's name colors all its lights", !!below2.shadowRoot.querySelector('.bars .js-pick[data-ids="light.links,light.rechts"]'));
     wideBottom.remove();
     // The color dots only appear where the control does not show the lights' colors itself.
     const dotsColumns = await newCard({ design: "columns" }, redFloor());
@@ -473,11 +487,11 @@ setTimeout(async () => {
     // The card's settings.
     editor.addEventListener("config-changed", (e) => editor.setConfig(e.detail.config));
     const ed = (sel) => editor.shadowRoot.querySelector(sel);
-    ed("#advanced").open = true;
-    await wait(30);
+    report("settings come in sections", editor.shadowRoot.querySelectorAll(".grp").length >= 5, editor.shadowRoot.querySelectorAll(".grp").length);
     ed("#glow").click();
     await wait(30);
-    report("advanced settings stay open after a change", ed("#advanced").open === true);
+    report("a setting is saved and stays shown", editor._config.glow === false && !!ed("#glow"));
+    report("header settings are offered", !!ed("#show_title") && !!ed("#show_header_value") && !!ed("#power"));
     const pick = async (design) => { ed(`[data-design="${design}"]`).click(); await wait(30); };
     await pick("dial");
     report("no horizontal slider setting for the dial", !ed("#slider") && !!ed("#dial_wedge"));

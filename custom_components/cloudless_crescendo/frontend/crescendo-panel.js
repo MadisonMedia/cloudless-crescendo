@@ -280,7 +280,8 @@ class CrescendoPanel extends HTMLElement {
     const themeChanged = dark !== this._dark;
     this._dark = dark;
     this.toggleAttribute("dark", dark);
-    if (first) this._load();
+    // A link from a card or a device can name the object to open.
+    if (first) this._load(new URLSearchParams(location.search).get("object") || undefined);
     else if (themeChanged && this._view === "edit" && this._o) this._renderStops();
     else this._tickLive();
   }

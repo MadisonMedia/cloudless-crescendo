@@ -230,6 +230,11 @@ class Engine:
         self.fade: Fade | None = None
         self.override: dict[str, Any] | None = None
         self.deviating: dict[str, float] = {}
+        """Every light apart from the curve until the next command to the object, for whatever reason."""
+        self.apart_brightness: set[str] = set()
+        """Lights whose brightness was set apart, in the card or by hand."""
+        self.apart_color: dict[str, dict[str, Any]] = {}
+        """Lights given their own color in the card."""
         self.last_targets: dict[str, Target] = {}
         self._task: asyncio.Task | None = None
         self._slider_task: asyncio.Task | None = None
@@ -451,7 +456,7 @@ class Engine:
         last = dict(self.last_targets)
         for eid in self.deviating:
             last[eid] = NOT_FOLLOWING
-        self.deviating.clear()
+        self._clear_apart()
         if start > 0 and target == 0:
             self.last_on = start
         elif target > 0:
@@ -560,7 +565,7 @@ class Engine:
             self._claim()
             for eid in self.deviating:
                 self.last_targets[eid] = NOT_FOLLOWING
-            self.deviating.clear()
+            self._clear_apart()
         self.position = position
         self._slider_last = time.monotonic()
         if final:
@@ -631,10 +636,11 @@ class Engine:
         await self._recolor(transition)
 
     async def async_reset_color(self, transition: float = SETTLE_TRANSITION) -> None:
-        """Return to the colors of the stops."""
-        if self.override is None:
+        """Return to the colors of the stops: a chosen color and single lights' own colors."""
+        if self.override is None and not self.apart_color:
             return
         self.override = None
+        self.reset_lights("colors")
         await self._recolor(transition)
 
     async def _recolor(self, transition: float) -> None:
@@ -645,10 +651,11 @@ class Engine:
         lit = self._lit()
         for step in settle(self.curve, self.position, lit, transition, skip=self.deviating):
             self._send_step(step)
-        # A light set apart by hand keeps its brightness, but the object's color reaches it too.
+        # A light set apart by hand keeps its brightness, but the object's color reaches it too,
+        # unless it has a color of its own.
         for eid in self.deviating:
             light = self.curve.lights.get(eid)
-            if light is None or not lit.get(eid):
+            if light is None or not lit.get(eid) or eid in self.apart_color:
                 continue
             command = color_command(light.at(self.position), transition)
             if command is not None:
@@ -663,23 +670,67 @@ class Engine:
             if light is None:
                 continue
             self.deviating[eid] = brightness
+            self.apart_brightness.add(eid)
             state = light.at(self.position)
-            target = Target(brightness, state.kelvin, state.xy)
+            target = _with_own_color(Target(brightness, state.kelvin, state.xy), light, self.apart_color.get(eid))
             self._send_step(_step_to(light, target, lit[eid], 0.3))
         self._on_change()
 
-    def reset_lights(self) -> None:
-        """Bring single lights back to the curve."""
-        if not self.deviating:
-            return
-        ids = list(self.deviating)
-        self.deviating.clear()
+    def set_light_colors(
+        self, entity_ids: Iterable[str], kelvin: float | None = None, xy: tuple[float, float] | None = None
+    ) -> None:
+        """Give single lights their own color until the next command to the object. Their brightness stays."""
+        own = {"kelvin": float(kelvin)} if kelvin is not None else {"xy": (float(xy[0]), float(xy[1]))}  # type: ignore[index]
         lit = self._lit()
-        for eid in ids:
+        for eid in entity_ids:
             light = self.curve.lights.get(eid)
-            if light is not None:
-                self._send_step(_step_to(light, light.at(self.current_position()), lit[eid], SETTLE_TRANSITION))
+            if light is None or light.mode in (MODE_ONOFF, MODE_DIM):
+                continue
+            target = _with_own_color(Target(100.0), light, own)
+            if target.kelvin is None and target.xy is None:
+                continue
+            self.apart_color[eid] = own
+            self.deviating.setdefault(eid, -1.0)
+            command = color_command(target, 0.3)
+            if command is not None and lit[eid]:
+                self._send_step(Step(0.0, eid, (command,), None, 0.3))
         self._on_change()
+
+    def reset_lights(self, what: str = "all") -> None:
+        """Bring single lights back to the curve: their brightness, their colors, or both."""
+        brightness, colors = what in ("all", "brightness"), what in ("all", "colors")
+        lit = self._lit()
+        position = self.current_position()
+        changed = False
+        for eid in list(self.deviating):
+            back_b = brightness and (eid in self.apart_brightness or what == "all")
+            back_c = colors and eid in self.apart_color
+            if not back_b and not back_c:
+                continue
+            changed = True
+            if back_b:
+                self.apart_brightness.discard(eid)
+            own = self.apart_color.pop(eid, None) if back_c else self.apart_color.get(eid)
+            still_apart = eid in self.apart_brightness or eid in self.apart_color
+            if not still_apart:
+                del self.deviating[eid]
+            light = self.curve.lights.get(eid)
+            if light is None:
+                continue
+            state = light.at(position)
+            if back_b:
+                # The brightness follows the curve again. A light's own color stays until the colors are reset.
+                target = state if not still_apart else _with_own_color(Target(state.brightness), light, own)
+                self._send_step(_step_to(light, target, lit[eid], SETTLE_TRANSITION))
+            elif lit[eid] and (command := color_command(state, SETTLE_TRANSITION)) is not None:
+                self._send_step(Step(0.0, eid, (command,), None, SETTLE_TRANSITION))
+        if changed:
+            self._on_change()
+
+    def _clear_apart(self) -> None:
+        self.deviating.clear()
+        self.apart_brightness.clear()
+        self.apart_color.clear()
 
     # -- devices -----------------------------------------------------------------
 
@@ -748,6 +799,7 @@ class Engine:
     def _leave_curve(self, entity_id: str) -> None:
         """A light was changed from outside: it stays out until the next command to the object."""
         self.deviating[entity_id] = -1.0
+        self.apart_brightness.add(entity_id)
         self.last_targets[entity_id] = NOT_FOLLOWING
         self.sender.forget(entity_id)
 
@@ -864,6 +916,20 @@ def _step_to(light: LightCurve, state: Target, lit: bool, transition: float) -> 
     else:
         commands = (on_command(state, transition),)
     return Step(0.0, eid, commands, state, transition)
+
+
+def _with_own_color(target: Target, light: LightCurve, own: Mapping[str, Any] | None) -> Target:
+    """Return a target with a light's own color, as far as the light's mode can show it."""
+    if own is None or light.mode in (MODE_ONOFF, MODE_DIM):
+        return target if own is None else Target(target.brightness)
+    kelvin, xy = own.get("kelvin"), own.get("xy")
+    if light.mode == MODE_CCT:
+        return Target(target.brightness, kelvin=kelvin) if kelvin is not None else target
+    if kelvin is not None and light.mode == "rgb":
+        return Target(target.brightness, xy=kelvin_to_xy(kelvin))
+    if kelvin is not None:
+        return Target(target.brightness, kelvin=kelvin)
+    return Target(target.brightness, xy=tuple(xy))
 
 
 def _with_color(light: LightCurve, override: Mapping[str, Any]) -> LightCurve:

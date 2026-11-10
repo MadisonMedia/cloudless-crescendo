@@ -315,3 +315,50 @@ async def test_a_chosen_color_reaches_a_light_set_apart_and_keeps_its_brightness
     back = lights.last(FLOOR)["data"]
     assert back["color_temp_kelvin"] == 3000
     assert "brightness" not in back
+
+
+async def test_a_single_light_keeps_its_own_color(hass: HomeAssistant, setup_object, lights: FakeLights) -> None:
+    entity = await setup_object()
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "brightness_pct": 60, "transition": 0}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    entity.engine.set_light_colors([FLOOR], xy=(0.2, 0.3))
+    entity.engine.set_light_colors([MIRROR], xy=(0.2, 0.3))
+    await asyncio.sleep(0.2)
+    sent = lights.last(FLOOR)["data"]
+    assert sent["xy_color"] == (0.2, 0.3)
+    assert "brightness" not in sent
+    attributes = hass.states.get("light.bad").attributes
+    assert attributes["deviating"] == [FLOOR]
+    assert attributes["deviating_color"] == [FLOOR]
+    assert attributes["deviating_brightness"] == []
+    floor_calls = len(lights.for_light(FLOOR))
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "xy_color": [0.6, 0.35], "transition": 0.1}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    assert len(lights.for_light(FLOOR)) == floor_calls
+
+
+async def test_dimming_and_colors_reset_separately(hass: HomeAssistant, setup_object, lights: FakeLights) -> None:
+    entity = await setup_object()
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "brightness_pct": 60, "transition": 0}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    entity.engine.set_lights([FLOOR], 30)
+    entity.engine.set_light_colors([FLOOR], kelvin=5000)
+    await asyncio.sleep(0.2)
+    entity.engine.reset_lights("brightness")
+    await asyncio.sleep(0.2)
+    back = lights.last(FLOOR)["data"]
+    assert back["brightness"] == 255
+    assert back["color_temp_kelvin"] == 5000
+    attributes = hass.states.get("light.bad").attributes
+    assert attributes["deviating_brightness"] == []
+    assert attributes["deviating_color"] == [FLOOR]
+    await hass.services.async_call("cloudless_crescendo", "reset_color", {"entity_id": "light.bad"}, blocking=True)
+    await asyncio.sleep(0.2)
+    assert lights.last(FLOOR)["data"]["color_temp_kelvin"] == 3000
+    assert hass.states.get("light.bad").attributes["deviating"] == []

@@ -427,7 +427,7 @@ async def test_the_interface_has_a_version(hass: HomeAssistant, setup_object) ->
 
 def _object_without_deviating(hass: HomeAssistant) -> tuple:
     state = hass.states.get(OBJECT)
-    return state.state, {k: v for k, v in state.attributes.items() if k != "deviating"}
+    return state.state, {k: v for k, v in state.attributes.items() if not k.startswith("deviating")}
 
 
 async def test_a_light_changed_by_hand_changes_only_deviating(

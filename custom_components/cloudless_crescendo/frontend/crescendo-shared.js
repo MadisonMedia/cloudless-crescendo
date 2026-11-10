@@ -250,13 +250,44 @@ export function roomGradient(options, dir, override, dark) {
   return `linear-gradient(${dir || "90deg"}, ${parts.join(",")})`;
 }
 
-export function laneGradient(options, light, override, dark) {
+export function laneGradient(options, light, override, dark, dir = "90deg") {
   const parts = [];
   for (let i = 0; i <= 24; i++) {
     const l = lampAt(options, light, (i / 24) * 100, override);
     parts.push(`${rampColor(l.c, Math.pow(l.v / 100, 0.6), dark)} ${((i / 24) * 100).toFixed(1)}%`);
   }
-  return `linear-gradient(90deg, ${parts.join(",")})`;
+  return `linear-gradient(${dir}, ${parts.join(",")})`;
+}
+
+// One stripe per light along the scale, as CSS background layers: each shows the light's color and brightness at
+// every position. Across a horizontal control the stripes lie on top of each other, on a vertical one side by side.
+// Stripes are thin, so they show the light's own color, stronger than a whole track would: a dim light stays visible,
+// and warm white stays warm instead of fading to the card's ground.
+const stripeColor = (c, v, dark) =>
+  v <= 0.3 ? "transparent" : `rgba(${css(c)},${(dark ? Math.min(1, 0.35 + (v / 100) * 1.5) : 0.3 + 0.7 * (v / 100)).toFixed(2)})`;
+
+function stripeGradient(options, light, override, dark, dir) {
+  const parts = [];
+  for (let i = 0; i <= 40; i++) {
+    const l = lampAt(options, light, (i / 40) * 100, override);
+    parts.push(`${stripeColor(l.c, l.v, dark)} ${((i / 40) * 100).toFixed(1)}%`);
+  }
+  return `linear-gradient(${dir}, ${parts.join(",")})`;
+}
+
+export function stripeLayers(options, list, override, dark, vertical = false) {
+  const n = list.length;
+  const gap = n > 1 ? "2px" : "0px";
+  return {
+    image: list.map((u) => stripeGradient(options, u.light, override, dark, vertical ? "0deg" : "90deg")).join(","),
+    size: list.map(() => (vertical ? `calc(${100 / n}% - ${gap}) 100%` : `100% calc(${100 / n}% - ${gap})`)).join(","),
+    position: list
+      .map((_, i) => {
+        const at = n > 1 ? (i / (n - 1)) * 100 : 0;
+        return vertical ? `${at}% 0` : `0 ${at}%`;
+      })
+      .join(","),
+  };
 }
 
 export const friendly = (hass, entityId) => hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
