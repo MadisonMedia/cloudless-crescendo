@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.0b7
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Fixed
+
+- **Button position: Bottom** put the buttons beside the control on wide cards. Bottom now means bottom; only **Matching the design** moves them beside the control on wide cards.
+- A chosen color skipped every light set apart by hand. It now reaches those lights too, and they keep their brightness. **Back to the stops** returns their color as well.
+
+### Changed
+
+- On the columns design, a single light's name under its column opens the light's own controls, to give it its own color.
+- The color dots only appear where the control does not already show the lights' colors, so not on the columns design and not with **Current light colors**.
+- Clearer names and hints in the card editor: the control colors are now **Light at each position** and **Current light colors**, each with a line that says what it shows, and the color selection says which lights it colors.
+
 ## 0.1.0b6
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.

@@ -54,7 +54,7 @@ from .const import (
     VERIFY_DELAY,
 )
 from .curve import LightCurve, ObjectCurve, Target, curve_from_options, kelvin_to_xy
-from .planner import OFF, Command, Step, minimum_command, on_command, plan_fade, settle
+from .planner import OFF, Command, Step, color_command, minimum_command, on_command, plan_fade, settle
 from .sender import Sender
 
 _LOGGER = logging.getLogger(__name__)
@@ -642,8 +642,17 @@ class Engine:
         if fade is not None:
             await self.async_fade_to(fade.target, self.remaining or 0.0, devices=fade.devices)
             return
-        for step in settle(self.curve, self.position, self._lit(), transition, skip=self.deviating):
+        lit = self._lit()
+        for step in settle(self.curve, self.position, lit, transition, skip=self.deviating):
             self._send_step(step)
+        # A light set apart by hand keeps its brightness, but the object's color reaches it too.
+        for eid in self.deviating:
+            light = self.curve.lights.get(eid)
+            if light is None or not lit.get(eid):
+                continue
+            command = color_command(light.at(self.position), transition)
+            if command is not None:
+                self._send_step(Step(0.0, eid, (command,), None, transition))
         self._on_change()
 
     def set_lights(self, entity_ids: Iterable[str], brightness: float) -> None:

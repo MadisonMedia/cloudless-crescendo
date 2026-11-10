@@ -223,7 +223,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .track { height: 48px; }
   .bars { grid-template-rows: minmax(100px, 1fr); }
   .bar { grid-row: span 1; }
-  .bar > span, .ch > span { display: none; }
+  .bar > span, .bar > .bar-name, .ch > span { display: none; }
   .mix { grid-template-rows: auto minmax(110px, 1fr); }
   .ch { grid-row: span 2; }
   .presets, .scenes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -231,9 +231,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .preset.scene { min-height: 46px; }
 }
 @container (min-width: 470px) {
-  [data-pos="bottom"] .body { grid-template-columns: minmax(0, 1fr) minmax(120px, 170px); }
-  [data-pos="bottom"] .presets, [data-pos="bottom"] .scenes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
-  [data-pos="bottom"] .btns { align-self: stretch; display: grid; }
+  /* Matching the design: on a wide card the buttons stand beside the control, on a narrow one below it. */
+  [data-pos="auto"] .body { grid-template-columns: minmax(0, 1fr) minmax(120px, 170px); }
+  [data-pos="auto"] .presets, [data-pos="auto"] .scenes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
+  [data-pos="auto"] .btns { align-self: stretch; display: grid; }
   .fader { min-height: 340px; }
   .bars { grid-template-rows: minmax(210px, 1fr) auto; }
   .mix { grid-template-rows: auto minmax(230px, 1fr) auto; }
@@ -647,7 +648,7 @@ class CrescendoCard extends HTMLElement {
     const cfg = this._config,
       ctl = this._ctl;
     const design = TEMPLATES[cfg.design] ? cfg.design : "gradient";
-    const pos = cfg.button_position === "auto" ? AUTO_POS[design] || "bottom" : cfg.button_position;
+    const pos = cfg.button_position === "auto" ? AUTO_POS[design] || "auto" : cfg.button_position;
     const detailsWereOpen = !!this.shadowRoot.querySelector(".js-details")?.open;
     const mode = this._detailsMode();
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="card"><div class="progress js-progress" hidden><i></i></div>
@@ -733,7 +734,11 @@ class CrescendoCard extends HTMLElement {
         ? us
             .map(
               (u) =>
-                `<div class="bar"><div class="well" ${cfg.columns_operable ? 'data-slider="bar"' : ""} data-ids="${esc(u.ids.join(","))}" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${esc(u.ids.join(","))}"></div></div><span>${esc(u.name)}</span></div>`,
+                `<div class="bar"><div class="well" ${cfg.columns_operable ? 'data-slider="bar"' : ""} data-ids="${esc(u.ids.join(","))}" aria-label="${esc(u.name)}"><div class="fill js-bar" data-ids="${esc(u.ids.join(","))}"></div></div>${
+                  cfg.columns_operable && u.ids.length === 1
+                    ? `<button class="bar-name js-more" data-id="${esc(u.ids[0])}">${esc(u.name)}</button>`
+                    : `<span>${esc(u.name)}</span>`
+                }</div>`,
             )
             .join("")
         : `<div class="bar"><div class="well"><div class="fill js-self"></div></div><span>${esc(name)}</span></div>`;
@@ -1027,7 +1032,9 @@ class CrescendoCard extends HTMLElement {
       this._activeKey = activeKey;
       this._paintActive(colors);
     }
-    const chips = colors.length > 0 && (cfg.colors_always || back || deviating.length > 0);
+    // The dots say which colors the lights have. Columns and the current light colors already show that.
+    const shownElsewhere = cfg.design === "columns" || cfg.color === "solid";
+    const chips = colors.length > 0 && !shownElsewhere && (cfg.colors_always || back || deviating.length > 0);
     $$(".js-colorrow", (el) => (el.hidden = !picks && !back && !chips));
     $$(".js-chips", (el) => (el.hidden = !chips));
     $$(".js-colorbar", (el) => (el.hidden = !picks));
@@ -1426,7 +1433,7 @@ class CrescendoCard extends HTMLElement {
     const more = e.target.closest?.(".js-more");
     if (more) {
       // Home Assistant's dialog would open underneath this one.
-      dialog.close();
+      dialog?.close();
       this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId: more.dataset.id } }));
       return;
     }
@@ -1725,11 +1732,23 @@ class CrescendoCardEditor extends HTMLElement {
       }
       <div class="ctl"><label for="color">${esc(t("Control color", "Reglerfarbe"))}</label>
         ${select("color", cfg.color, [
-          ["light", t("Light color as a gradient", "Lichtfarbe als Verlauf")],
-          ["solid", t("Current light colors, without a gradient", "Aktuelle Lichtfarben, ohne Verlauf")],
+          ["light", t("Light at each position", "Licht je Position")],
+          ["solid", t("Current light colors", "Aktuelle Lichtfarben")],
           ["accent", t("Dashboard color", "Farbe des Dashboards")],
           ["custom", t("Own color", "Eigene Farbe")],
         ])}
+        <p class="hint">${esc(
+          {
+            light: t(
+              "Each spot of the control shows the light at that position. If your stops all have a similar white, it looks like one color.",
+              "Jede Stelle des Reglers zeigt das Licht an dieser Position. Haben deine Stufen alle ein ähnliches Weiß, wirkt er einfarbig.",
+            ),
+            solid: t(
+              "Shows the colors the lights have right now, side by side, each wider the brighter its light is.",
+              "Zeigt die Farben, die die Leuchten gerade haben, nebeneinander. Je heller eine Leuchte, desto breiter ihre Farbe.",
+            ),
+          }[cfg.color] || "",
+        )}</p>
         ${cfg.color === "custom" ? `<input type="color" id="custom_color" value="${esc(cfg.custom_color)}" aria-label="${esc(t("Own color", "Eigene Farbe"))}">` : ""}</div>
       ${check("buttons_on", cfg.buttons_on, t("Show buttons", "Buttons zeigen"))}
       ${
@@ -1740,7 +1759,7 @@ class CrescendoCardEditor extends HTMLElement {
         <div><button id="add-button">${esc(t("Button only for this card", "Button nur für diese Karte"))}</button> ${cfg.buttons ? `<button id="reset-buttons">${esc(t("Reset", "Zurücksetzen"))}</button>` : ""}</div>
         <label for="button_position">${esc(t("Button position", "Position der Buttons"))}</label>
         ${select("button_position", cfg.button_position, [
-          ["auto", t("Matching the design", "Passend zum Design")],
+          ["auto", t("Matching the design: beside the control on wide cards", "Passend zum Design: auf breiten Karten neben dem Regler")],
           ["top", t("Top", "Oben")],
           ["bottom", t("Bottom", "Unten")],
           ["left", t("Left", "Links")],
@@ -1768,7 +1787,12 @@ class CrescendoCardEditor extends HTMLElement {
         ${check("snap", cfg.snap, t("Snap to stops, with a short pulse on phones", "An Stufen einrasten, mit kurzem Impuls am Handy"))}
         ${check("glow", cfg.glow, t("Light glow around the card", "Lichtschein um die Karte"))}
         ${check("color_control", cfg.color_control, t("Show a color selection on the card", "Farbauswahl auf der Karte zeigen"))}
-        ${ctl.crescendo ? check("colors_always", cfg.colors_always, t("Always show the active light colors, not only when something differs from the stops", "Aktive Lichtfarben immer zeigen, nicht nur wenn etwas von den Stufen abweicht")) : ""}
+        ${
+          cfg.color_control && ctl.crescendo
+            ? `<p class="hint">${esc(t("Colors every light of the object that can show colors, including lights set apart by hand. A single light gets its own color through its name under the columns or in the window of single lights.", "Färbt alle Leuchten des Objekts, die Farbe können, auch von Hand verstellte. Eine einzelne Leuchte färbst du über ihren Namen unter den Säulen oder im Fenster der einzelnen Leuchten."))}</p>`
+            : ""
+        }
+        ${ctl.crescendo && design !== "columns" && cfg.color !== "solid" ? check("colors_always", cfg.colors_always, t("Always show the active light colors as dots, not only when something differs from the stops", "Aktive Lichtfarben immer als Punkte zeigen, nicht nur wenn etwas von den Stufen abweicht")) : ""}
       </div></details>
     </div>`;
   }

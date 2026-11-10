@@ -289,3 +289,29 @@ async def test_options_apply_without_a_restart(hass: HomeAssistant, setup_object
     await hass.async_block_till_done()
     assert entity.engine.options["default_transition"] == 7
     assert hass.states.get("light.bad") is not None
+
+
+async def test_a_chosen_color_reaches_a_light_set_apart_and_keeps_its_brightness(
+    hass: HomeAssistant, setup_object, lights: FakeLights
+) -> None:
+    entity = await setup_object()
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "brightness_pct": 60, "transition": 0}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    entity.engine.set_lights([FLOOR], 30)
+    await asyncio.sleep(0.2)
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "xy_color": [0.6, 0.35], "transition": 0.1}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    sent = lights.last(FLOOR)["data"]
+    assert sent["xy_color"] == (0.6, 0.35)
+    assert "brightness" not in sent
+    assert FLOOR in entity.engine.deviating
+    assert "xy_color" not in lights.last(MIRROR)["data"]
+    await hass.services.async_call("cloudless_crescendo", "reset_color", {"entity_id": "light.bad"}, blocking=True)
+    await asyncio.sleep(0.2)
+    back = lights.last(FLOOR)["data"]
+    assert back["color_temp_kelvin"] == 3000
+    assert "brightness" not in back
