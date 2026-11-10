@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0b4
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Fixed
+
+- During a fade, the card's progress bar, time and light columns jumped back each time a single light reported, and only reached the target when the fade had ended. This came with 0.1.0b2, where the card started showing the lights' real colors.
+
 ## 0.1.0b3
 
 Restart Home Assistant after updating.

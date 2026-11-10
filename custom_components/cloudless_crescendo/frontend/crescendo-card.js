@@ -412,6 +412,11 @@ class CrescendoCard extends HTMLElement {
     const a = ctl.state.attributes;
     const f = this._fade;
     const now = performance.now();
+    // Only a new state of the object tells how far a fade is. A single light reporting, or the app
+    // reconnecting with the same states, must not move it back.
+    const stamp = ctl.state.last_updated ?? ctl.state;
+    const fresh = stamp !== this._fadeSeen;
+    this._fadeSeen = stamp;
     if (!ctl.crescendo || !a.fading || a.target_position === undefined) {
       // A fade started on this card keeps running until the state has had time to report it.
       if (f?.local && now - f.at < 1500) return;
@@ -422,8 +427,10 @@ class CrescendoCard extends HTMLElement {
     const total = Math.max(0.001, (Date.parse(a.fade_ends) - Date.parse(a.fade_started)) / 1000);
     const done = (a.position - a.fade_from) / (a.target_position - a.fade_from || 1);
     if (f && f.key === a.fade_started) {
-      f.done = done;
-      f.at = now;
+      if (fresh) {
+        f.done = done;
+        f.at = now;
+      }
       return;
     }
     if (f?.local && Math.abs(f.target - a.target_position) < 0.01) {

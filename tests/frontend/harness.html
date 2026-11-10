@@ -220,6 +220,19 @@ setTimeout(async () => {
     await wait(1000);
     const steady = even._position();
     report("card stays even on a long fade", steady > 0.9 && steady < 1.3, steady.toFixed(2));
+    // The lights report about once per second during a fade. That must not send the card back to the fade's start.
+    const fading = atPosition(0, fadeFor(4));
+    const reported = document.createElement("crescendo-card");
+    reported.setConfig({ entity: "light.bad", design: "gradient" });
+    host.append(reported);
+    reported.hass = fading;
+    await wait(1000);
+    const beforeReport = reported._position();
+    const floor = fading.states["light.boden"];
+    reported.hass = { ...fading, states: { ...fading.states, "light.boden": { ...floor, attributes: { ...floor.attributes, brightness: 40 } } } };
+    await wait(20);
+    const afterReport = reported._position();
+    report("a light's report keeps a fade going", beforeReport > 3 && afterReport >= beforeReport, `${beforeReport.toFixed(1)} ${afterReport.toFixed(1)}`);
     // Tapping starts from where the card is, without a jump to the target.
     const tapped = document.createElement("crescendo-card");
     tapped.setConfig({ entity: "light.bad", design: "gradient" });
