@@ -105,6 +105,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 [data-pos="right"] .body { grid-template-columns: minmax(0, 1fr) auto; }
 [data-pos="left"] .presets, [data-pos="right"] .presets, [data-pos="left"] .scenes, [data-pos="right"] .scenes { grid-template-columns: minmax(78px, 112px); }
 .btns { min-width: 0; align-self: start; }
+/* Beside the control, neither side leaves a gap: the buttons grow to the control's height, and columns, a fader or channels grow to the buttons'. */
+:is([data-pos="left"], [data-pos="right"]) .btns { align-self: stretch; display: grid; }
+:is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) { grid-auto-rows: 1fr; }
+.reg:has(> .bars), .reg:has(> .fader-row), .reg:has(> .mix) { grid-template-rows: 1fr; }
 .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
 .preset { border: 1px solid var(--cr-line); background: transparent; border-radius: 10px; padding: 9px 8px; display: grid; gap: 1px; text-align: center; justify-items: center; min-height: 40px; align-content: center; }
 .preset b { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
@@ -142,7 +146,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lane i { display: block; height: 8px; border-radius: 4px; background-color: var(--cr-well); }
 .playhead { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--cr-ink); opacity: .75; left: calc(var(--nw) + (100% - var(--nw)) * var(--pn)); pointer-events: none; }
 .fader-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 14px; align-items: end; }
-.fader { position: relative; height: 280px; border-radius: 22px; background: var(--cr-well); overflow: hidden; touch-action: pan-x; cursor: ns-resize; }
+.fader { position: relative; min-height: 280px; align-self: stretch; border-radius: 22px; background: var(--cr-well); overflow: hidden; touch-action: pan-x; cursor: ns-resize; }
 .fader-line { position: absolute; left: 14px; right: 14px; height: 4px; border-radius: 2px; bottom: clamp(8px, calc(var(--p) - 2px), calc(100% - 12px)); background: #fff; box-shadow: 0 0 8px rgba(0,0,0,.5); }
 .dial-wrap { position: relative; }
 .dial { width: min(100%, 250px); aspect-ratio: 1; margin: 0 auto; touch-action: none; cursor: grab; }
@@ -154,8 +158,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dial-tick { stroke: var(--cr-muted); stroke-width: 2; }
 .dial-knob { fill: #fff; stroke: var(--cr-ink); stroke-width: 3; }
 .dial-center { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 62%); place-content: center; text-align: center; pointer-events: none; }
-.bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 7px; }
-.bar { display: grid; grid-template-rows: 150px auto; gap: 5px; min-width: 0; }
+/* The columns share one grid, so a name on two lines does not make its column shorter than the others. */
+.bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: minmax(150px, 1fr) auto; gap: 5px 7px; }
+.bar { display: grid; grid-row: span 2; grid-template-rows: subgrid; min-width: 0; }
 .well { position: relative; overflow: hidden; border-radius: 9px; background: var(--cr-well); }
 .well[data-slider] { touch-action: pan-x; cursor: ns-resize; }
 .well.dev { box-shadow: inset 0 0 0 2px var(--cr-accent); }
@@ -175,8 +180,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .legend span { display: inline-flex; gap: 5px; align-items: center; }
 .key { display: inline-block; width: 14px; height: 3px; border-radius: 2px; flex: none; }
 .pic { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 12px; background: #0a0d1c; }
-.mix { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.ch { display: grid; grid-template-rows: auto 170px auto; align-content: start; gap: 5px; min-width: 0; text-align: center; }
+.mix { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: auto minmax(170px, 1fr) auto; gap: 5px 8px; }
+.ch { display: grid; grid-row: span 3; grid-template-rows: subgrid; min-width: 0; text-align: center; }
 .ch b { font-size: 12px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ch-fill { position: absolute; left: 0; right: 0; bottom: 0; }
 .warning { padding: 16px; color: var(--cr-muted); }
@@ -191,8 +196,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .details-in { display: grid; gap: 14px; padding: 16px; }
 .details-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .details-head > div { min-width: 0; flex: 1; }
-.details .bars { grid-auto-columns: minmax(46px, 1fr); overflow-x: auto; padding-block: 2px; }
-.details .bar { grid-template-rows: auto clamp(170px, 40dvh, 320px) auto; }
+.details .bars { grid-auto-columns: minmax(46px, 1fr); grid-template-rows: auto clamp(170px, 40dvh, 320px) auto; overflow-x: auto; padding-block: 2px; }
+.details .bar { grid-row: span 3; }
 .details .bar > b { font-size: 12px; font-weight: 500; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bar-name { border: 0; background: none; padding: 0; font-size: 11px; line-height: 1.15; text-align: center; color: var(--cr-muted); overflow-wrap: anywhere; text-decoration: underline dotted; text-underline-offset: 2px; }
 .bar-name:hover { color: var(--cr-ink); }
@@ -214,21 +219,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .icon-btn { width: 32px; height: 32px; }
   .fader-row { grid-template-columns: minmax(0, 1fr); }
   .fader-row .big { display: none; }
-  .fader { height: 170px; }
+  .fader { min-height: 170px; }
   .track { height: 48px; }
-  .bar { grid-template-rows: 100px; }
+  .bars { grid-template-rows: minmax(100px, 1fr); }
+  .bar { grid-row: span 1; }
   .bar > span, .ch > span { display: none; }
-  .ch { grid-template-rows: auto 110px; }
+  .mix { grid-template-rows: auto minmax(110px, 1fr); }
+  .ch { grid-row: span 2; }
   .presets, .scenes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .preset { padding: 6px 8px; min-height: 34px; }
   .preset.scene { min-height: 46px; }
 }
 @container (min-width: 470px) {
   [data-pos="bottom"] .body { grid-template-columns: minmax(0, 1fr) minmax(120px, 170px); }
-  [data-pos="bottom"] .presets, [data-pos="bottom"] .scenes { grid-template-columns: minmax(0, 1fr); }
-  .fader { height: 340px; }
-  .bar { grid-template-rows: 210px auto; }
-  .ch { grid-template-rows: auto 230px auto; }
+  [data-pos="bottom"] .presets, [data-pos="bottom"] .scenes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
+  [data-pos="bottom"] .btns { align-self: stretch; display: grid; }
+  .fader { min-height: 340px; }
+  .bars { grid-template-rows: minmax(210px, 1fr) auto; }
+  .mix { grid-template-rows: auto minmax(230px, 1fr) auto; }
   .big { font-size: 66px; }
 }
 @container (max-width: 190px) {
@@ -249,6 +257,22 @@ const TICKS = `<div class="ticks js-ticks" aria-hidden="true"></div>`;
 const REG = `<div class="regh"><div class="track js-grad" data-slider="x"><div class="dim"></div><div class="thumb"></div></div><div class="slim" data-slider="x"><div class="slim-track js-grad"><div class="dim"></div></div><div class="knob"></div></div>${TICKS}</div>`;
 const BTNS = `<div class="btns"><div class="presets js-presets"></div></div>`;
 const ARC = "M59.29 200.71 A100 100 0 1 1 200.71 200.71";
+
+// Neighboring light colors blend over a few percent, so they read as light rather than as blocks.
+function bandGradient(bands, dir) {
+  if (!bands.length) return "none";
+  const stops = bands.flatMap((b, i) => {
+    const soft = Math.min(4, (b.to - b.from) / 3);
+    const from = i === 0 ? b.from : b.from + soft;
+    const to = i === bands.length - 1 ? b.to : b.to - soft;
+    return [`${b.color} ${from.toFixed(1)}%`, `${b.color} ${to.toFixed(1)}%`];
+  });
+  return `linear-gradient(${dir}, ${stops.join(",")})`;
+}
+
+function bandAt(bands, pct) {
+  return bands.find((b) => pct <= b.to)?.color || bands.at(-1)?.color || "var(--reg)";
+}
 
 const TEMPLATES = {
   gradient: `${HEAD}<div class="body"><div class="reg">${REG}</div>${BTNS}</div><div class="lanes js-lanes"></div>`,
@@ -584,21 +608,34 @@ class CrescendoCard extends HTMLElement {
       el.innerHTML = colors.map((c) => `<span><i class="chip" style="background:${paint(c)}"></i>${names(c)}</span>`).join("");
       el.parentElement.hidden = !colors.length;
     });
-    if (this._config.color !== "solid") return;
-    root.querySelectorAll(".js-grad").forEach((el) => (el.style.backgroundImage = this._gradient("90deg")));
-    root.querySelectorAll(".js-vgrad").forEach((el) => (el.style.backgroundImage = this._gradient("0deg")));
-    root.querySelectorAll(".dial-seg").forEach((el) => (el.style.stroke = this._segColor(+el.dataset.p)));
   }
 
-  _solidBands() {
-    if (!this._options) return [];
-    const colors = activeColors(this._options.lights.map((l) => l.entity_id), this._hass);
-    const total = colors.reduce((sum, c) => sum + c.ids.length, 0);
+  // The lights' colors side by side, each as wide as its light is bright. They come from the curve at the shown
+  // position, like the columns, so they move with it instead of jumping with each report. A light taken out by
+  // hand shows what it reports.
+  _solidBands(p = this._shown ?? this._ctl?.pos ?? 0) {
+    const o = this._options;
+    if (!o) return [];
+    const override = this._override();
+    const deviating = this._ctl?.state?.attributes?.deviating || [];
+    const parts = [];
+    for (const light of o.lights) {
+      const l = lampAt(o, light, p, override);
+      let v = l.v,
+        c = l.c;
+      if (deviating.includes(light.entity_id)) {
+        const real = this._hass.states[light.entity_id];
+        v = real?.state === "on" ? (real.attributes.brightness || 0) / 2.55 : 0;
+        c = real?.attributes?.rgb_color || c;
+      }
+      if (v > 0.3) parts.push({ w: Math.sqrt(v), c });
+    }
+    const total = parts.reduce((sum, x) => sum + x.w, 0);
     let at = 0;
-    return colors.map((c) => {
+    return parts.map((x) => {
       const from = at;
-      at += (c.ids.length / total) * 100;
-      return { color: `rgb(${css(lightColor(c.rgb))})`, from, to: at };
+      at += (x.w / total) * 100;
+      return { color: `rgb(${css(lightColor(x.c))})`, from, to: at };
     });
   }
 
@@ -613,6 +650,7 @@ class CrescendoCard extends HTMLElement {
       <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}"${cfg.dial_wedge ? " data-wedge" : ""}>${TEMPLATES[design]}<div class="colorrow js-colorrow" hidden><span class="chips js-chips" role="group" aria-label="${esc(this._t("Active light colors", "Aktive Lichtfarben"))}" hidden></span><div class="colorbar js-colorbar" role="slider" tabindex="0" aria-label="${esc(this._t("Color", "Farbe"))}" aria-valuemin="0" aria-valuemax="100"><u class="js-colorwhite"></u><u class="js-colorhue"></u><i class="colorknob js-colorknob" hidden></i></div><button class="reset js-colorback">${esc(this._t("Back to the stops", "Zurück zu den Stufen"))}</button></div></div>${mode === "off" ? "" : this._detailsHtml()}</ha-card>`;
     this._built = true;
     this._activeKey = null;
+    this._bandKey = null;
     const root = this.shadowRoot;
     const opensBy = (...how) => how.includes(mode);
     root.querySelector(".cc").toggleAttribute("data-tap", opensBy("card", "both"));
@@ -715,11 +753,7 @@ class CrescendoCard extends HTMLElement {
     const dark = this._dark;
     const fade = (c) =>
       dark ? `linear-gradient(${dir}, ${c}, ${c})` : `linear-gradient(${dir}, color-mix(in srgb, ${c} 12%, transparent), ${c})`;
-    if (cfg.color === "solid") {
-      const bands = this._solidBands();
-      if (!bands.length) return "none";
-      return `linear-gradient(${dir}, ${bands.map((b) => `${b.color} ${b.from.toFixed(1)}% ${b.to.toFixed(1)}%`).join(",")})`;
-    }
+    if (cfg.color === "solid") return bandGradient(this._solidBands(), dir);
     if (cfg.color === "accent") return fade("var(--cr-accent)");
     if (cfg.color === "custom") return fade(cfg.custom_color);
     if (this._options) return roomGradient(this._options, dir, this._override(), dark);
@@ -759,7 +793,7 @@ class CrescendoCard extends HTMLElement {
     const cfg = this._config,
       ctl = this._ctl;
     const dark = this._dark;
-    if (cfg.color === "solid") return this._solidBands().find((b) => pct <= b.to)?.color || "var(--reg)";
+    if (cfg.color === "solid") return bandAt(this._solidBands(), pct);
     const mix = (c) => (dark ? c : `color-mix(in srgb, ${c} ${Math.round(12 + (88 * pct) / 100)}%, transparent)`);
     if (cfg.color === "accent") return mix("var(--cr-accent)");
     if (cfg.color === "custom") return mix(cfg.custom_color);
@@ -889,6 +923,18 @@ class CrescendoCard extends HTMLElement {
       else if (ctl.scheme === "light" && ctl.on) reg = `rgb(${css(lightColor(ctl.state.attributes.rgb_color || kRgb(2900)))})`;
     }
     host.style.setProperty("--reg", reg);
+    if (cfg.color === "solid") {
+      const bands = this._solidBands(p);
+      const key = bands.map((b) => `${b.color}@${b.to.toFixed(1)}`).join("|");
+      if (key !== this._bandKey) {
+        this._bandKey = key;
+        const across = bandGradient(bands, "90deg"),
+          up = bandGradient(bands, "0deg");
+        $$(".js-grad", (el) => (el.style.backgroundImage = across));
+        $$(".js-vgrad", (el) => (el.style.backgroundImage = up));
+        $$(".dial-seg", (el) => (el.style.stroke = bandAt(bands, +el.dataset.p)));
+      }
+    }
     let glow = "transparent";
     if (cfg.glow && o?.lights.length && avg) {
       const g = 0.6 * Math.pow(Math.min(1, tot / o.lights.length), 0.6);

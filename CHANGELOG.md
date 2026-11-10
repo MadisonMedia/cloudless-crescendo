@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0b5
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Changed
+
+- **Current light colors, without a gradient** no longer jumps. It still shows the lights' colors side by side, but takes them from the curve at the shown position, like the columns, instead of from the lights' reports, which arrive only about once per second. Each color is as wide as its light is bright, neighbors blend softly, and a light set by hand shows its own color.
+- Buttons beside the control grow to its height, so few buttons leave no gap below them. With many buttons, the columns, a fader or the channels grow to the buttons' height instead of leaving gaps above and below the slider.
+
 ## 0.1.0b4
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
