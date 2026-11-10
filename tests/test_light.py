@@ -76,7 +76,8 @@ async def test_another_plugin_can_set_the_switch_on_position(hass: HomeAssistant
 
 
 async def test_fade_to_and_press_button(hass: HomeAssistant, setup_object) -> None:
-    entity = await setup_object()
+    # 0 to 100 % in 1 s, so a button from 20 to 40 % takes 0.2 s.
+    entity = await setup_object(options=sample_options(default_transition=1))
     await hass.services.async_call(
         "cloudless_crescendo",
         "fade_to",

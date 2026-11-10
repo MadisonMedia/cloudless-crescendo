@@ -263,6 +263,10 @@ class CrescendoPanel extends HTMLElement {
     r.addEventListener("click", (e) => this._onClick(e));
     r.addEventListener("input", (e) => this._onInput(e));
     r.addEventListener("change", (e) => this._onChange(e));
+    // Home Assistant's icon picker reports through its own event.
+    r.addEventListener("value-changed", (e) => {
+      if (e.target?.dataset?.f === "icon" && e.composedPath()[0] === e.target) this._onChange(e);
+    });
     r.addEventListener("pointerdown", (e) => this._onDown(e));
     r.addEventListener("pointermove", (e) => this._onMove(e));
     r.addEventListener("pointerup", (e) => this._onUp(e));
@@ -399,8 +403,8 @@ class CrescendoPanel extends HTMLElement {
             <p class="note">${esc(t("The default is 4. More updates feel more direct, but too many can cause stutter.", "Standard ist 4. Mehr Aktualisierungen wirken direkter, zu viele können aber Ruckler verursachen."))}</p></div>
           <div class="ctl"><div class="sub">${esc(t("Switching on without a stop", "Einschalten ohne Stufe"))}</div><div class="row"><select class="field" id="onMode" aria-label="${esc(t("Behavior when switching on", "Verhalten beim Einschalten"))}"><option value="last">${esc(t("Last position", "Letzte Position"))}</option><option value="fixed">${esc(t("Fixed stop", "Feste Stufe"))}</option></select><input class="field num" type="number" id="onPos" min="1" max="100" aria-label="${esc(t("Fixed stop in percent", "Feste Stufe in Prozent"))}"></div>
             <p class="note">${esc(t("Applies to tiles and voice commands without a percentage. Another integration or automation can set this value with the action “Set switch-on position”, for example by time of day.", "Gilt für Kacheln und Sprachbefehle ohne Prozentangabe. Eine andere Integration oder Automation kann den Wert mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}</p></div>
-          <div class="ctl"><div class="sub">${esc(t("Fade without a duration", "Überblendung ohne Dauerangabe"))}</div><div class="row"><label for="fadeDef">${esc(t("Duration in seconds", "Dauer in Sekunden"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"></div>
-            <p class="note">${esc(t("Applies when Home Assistant sends no duration, for example from a tile's slider.", "Gilt, wenn Home Assistant keine Dauer mitschickt, zum Beispiel beim Regler einer Kachel."))}</p></div>
+          <div class="ctl"><div class="sub">${esc(t("Speed", "Tempo"))}</div><div class="row"><label for="fadeDef">${esc(t("0 to 100 % takes (seconds)", "0 auf 100 % dauert (Sekunden)"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"></div>
+            <p class="note">${esc(t("Each fade takes its share: from 80 to 100 % a fifth. Applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands without a duration. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Jede Überblendung dauert ihren Anteil: von 80 auf 100 % ein Fünftel. Gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle ohne Dauer. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}</p></div>
           <div class="ctl"><div class="sub">${esc(t("In automations", "In Automationen"))}</div><p class="note">${esc(t("The object is a normal light. Its brightness is the position on the scale. The lights always run in the set sequence, backward when dimming down.", "Das Objekt ist ein normales Licht. Seine Helligkeit ist die Position auf der Skala. Die Leuchten laufen immer in der eingestellten Reihenfolge, rückwärts beim Runterdimmen."))}</p><pre id="yaml"></pre></div>
         </div></details>
       </div>
@@ -770,12 +774,16 @@ class CrescendoPanel extends HTMLElement {
   _renderButtons() {
     const t = this._t,
       o = this._o.options;
-    this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Stop (%)", "Stufe (%)"))}</th><th>${esc(t("Duration (s)", "Dauer (s)"))}</th><th></th></tr></thead><tbody>${
+    this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Stop (%)", "Stufe (%)"))}</th><th>${esc(t("Icon", "Symbol"))}</th><th></th></tr></thead><tbody>${
       o.buttons
         .map(
           (b) => `<tr><td><input class="field txt" id="bn-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}"></td>
         <td><input class="field num" type="number" id="bp-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="position" min="0" max="100" value="${b.position}" aria-label="${esc(t("Stop", "Stufe"))}"></td>
-        <td><input class="field num" type="number" id="bd-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="duration" min="0" step="0.5" value="${b.duration}" aria-label="${esc(t("Duration", "Dauer"))}"></td>
+        <td>${
+          customElements.get("ha-icon-picker")
+            ? `<ha-icon-picker id="bi-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="icon" value="${esc(b.icon || "")}"></ha-icon-picker>`
+            : `<input class="field txt" id="bi-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="icon" value="${esc(b.icon || "")}" placeholder="mdi:weather-night" aria-label="${esc(t("Icon", "Symbol"))}">`
+        }</td>
         <td><div class="row"><button class="btn" data-act="test-btn" data-id="${esc(b.id)}">${esc(t("Test", "Testen"))}</button><button class="x" data-act="rm-btn" data-id="${esc(b.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></td></tr>`,
         )
         .join("") || `<tr><td colspan="4"><span class="note">${esc(t("No buttons yet.", "Noch keine Buttons."))}</span></td></tr>`
@@ -1271,7 +1279,7 @@ data:
         break;
       case "test-btn": {
         const b = o.buttons.find((x) => x.id === a.dataset.id);
-        hass.callService("cloudless_crescendo", "fade_to", { position: b.position, duration: { seconds: b.duration } }, { entity_id: this._o.entity_id });
+        hass.callService("cloudless_crescendo", "press_button", { button: b.id }, { entity_id: this._o.entity_id });
         break;
       }
       case "test-ask":
@@ -1378,9 +1386,13 @@ data:
       this._change(() => {
         if (f === "name") b.name = t.value.trim() || "Button";
         else if (f === "position") b.position = clamp(Math.round(+t.value) || 0, 0, 100);
-        else b.duration = Math.max(0, +t.value || 0);
+        else if (f === "icon") {
+          const icon = String(e.detail?.value ?? t.value ?? "").trim();
+          if (icon) b.icon = icon;
+          else delete b.icon;
+        }
       });
-      this._renderButtons();
+      if (f !== "icon") this._renderButtons();
     } else if (t.dataset.dev) {
       const d = o.devices.find((x) => x.id === t.dataset.dev),
         f = t.dataset.f;

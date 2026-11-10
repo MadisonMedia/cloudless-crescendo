@@ -489,3 +489,37 @@ async def test_switching_off_at_once_forgets_the_color_with_nothing_to_send(
     assert entity.engine.position == 0
     assert entity.engine.override is None
     assert hass.states.get(OBJECT).attributes["color_override"] is False
+
+
+# -- fades take their share of the time for 0 to 100 % ---------------------------------------------
+
+
+async def test_a_fade_without_a_duration_takes_its_share(hass: HomeAssistant, setup_object) -> None:
+    entity = await setup_object(options=sample_options(default_transition=10))
+    await _call(hass, "light", "turn_on", {"brightness_pct": 50})
+    assert entity.engine.fade.duration == pytest.approx(5.0, abs=0.1)
+    await entity.engine.async_stop()
+    await _call(hass, "cloudless_crescendo", "fade_to", {"position": 50, "duration": 0})
+    await _wait(hass, 0.05)
+    await _call(hass, "cloudless_crescendo", "press_button", {"button": "Morgen"})
+    assert entity.engine.fade.duration == pytest.approx(1.0, abs=0.1)
+    await entity.engine.async_stop()
+    await _call(hass, "cloudless_crescendo", "fade_to", {"position": 90, "duration": 3})
+    assert entity.engine.fade.duration == pytest.approx(3.0)
+    await entity.engine.async_stop()
+    await _call(hass, "cloudless_crescendo", "fade_to", {"position": 0})
+    assert entity.engine.fade.duration == pytest.approx(10 * entity.engine.fade.start / 100, abs=0.2)
+    await entity.engine.async_stop()
+
+
+async def test_reset_brings_back_everything(hass: HomeAssistant, setup_object, hass_ws_client) -> None:
+    entity = await setup_object()
+    await _call(hass, "light", "turn_on", {"brightness_pct": 60, "xy_color": [0.6, 0.35], "transition": 0})
+    await _wait(hass)
+    entity.engine.set_lights([MIRROR], 10)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "cloudless_crescendo/lights/reset", "entity_id": OBJECT})
+    assert (await client.receive_json())["success"]
+    await _wait(hass, 0.05)
+    assert entity.engine.override is None
+    assert entity.engine.deviating == {}

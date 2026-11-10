@@ -169,13 +169,11 @@ setTimeout(async () => {
     const bad = hass.states["light.bad"];
     card.hass = { ...hass, states: { ...hass.states, "light.bad": { ...bad, attributes: { ...bad.attributes, color_override: true, rgb_color: [255, 0, 0], color_mode: "xy", supported_color_modes: ["color_temp", "xy"] } } } };
     await wait(60);
-    report("colors can be reset while a color is chosen", card.shadowRoot.querySelector(".reset-wrap").classList.contains("show") && !card.shadowRoot.querySelector(".js-reset-color").hidden && card.shadowRoot.querySelector(".js-reset-dim").hidden);
-    card.shadowRoot.querySelector(".js-resets-open").click();
-    report("the reset icon opens a small menu", !card.shadowRoot.querySelector(".js-reset-menu").hidden);
+    report("the reset shows beside the slider while a color is chosen", !!card.shadowRoot.querySelector(".regline .reset-wrap.show"));
     calls.length = 0;
-    card.shadowRoot.querySelector(".js-reset-color").click();
+    card.shadowRoot.querySelector(".reset-wrap .js-reset-all").click();
     await wait(20);
-    report("resetting colors asks for the colors only", calls.some((c) => c.type === "cloudless_crescendo/lights/reset" && c.what === "colors"));
+    report("one tap resets everything", calls.some((c) => c.type === "cloudless_crescendo/lights/reset" && c.what === undefined && c.lights === undefined));
     // A button's name replaces the value at its position.
     const fader = cards[1];
     const big = () => fader.shadowRoot.querySelector(".big .js-pos").textContent;
@@ -308,6 +306,15 @@ setTimeout(async () => {
     report("single lights: the brightness goes to that light", dimmed?.lights?.join() === "light.spiegel" && Math.abs(dimmed.brightness - 40) <= 2, JSON.stringify(dimmed));
     picker.querySelector(".js-lp-close").click();
     report("single lights: the window stays open behind the color choice", dialogOf(viaButton).open && !picker.open);
+    // An open light window follows the lights: a light set apart meanwhile offers its reset.
+    viaButton.shadowRoot.querySelector('.js-details .js-pick[data-ids="light.spiegel"]').click();
+    report("single lights: no reset for a light on the curve", picker.querySelector(".js-lp-reset").hidden);
+    viaButton.hass = atPosition(62, { deviating: ["light.spiegel"] });
+    await wait(40);
+    report("single lights: the window updates and offers the reset", picker.open && !picker.querySelector(".js-lp-reset").hidden);
+    picker.querySelector(".js-lp-close").click();
+    viaButton.hass = hass;
+    await wait(40);
     // A combined column lists its lights, each with its own brightness and settings.
     viaButton.shadowRoot.querySelector(".js-dgroup").click();
     await wait(30);
@@ -468,11 +475,24 @@ setTimeout(async () => {
     report("buttons: a light preview with one field per light", previewed.shadowRoot.querySelectorAll('.preset[data-pos="25"] .pv i').length === 3);
     // Dimming and colors reset separately.
     const apart = await newCard({}, atPosition(62, { deviating: ["light.boden"], deviating_brightness: ["light.boden"], deviating_color: [] }));
-    report("reset: dimming offered for a light dimmed apart", !apart.shadowRoot.querySelector(".js-reset-dim").hidden && apart.shadowRoot.querySelector(".js-reset-color").hidden);
+    report("reset: shown for a light dimmed apart", !!apart.shadowRoot.querySelector(".reset-wrap.show"));
+    // A button takes its share of the time for 0 to 100 %: the object's (here 1 s) or the card's own.
+    const sped = await newCard({}, atPosition(62));
     calls.length = 0;
-    apart.shadowRoot.querySelector(".js-reset-dim").click();
-    await wait(20);
-    report("reset: dimming asks for the brightness only", calls.some((c) => c.type === "cloudless_crescendo/lights/reset" && c.what === "brightness"));
+    sped.shadowRoot.querySelector('.preset[data-pos="25"]').click();
+    const speedCall = calls.find((c) => Array.isArray(c) && c[1] === "fade_to");
+    report("speed: a button takes its share of the object's time", Math.abs(speedCall?.[2]?.duration?.seconds - 0.37) < 0.02, JSON.stringify(speedCall?.[2]));
+    const slower = await newCard({ full_fade: 10 }, atPosition(62));
+    calls.length = 0;
+    slower.shadowRoot.querySelector('.preset[data-pos="25"]').click();
+    const slowCall = calls.find((c) => Array.isArray(c) && c[1] === "fade_to");
+    report("speed: a card can set its own", Math.abs(slowCall?.[2]?.duration?.seconds - 3.7) < 0.05, JSON.stringify(slowCall?.[2]));
+    const resetHead = await newCard({ reset_place: "header" }, atPosition(62, { deviating: ["light.boden"] }));
+    report("reset: can sit in the header", !!resetHead.shadowRoot.querySelector(".head .reset-wrap.show") && !resetHead.shadowRoot.querySelector(".regline .reset-wrap"));
+    const noHead = await newCard({ show_title: false, show_header_value: false, power: "buttons", details: "off" }, atPosition(62, { deviating: ["light.boden"] }));
+    const resetBox = noHead.shadowRoot.querySelector(".reset-wrap").getBoundingClientRect();
+    const trackBox = noHead.shadowRoot.querySelector(".track").getBoundingClientRect();
+    report("reset: without a header it stands beside the slider, covering nothing", !noHead.shadowRoot.querySelector(".head") && resetBox.left >= trackBox.right - 1, `${resetBox.left.toFixed(0)} vs ${trackBox.right.toFixed(0)}`);
     const fills = await newCard({ design: "columns" });
     report("columns glide to a new value instead of jumping", getComputedStyle(fills.shadowRoot.querySelector(".js-bar")).transitionDuration.includes("0.45s"));
     // The color bar offers what the lights can show.
@@ -542,7 +562,21 @@ setTimeout(async () => {
     ed("#glow").click();
     await wait(30);
     report("a setting is saved and stays shown", editor._config.glow === false && !!ed("#glow"));
-    report("header settings are offered", !!ed("#show_title") && !!ed("#show_header_value") && !!ed("#power"));
+    report("header settings are offered", !!ed("#show_title") && !!ed("#show_header_value") && !!ed("#power") && !!ed("#reset_place"));
+    report("no value or duration options for buttons", !ed("#show_value") && !ed("#show_duration") && !ed('[data-f="duration"]'));
+    // Icons are saved, typed or picked; picking does not rebuild the form.
+    const iconInput = ed('.btn-icon[data-i="0"]');
+    iconInput.value = "mdi:weather-night";
+    iconInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(20);
+    report("a typed icon is saved", editor._config.buttons?.[0]?.icon === "mdi:weather-night", JSON.stringify(editor._config.buttons?.[0]));
+    customElements.define("ha-icon-picker", class extends HTMLElement {});
+    editor.setConfig({ ...editor._config });
+    await wait(20);
+    const fakePicker = ed('ha-icon-picker[data-i="1"]');
+    fakePicker.dispatchEvent(new CustomEvent("value-changed", { detail: { value: "mdi:sofa" }, bubbles: true, composed: true }));
+    await wait(20);
+    report("a picked icon is saved and the picker stays", editor._config.buttons?.[1]?.icon === "mdi:sofa" && ed('ha-icon-picker[data-i="1"]') === fakePicker, JSON.stringify(editor._config.buttons?.[1]));
     const pick = async (design) => { ed(`[data-design="${design}"]`).click(); await wait(30); };
     await pick("dial");
     report("no horizontal slider setting for the dial", !ed("#slider") && !!ed("#dial_wedge"));

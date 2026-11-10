@@ -74,6 +74,7 @@ const DEFAULTS = {
   button_style: "tint_icon",
   color_bar: "both",
   columns_mode: "dim_settings",
+  reset_place: "slider",
 };
 
 // Below this, a slider or a column switches off instead of hanging at 1 or 2 %.
@@ -87,7 +88,7 @@ const STYLE = `
   --cr-s1:#2a78d6; --cr-s2:#eb6834; --cr-s3:#1baf7a; --cr-s4:#eda100; --cr-s5:#e87ba4; --cr-s6:#008300; --cr-s7:#6250d6; --cr-s8:#e34948; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-ha-card, .card { display: block; position: relative; height: 100%; overflow: visible; background: var(--cr-bg); color: var(--cr-ink); box-shadow: var(--ha-card-box-shadow, none), 0 0 30px 3px var(--glowc); border-radius: var(--ha-card-border-radius, 16px); }
+ha-card, .card { display: block; position: relative; height: 100%; overflow: visible; background: var(--cr-bg); background-image: radial-gradient(120% 70% at 50% 0%, var(--glowin, transparent), transparent 75%); color: var(--cr-ink); box-shadow: var(--ha-card-box-shadow, none), 0 0 30px 3px var(--glowc); border-radius: var(--ha-card-border-radius, 16px); transition: background-color .4s; }
 .cc { container-type: inline-size; padding: 16px; display: grid; gap: 14px; min-width: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
 .progress { position: absolute; left: 16px; right: 16px; top: 5px; height: 4px; border-radius: 2px; background: var(--cr-line); overflow: hidden; pointer-events: none; }
@@ -110,18 +111,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .readonly .power { display: none; }
 .head-space { flex: 1; }
 .preset.power-tile { width: auto; height: auto; min-height: 40px; border-radius: 10px; }
-.regline { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; }
-.regline > .power { width: 54px; height: 62px; }
-[data-sl="slim"] .regline > .power { width: 40px; height: 34px; }
+.regline { display: flex; gap: 10px; align-items: flex-start; --gap: 10px; }
+.regline > div { flex: 1; min-width: 0; }
+.regline > .power, .regline .reset-wrap .icon-btn { width: 54px; height: 62px; border-radius: 12px; }
+.regline .reset-wrap { width: 54px; }
+[data-sl="slim"] .regline > .power, [data-sl="slim"] .regline .reset-wrap .icon-btn { width: 40px; height: 34px; }
+[data-sl="slim"] .regline .reset-wrap { width: 40px; }
 .resets { display: flex; flex-wrap: wrap; gap: 8px; }
 .resets:not(:has(.reset:not([hidden]))) { display: none; }
 .reset-wrap { position: relative; display: inline-grid; flex: none; width: 36px; transition: opacity .25s ease, transform .25s ease, width .25s ease, margin .25s ease; }
-.reset-wrap:not(.show) { opacity: 0; transform: scale(.6); width: 0; margin-left: -12px; pointer-events: none; }
-.reset-float { position: absolute; top: 10px; right: 10px; z-index: 3; }
-.reset-float .reset-wrap:not(.show) { margin-left: 0; }
-.reset-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 6; display: grid; gap: 2px; padding: 6px; border-radius: 12px; background: var(--cr-bg); border: 1px solid var(--cr-line); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
-.reset-menu button { border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 8px; font-size: 14px; white-space: nowrap; }
-.reset-menu button:hover { background: var(--cr-well); }
+.reset-wrap:not(.show) { opacity: 0; transform: scale(.6); width: 0 !important; margin-left: calc(-1 * var(--gap, 12px)); pointer-events: none; overflow: hidden; }
+.colorrow { --gap: 12px; }
 .well.js-pick { cursor: pointer; }
 .well .gear { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: grid; color: var(--cr-ink); opacity: .55; pointer-events: none; }
 .bar-name.plain { text-decoration: none; }
@@ -307,7 +307,7 @@ const BIG = `<div class="big"><span class="js-pos">0</span><small class="js-unit
 const TICKS = `<div class="ticks js-ticks" aria-hidden="true"></div>`;
 const REG = `<div class="regh"><div class="track js-grad" data-slider="x"><div class="dim"></div><div class="thumb"></div></div><div class="slim" data-slider="x"><div class="slim-track js-grad"><div class="dim"></div></div><div class="knob"></div></div>${TICKS}</div>`;
 const BTNS = `<div class="btns"><div class="presets js-presets"></div></div>`;
-const RESETS = `<div class="resets"><button class="reset js-reset-dim" hidden></button><button class="reset js-reset-color" hidden></button></div>`;
+const RESETS = `<div class="resets"><button class="reset js-reset-all" hidden></button></div>`;
 const ARC = "M59.29 200.71 A100 100 0 1 1 200.71 200.71";
 
 // A button shows an icon only when one was chosen for it.
@@ -315,8 +315,8 @@ const buttonIcon = (b) => b.icon || "";
 const BACK_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>`;
 const GEAR_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
 const RESET_ICON = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`;
-// Shown only while something differs from the stops; it opens a small menu instead of taking room on the card.
-const RESET_WRAP = `<span class="reset-wrap"><button class="icon-btn js-resets-open" aria-haspopup="menu">${RESET_ICON}</button><span class="reset-menu js-reset-menu" role="menu" hidden><button class="js-reset-dim" role="menuitem"></button><button class="js-reset-color" role="menuitem"></button></span></span>`;
+// Shown only while something differs from the stops: single lights or a chosen color. One tap brings all back.
+const RESET_WRAP = `<span class="reset-wrap"><button class="icon-btn js-reset-all">${RESET_ICON}</button></span>`;
 
 // {{HEAD}} is the header, {{HEADP}} one without the value (the control shows it), {{REG}} the slider. Each card fills them in.
 const TEMPLATES = {
@@ -476,7 +476,21 @@ class CrescendoCard extends HTMLElement {
       this._built = false;
     }
     if (!this._built || force) this._build();
+    this._refreshPicker();
     this._kick();
+  }
+
+  // An open light window follows what the lights report, except right after a change made in it.
+  _refreshPicker() {
+    const dialog = this.shadowRoot.querySelector(".js-lightpick");
+    const pick = this._pick;
+    if (!dialog?.open || !pick || this._pickDrag) return;
+    if (performance.now() < (this._pickHold || 0)) {
+      const deviating = this._ctl.state?.attributes?.deviating || [];
+      dialog.querySelector(".js-lp-reset").hidden = !pick.ids.some((id) => deviating.includes(id));
+      return;
+    }
+    this._openPicker(pick.ids, pick.mode, pick.name, pick.back);
   }
 
   // Follows a fade from what the state last said, without relying on synchronized clocks.
@@ -671,15 +685,20 @@ class CrescendoCard extends HTMLElement {
     const design = TEMPLATES[cfg.design] ? cfg.design : "gradient";
     const pos = cfg.button_position === "auto" ? AUTO_POS[design] || "auto" : cfg.button_position;
     const detailsWereOpen = !!this.shadowRoot.querySelector(".js-details")?.open;
+    const pickerWasOpen = !!this.shadowRoot.querySelector(".js-lightpick")?.open;
     const mode = this._detailsMode();
     const powerAt = this._powerPlace();
+    const resetAt = this._resetPlace();
+    const beside = powerAt === "slider" || resetAt === "slider";
     const template = TEMPLATES[design]
-      .replace("{{HEAD}}", this._headHtml(true, powerAt))
-      .replace("{{HEADP}}", this._headHtml(false, powerAt))
-      .replace("{{REG}}", powerAt === "slider" ? `<div class="regline">${POWER}<div>${REG}</div></div>` : REG);
-    const floating = !template.includes('class="head"');
+      .replace("{{HEAD}}", this._headHtml(true, powerAt, resetAt))
+      .replace("{{HEADP}}", this._headHtml(false, powerAt, resetAt))
+      .replace(
+        "{{REG}}",
+        beside ? `<div class="regline">${powerAt === "slider" ? POWER : ""}<div>${REG}</div>${resetAt === "slider" ? RESET_WRAP : ""}</div>` : REG,
+      );
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card class="card"><div class="progress js-progress" hidden><i></i></div>
-      <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}"${cfg.dial_wedge ? " data-wedge" : ""}${cfg.show_header_value ? "" : " data-novalue"}>${template}<div class="colorrow js-colorrow" hidden><span class="chips js-chips" role="group" aria-label="${esc(this._t("Active light colors", "Aktive Lichtfarben"))}" hidden></span><div class="colorbar js-colorbar" role="slider" tabindex="0" aria-label="${esc(this._t("Color", "Farbe"))}" aria-valuemin="0" aria-valuemax="100"><u class="js-colorwhite"></u><u class="js-colorhue"></u><i class="colorknob js-colorknob" hidden></i></div></div>${floating ? `<div class="reset-float">${RESET_WRAP}</div>` : ""}</div>${mode === "off" ? "" : this._detailsHtml()}${this._pickerHtml()}</ha-card>`;
+      <div class="cc" data-pos="${pos}" data-sl="${cfg.slider}" data-color="${cfg.color}"${cfg.dial_wedge ? " data-wedge" : ""}${cfg.show_header_value ? "" : " data-novalue"}>${template}<div class="colorrow js-colorrow" hidden><span class="chips js-chips" role="group" aria-label="${esc(this._t("Active light colors", "Aktive Lichtfarben"))}" hidden></span><div class="colorbar js-colorbar" role="slider" tabindex="0" aria-label="${esc(this._t("Color", "Farbe"))}" aria-valuemin="0" aria-valuemax="100"><u class="js-colorwhite"></u><u class="js-colorhue"></u><i class="colorknob js-colorknob" hidden></i></div>${resetAt === "colors" ? RESET_WRAP : ""}</div></div>${mode === "off" ? "" : this._detailsHtml()}${this._pickerHtml()}</ha-card>`;
     this._built = true;
     this._activeKey = null;
     this._paintKey = null;
@@ -717,12 +736,7 @@ class CrescendoCard extends HTMLElement {
     const us = o ? units(o, this._hass, cfg.group, false) : [];
     this._units = us;
     const list = this._buttons();
-    const sub = (b) => {
-      const bits = [];
-      if (cfg.show_value) bits.push(`${formatValue(ctl, b.position, lang)} ${ctl.unit}`);
-      if (cfg.show_duration) bits.push(`${comma(lang, b.duration)} s`);
-      return bits.length ? `<span>${esc(bits.join(" · "))}</span>` : "";
-    };
+    const sub = () => "";
     const tile = powerAt === "buttons" ? POWER_TILE : "";
     $$(".btns", (el) => (el.hidden = !list.length && !tile));
     $$(".js-presets", (el) => {
@@ -758,9 +772,11 @@ class CrescendoCard extends HTMLElement {
         ? us.map((u) => `<div class="bar">${wellOf(u)}${nameOf(u)}</div>`).join("")
         : `<div class="bar"><div class="well"><div class="fill js-self"></div></div><span>${esc(name)}</span></div>`;
     });
-    $$(".js-reset-dim", (el) => (el.textContent = this._t("Reset dimming", "Dimming zurücksetzen")));
-    $$(".js-reset-color", (el) => (el.textContent = this._t("Reset colors", "Farben zurücksetzen")));
-    $$(".js-resets-open", (el) => el.setAttribute("aria-label", this._t("Reset", "Zurücksetzen")));
+    $$(".resets .js-reset-all", (el) => (el.textContent = this._t("Reset", "Zurücksetzen")));
+    $$(".reset-wrap .js-reset-all", (el) => {
+      el.setAttribute("aria-label", this._t("Back to the stops", "Zurück zu den Stufen"));
+      el.title = this._t("Back to the stops", "Zurück zu den Stufen");
+    });
     $$(".js-segs", (el) => (el.innerHTML = this._arcSegments()));
     $$(".js-dticks", (el) => (el.innerHTML = this._arcTicks()));
     $$(".js-chart", (el) => (el.innerHTML = this._chart(us)));
@@ -772,6 +788,18 @@ class CrescendoCard extends HTMLElement {
     this._sliderRoles();
     this._live(true);
     if (detailsWereOpen && mode !== "off") this._openDetails();
+    if (pickerWasOpen && this._pick) this._openPicker(this._pick.ids, this._pick.mode, this._pick.name, this._pick.back);
+  }
+
+  // Beside the slider by default. Without a slider, beside the color selection, else in the header.
+  _resetPlace() {
+    const cfg = this._config;
+    if (!this._ctl?.crescendo) return "off";
+    if (cfg.reset_place === "header") return "header";
+    const design = TEMPLATES[cfg.design] ? cfg.design : "gradient";
+    if (TEMPLATES[design].includes("{{REG}}") && cfg.slider !== "none") return "slider";
+    if (cfg.color_control && (this._hasColor() || this._hasWhite())) return "colors";
+    return "header";
   }
 
   // Where the power button goes. Among the buttons it needs buttons, beside the slider a slider.
@@ -785,13 +813,14 @@ class CrescendoCard extends HTMLElement {
   }
 
   // Each part of the header can be switched off. Without any part there is no header at all.
-  _headHtml(withValue, powerAt) {
+  _headHtml(withValue, powerAt, resetAt) {
     const cfg = this._config;
     const details = ["button", "both"].includes(this._detailsMode());
     const value = withValue && cfg.show_header_value;
     const power = powerAt === "header";
-    if (!cfg.show_title && !value && !power && !details) return "";
-    return `<div class="head">${cfg.show_title ? TITLE : '<div class="head-space"></div>'}${value ? VALUE : ""}${RESET_WRAP}${details ? OPEN_DETAILS : ""}${power ? POWER : ""}</div>`;
+    const reset = resetAt === "header";
+    if (!cfg.show_title && !value && !power && !details && !reset) return "";
+    return `<div class="head">${cfg.show_title ? TITLE : '<div class="head-space"></div>'}${value ? VALUE : ""}${reset ? RESET_WRAP : ""}${details ? OPEN_DETAILS : ""}${power ? POWER : ""}</div>`;
   }
 
   // A button can show its light: tinted with it (color and brightness), with an icon, or with a small preview per light.
@@ -933,6 +962,7 @@ class CrescendoCard extends HTMLElement {
     }
     if (kind === "bri" && !bar.dataset.id) this._pickValue("bri", `${Math.round(place * 100)} %`);
     const now = performance.now();
+    this._pickHold = now + 2500;
     if (!final && now - (this._pickSent || 0) < this._interval()) return;
     this._pickSent = now;
     const lights = bar.dataset.id ? [bar.dataset.id] : pick.ids;
@@ -1208,6 +1238,7 @@ class CrescendoCard extends HTMLElement {
       glow = `rgba(${css(lightColor(avg))},${g.toFixed(2)})`;
     }
     host.style.setProperty("--glowc", glow);
+    host.style.setProperty("--glowin", glow === "transparent" ? "transparent" : glow.replace(/,([\d.]+)\)$/, (m, g) => `,${(+g * 0.45).toFixed(2)})`));
     const f = this._fade;
     const long = !!f && f.total >= 3;
     root.querySelector(".cc")?.classList.toggle("long", long);
@@ -1275,11 +1306,9 @@ class CrescendoCard extends HTMLElement {
     });
     const apartDim = ctl.state.attributes.deviating_brightness ?? deviating;
     const apartColor = ctl.state.attributes.deviating_color ?? [];
-    $$(".js-reset-dim", (el) => (el.hidden = !apartDim.length));
-    $$(".js-reset-color", (el) => (el.hidden = !ctl.state.attributes.color_override && !apartColor.length));
-    const differs = apartDim.length > 0 || apartColor.length > 0 || !!ctl.state.attributes.color_override;
+    const differs = deviating.length > 0 || apartDim.length > 0 || apartColor.length > 0 || !!ctl.state.attributes.color_override;
     $$(".reset-wrap", (el) => el.classList.toggle("show", differs));
-    if (!differs) $$(".js-reset-menu", (el) => (el.hidden = true));
+    $$(".resets .js-reset-all", (el) => (el.hidden = !differs));
     const attrs = ctl.state?.attributes || {};
     const picks = cfg.color_control && (this._hasColor() || this._hasWhite());
     const back = !!attrs.color_override;
@@ -1648,6 +1677,15 @@ class CrescendoCard extends HTMLElement {
     this._kick();
   }
 
+  // A fade takes its share of the time set for 0 to 100 %: in this card, or else in the object.
+  _fadeFor(target) {
+    const full = Number.isFinite(+this._config.full_fade) && this._config.full_fade !== "" && this._config.full_fade !== undefined
+      ? +this._config.full_fade
+      : +(this._options?.default_transition ?? 5);
+    const share = (full * Math.abs(target - this._position())) / 100;
+    return share > 0 ? Math.max(0.3, share) : 0;
+  }
+
   _offSnap(p) {
     return p < OFF_SNAP ? 0 : p;
   }
@@ -1692,7 +1730,8 @@ class CrescendoCard extends HTMLElement {
       this._hold = { pos: d.pos, until: performance.now() + 2500 };
       this._sendMain(d.pos, true);
     } else {
-      this._go(this._offSnap(this._posFrom(d.el, e)), this._config.tap_duration);
+      const to = this._offSnap(this._posFrom(d.el, e));
+      this._go(to, this._fadeFor(to));
     }
     this._kick();
   }
@@ -1761,13 +1800,7 @@ class CrescendoCard extends HTMLElement {
         return;
       }
     }
-    // The reset menu opens from its icon and closes with any other tap.
-    const menu = this.shadowRoot.querySelector(".js-reset-menu");
-    if (e.target.closest?.(".js-resets-open")) {
-      menu.hidden = !menu.hidden;
-      return;
-    }
-    if (menu && !menu.hidden && !e.target.closest?.(".js-reset-menu")) menu.hidden = true;
+
     const dialog = this.shadowRoot.querySelector(".js-details");
     if (e.target.closest?.(".js-details-open")) {
       this._openDetails();
@@ -1793,17 +1826,12 @@ class CrescendoCard extends HTMLElement {
     }
     const preset = e.target.closest?.(".preset:not(.js-power)");
     if (preset) {
-      this._go(+preset.dataset.pos, +preset.dataset.dur);
+      this._go(+preset.dataset.pos, this._fadeFor(+preset.dataset.pos));
       return;
     }
-    if (e.target.closest?.(".js-reset-menu")) this.shadowRoot.querySelector(".js-reset-menu").hidden = true;
-    if (e.target.closest?.(".js-reset-dim")) {
+    if (e.target.closest?.(".js-reset-all")) {
       this._barHolds = {};
-      this._hass.callWS({ type: "cloudless_crescendo/lights/reset", entity_id: this._ctl.entityId, what: "brightness" }).catch(() => {});
-      return;
-    }
-    if (e.target.closest?.(".js-reset-color")) {
-      this._hass.callWS({ type: "cloudless_crescendo/lights/reset", entity_id: this._ctl.entityId, what: "colors" }).catch(() => {});
+      this._hass.callWS({ type: "cloudless_crescendo/lights/reset", entity_id: this._ctl.entityId }).catch(() => {});
       return;
     }
     if (e.target.closest?.(".js-power")) {
@@ -1890,7 +1918,7 @@ button { font: inherit; color: var(--ink); background: transparent; border: 1px 
 button:hover { border-color: var(--accent); }
 .designs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
 .designs button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 600; }
-.btn-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 62px 56px auto; gap: 4px; align-items: center; }
+.btn-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 62px auto; gap: 4px; align-items: center; }
 .btn-row input[type="text"], .btn-row input[type="number"] { min-height: 30px; padding: 2px 6px; font-size: 13px; }
 details > summary { cursor: pointer; font-weight: 600; }
 .section { padding: 12px; border: 1px solid var(--divider-color, #d4dae6); border-radius: 10px; }
@@ -1915,7 +1943,7 @@ class CrescendoCardEditor extends HTMLElement {
     this._mark = null;
     this.shadowRoot.addEventListener("change", (e) => this._onChange(e));
     this.shadowRoot.addEventListener("value-changed", (e) => {
-      if (e.target?.dataset?.f === "icon") this._onChange(e);
+      if (e.target?.dataset?.f === "icon" && e.composedPath()[0] === e.target) this._onChange(e);
     });
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
     this.shadowRoot.addEventListener(
@@ -1983,12 +2011,14 @@ class CrescendoCardEditor extends HTMLElement {
     }
   }
 
-  _set(patch) {
+  // An icon picker reports while it is used; rebuilding the form then would lose the choice, so it stays as it is.
+  _set(patch, render = true) {
     this._config = { ...this._config, ...patch };
     const out = { ...this._config };
     for (const [k, v] of Object.entries(DEFAULTS)) if (out[k] === v) delete out[k];
+    for (const [k, v] of Object.entries(out)) if (v === undefined) delete out[k];
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: out }, bubbles: true, composed: true }));
-    this._render();
+    if (render) this._render();
   }
 
   _standard() {
@@ -2017,6 +2047,11 @@ class CrescendoCardEditor extends HTMLElement {
     const ctl = controllerFor(hass, cfg.entity);
     const select = (id, value, pairs) =>
       `<select id="${id}">${pairs.map(([v, label, off]) => `<option value="${v}"${v === value ? " selected" : ""}${off ? " disabled" : ""}>${esc(label)}</option>`).join("")}</select>`;
+    // Home Assistant loads its icon picker on demand; the form appears again once it is there.
+    if (!customElements.get("ha-icon-picker") && !this._waitingForPicker) {
+      this._waitingForPicker = true;
+      customElements.whenDefined("ha-icon-picker").then(() => this._render());
+    }
     const iconField = (b, i) =>
       customElements.get("ha-icon-picker")
         ? `<ha-icon-picker class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" label="${esc(t("Icon (optional)", "Symbol (optional)"))}"></ha-icon-picker>`
@@ -2028,7 +2063,6 @@ class CrescendoCardEditor extends HTMLElement {
         <input type="checkbox" data-i="${i}" data-f="use"${b.use !== false ? " checked" : ""} aria-label="${esc(t("Show", "Zeigen"))}">
         <input type="text" data-i="${i}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}">
         <input type="number" data-i="${i}" data-f="value" value="${ctl.toValue(b.position)}" step="${ctl.step}" aria-label="${esc(t("Value", "Wert"))}">
-        <input type="number" data-i="${i}" data-f="duration" value="${b.duration}" min="0" step="0.5" aria-label="${esc(t("Duration in seconds", "Dauer in Sekunden"))}">
         ${b.own ? `<button data-remove="${i}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button>` : "<span></span>"}
         ${iconField(b, i)}
       </div>`,
@@ -2124,6 +2158,14 @@ class CrescendoCardEditor extends HTMLElement {
               ["off", t("Hidden", "Ausgeblendet")],
             ])}`
       }
+      ${
+        ctl.crescendo
+          ? `<div class="ctl"><label for="reset_place">${esc(t("Reset button", "Zurücksetzen-Knopf"))}</label>${select("reset_place", cfg.reset_place, [
+              ["slider", t("Beside the slider", "Neben dem Regler")],
+              ["header", t("In the header", "In der Kopfzeile")],
+            ])}`
+          : ""
+      }
       <p class="hint">${esc(t("Without name, value and power button the card has no header.", "Ohne Name, Wert und Ein/Aus-Knopf hat die Karte keine Kopfzeile."))}</p></div>`,
       )}
       ${group(
@@ -2131,10 +2173,10 @@ class CrescendoCardEditor extends HTMLElement {
         `${
           hasSlider
             ? `<div class="ctl"><label for="control">${esc(t("Slider", "Regler"))}</label>${select("control", cfg.slider === "none" ? "none" : cfg.slider === "slim" ? "slim" : `wide:${cfg.color}`, [
-                ["wide:stripes", t("Wide, each light as a stripe", "Breit, jede Leuchte als Streifen")],
-                ["wide:light", t("Wide, room light as a gradient", "Breit, Raumlicht als Verlauf")],
-                ["wide:accent", t("Wide, dashboard color", "Breit, Farbe des Dashboards")],
-                ["wide:custom", t("Wide, own color", "Breit, eigene Farbe")],
+                ["wide:stripes", t("Each light as a stripe", "Jede Leuchte als Streifen")],
+                ["wide:light", t("Room light as a gradient", "Raumlicht als Verlauf")],
+                ["wide:accent", t("Dashboard color", "Farbe des Dashboards")],
+                ["wide:custom", t("Own color", "Eigene Farbe")],
                 ["slim", t("Slim", "Schmal")],
                 ["none", t("Off", "Aus")],
               ])}`
@@ -2148,6 +2190,12 @@ class CrescendoCardEditor extends HTMLElement {
         ${colorHint && (!hasSlider || cfg.slider === "wide") ? `<p class="hint">${esc(colorHint)}</p>` : ""}
         ${cfg.color === "custom" && (!hasSlider || cfg.slider === "wide") ? `<input type="color" id="custom_color" value="${esc(cfg.custom_color)}" aria-label="${esc(t("Own color", "Eigene Farbe"))}">` : ""}</div>
       ${design === "dial" ? check("dial_wedge", cfg.dial_wedge, t("Dial as a wedge: wider where the room gets brighter", "Drehregler als Keil: breiter, wo der Raum heller wird")) : ""}
+      ${
+        ctl.crescendo
+          ? `<div class="ctl"><label for="full_fade">${esc(t("Speed: 0 to 100 % takes (seconds)", "Tempo: 0 auf 100 % dauert (Sekunden)"))}</label><input type="number" id="full_fade" min="0" max="3600" step="0.5" value="${esc(cfg.full_fade ?? "")}" placeholder="${esc(String(this._options?.default_transition ?? ""))}">
+        <p class="hint">${esc(t("Each fade from a button or a tap on the slider takes its share: from 80 to 100 % a fifth. Empty uses the object's setting.", "Jede Überblendung durch einen Button oder ein Tippen auf den Regler dauert ihren Anteil: von 80 auf 100 % ein Fünftel. Leer nimmt die Einstellung des Objekts."))}</p></div>`
+          : ""
+      }
       ${check("snap", cfg.snap, t("Snap to stops, with a short pulse on phones", "An Stufen einrasten, mit kurzem Impuls am Handy"))}`,
       )}
       ${group(
@@ -2175,7 +2223,7 @@ class CrescendoCardEditor extends HTMLElement {
           ["left", t("Left", "Links")],
           ["right", t("Right", "Rechts")],
         ])}</div>
-      ${check("show_value", cfg.show_value, t("Show the value on buttons", "Wert auf den Buttons zeigen"))}`
+`
           : ""
       }`,
       )}
@@ -2245,7 +2293,7 @@ class CrescendoCardEditor extends HTMLElement {
       else if (t.dataset.f === "icon") b.icon = String(e.detail?.value ?? t.value ?? "").trim() || undefined;
       else b.duration = Math.max(0, +t.value || 0);
       list[+t.dataset.i] = b;
-      this._set({ buttons: list });
+      this._set({ buttons: list }, t.dataset.f !== "icon");
       return;
     }
     switch (t.id) {
@@ -2256,7 +2304,11 @@ class CrescendoCardEditor extends HTMLElement {
         this._set(t.value === "off" ? { color_control: false } : { color_control: true, color_bar: t.value });
         break;
       case "columns_mode":
-        this._set({ columns_mode: t.value });
+      case "reset_place":
+        this._set({ [t.id]: t.value });
+        break;
+      case "full_fade":
+        this._set({ full_fade: t.value === "" ? undefined : Math.max(0, +t.value || 0) });
         break;
       case "entity":
         this._config = { ...this._config, entity: t.value, buttons: undefined };

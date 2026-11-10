@@ -316,11 +316,16 @@ class CrescendoLight(LightEntity, RestoreEntity):
 
     # -- commands ----------------------------------------------------------------
 
-    def _transition(self, kwargs: dict[str, Any]) -> float:
+    def _duration(self, kwargs: dict[str, Any], target: float) -> float:
+        """A given transition counts exactly. Without one, a fade takes its share of the time set for 0 to 100 %."""
         transition = kwargs.get(ATTR_TRANSITION)
         if transition is not None:
             return float(transition)
-        return float(self.engine.options.get(CONF_DEFAULT_TRANSITION, DEFAULT_TRANSITION))
+        return self._share(target)
+
+    def _share(self, target: float) -> float:
+        full = float(self.engine.options.get(CONF_DEFAULT_TRANSITION, DEFAULT_TRANSITION))
+        return full * abs(target - self.engine.current_position()) / 100
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Move to a position, choose a color, or both.
@@ -328,7 +333,7 @@ class CrescendoLight(LightEntity, RestoreEntity):
         A color alone changes no position, so it leaves the command shown to other integrations as it is.
         """
         engine = self.engine
-        transition = self._transition(kwargs)
+        given = kwargs.get(ATTR_TRANSITION)
         kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
         xy = kwargs.get(ATTR_XY_COLOR)
         brightness = kwargs.get(ATTR_BRIGHTNESS)
@@ -341,26 +346,30 @@ class CrescendoLight(LightEntity, RestoreEntity):
                 engine.override = {"kelvin": float(kelvin)}
             if brightness is None:
                 if not heading_on:
+                    on = engine.on_position()
                     await engine.async_fade_to(
-                        engine.on_position(), transition, origin=self._origin(), kind=COMMAND_SWITCH_ON
+                        on, self._duration(kwargs, on), origin=self._origin(), kind=COMMAND_SWITCH_ON
                     )
                 else:
-                    await engine.async_set_color(kelvin, tuple(xy) if xy is not None else None, min(transition, 2.0))
+                    color_time = min(float(given), 2.0) if given is not None else 2.0
+                    await engine.async_set_color(kelvin, tuple(xy) if xy is not None else None, color_time)
                 return
         if brightness is not None:
-            await engine.async_fade_to(brightness * 100 / 255, transition, origin=self._origin())
+            target = brightness * 100 / 255
+            await engine.async_fade_to(target, self._duration(kwargs, target), origin=self._origin())
         elif not heading_on:
-            await engine.async_fade_to(engine.on_position(), transition, origin=self._origin(), kind=COMMAND_SWITCH_ON)
+            on = engine.on_position()
+            await engine.async_fade_to(on, self._duration(kwargs, on), origin=self._origin(), kind=COMMAND_SWITCH_ON)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Run the sequence backward to off."""
-        await self.engine.async_fade_to(0.0, self._transition(kwargs), origin=self._origin())
+        await self.engine.async_fade_to(0.0, self._duration(kwargs, 0.0), origin=self._origin())
 
     async def async_fade_to(
         self, position: float, duration: timedelta | None = None, source: str | None = None, devices: bool = True
     ) -> None:
         """Handle the fade_to action, which has no limit on the duration."""
-        seconds = duration.total_seconds() if duration is not None else self._transition({})
+        seconds = duration.total_seconds() if duration is not None else self._share(position)
         await self.engine.async_fade_to(position, seconds, origin=self._origin(source), devices=devices)
 
     async def async_stop_fade(self, source: str | None = None) -> None:
@@ -372,9 +381,8 @@ class CrescendoLight(LightEntity, RestoreEntity):
         wanted = button.casefold()
         for candidate in self.engine.options.get(CONF_BUTTONS, ()):
             if candidate["name"].casefold() == wanted or candidate.get("id") == button:
-                await self.engine.async_fade_to(
-                    float(candidate["position"]), float(candidate["duration"]), origin=self._origin()
-                )
+                target = float(candidate["position"])
+                await self.engine.async_fade_to(target, self._share(target), origin=self._origin())
                 return
         raise ServiceValidationError(f"{self.entity_id} has no button named {button}")
 

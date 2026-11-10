@@ -70,7 +70,7 @@ Das Objekt ist ein Licht, also funktioniert `light.turn_on` mit `brightness_pct`
 
 | Aktion | Zweck |
 | --- | --- |
-| `cloudless_crescendo.fade_to` | Über eine beliebige Dauer auf eine Position fahren. Das optionale Feld `source` nennt den Aufrufer in den Attributen des Objekts, und `devices: false` lässt andere Geräte bei diesem Befehl unberührt. |
+| `cloudless_crescendo.fade_to` | Über eine beliebige Dauer auf eine Position fahren. Ohne Dauer dauert es seinen Anteil am Tempo des Objekts. Das optionale Feld `source` nennt den Aufrufer in den Attributen des Objekts, und `devices: false` lässt andere Geräte bei diesem Befehl unberührt. |
 | `cloudless_crescendo.stop` | Ein laufendes Dimmen stoppen und die Leuchten lassen, wie sie gerade sind. Nimmt das optionale Feld `source` wie `fade_to`. |
 | `cloudless_crescendo.press_button` | Einen der Standard-Buttons über seinen Namen ausführen. |
 | `cloudless_crescendo.set_on_position` | Die Position festlegen, die beim Einschalten ohne Wert gilt, zum Beispiel nach Tageszeit. Sie übersteht einen Neustart. Ohne Position gilt wieder die Einstellung des Objekts. |
@@ -91,7 +91,8 @@ data:
 - Änderst du während des Dimmens eine einzelne Leuchte von Hand, fällt nur diese Leuchte heraus. Beim nächsten Befehl an das Objekt ist sie wieder dabei.
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
 - Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter, und eine gewählte Farbe bleibt.
-- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Farben zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte ihre Einstellungen: Helligkeit sowie Weißton, Farbe und Sättigung, soweit ihr Modus das erlaubt. Eine zusammengefasste Säule listet dort ihre Leuchten, jede mit eigenen Einstellungen. **Dimming zurücksetzen** bringt die Helligkeit einzelner Leuchten zurück zu den Stufen, **Farben zurücksetzen** ihre Farben.
+- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder auf der Karte **Zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte ihre Einstellungen: Helligkeit sowie Weißton, Farbe und Sättigung, soweit ihr Modus das erlaubt. Eine zusammengefasste Säule listet dort ihre Leuchten, jede mit eigenen Einstellungen. **Zurücksetzen** bringt einzelne Leuchten und eine gewählte Farbe zurück zu den Stufen.
+- Überblendungen ohne Dauer dauern ihren Anteil an der Zeit für 0 bis 100 % (**Tempo** in den weiteren Einstellungen der Einrichtungsseite): von 80 auf 100 % ein Fünftel davon. Das gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle. Eine Karte kann ein eigenes Tempo haben. Eine angegebene Dauer, etwa aus einer Automation, gilt genau.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
 
 ## Für andere Integrationen
