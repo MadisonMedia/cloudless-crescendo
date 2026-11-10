@@ -60,6 +60,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         ws_position,
         ws_set_lights,
         ws_reset_lights,
+        ws_color_lights,
         ws_reset_color,
         ws_preview,
         ws_diagnostics,
@@ -193,15 +194,47 @@ def ws_set_lights(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     connection.send_result(msg["id"])
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/lights/reset", vol.Required("entity_id"): str})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/lights/color",
+        vol.Required("entity_id"): str,
+        vol.Required("lights"): [str],
+        vol.Exclusive("kelvin", "color"): vol.All(vol.Coerce(float), vol.Range(min=1000, max=12000)),
+        vol.Exclusive("xy", "color"): vol.All([vol.All(vol.Coerce(float), vol.Range(min=0, max=1))], vol.Length(2)),
+    }
+)
 @callback
-def ws_reset_lights(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Bring single lights back to the curve."""
+def ws_color_lights(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Give single lights their own color."""
     engine = _engine_for_entity(hass, msg["entity_id"])
     if engine is None:
         connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Not a Crescendo object")
         return
-    engine.reset_lights()
+    if "kelvin" not in msg and "xy" not in msg:
+        connection.send_error(msg["id"], websocket_api.ERR_INVALID_FORMAT, "Give kelvin or xy")
+        return
+    engine.set_light_colors(msg["lights"], msg.get("kelvin"), tuple(msg["xy"]) if "xy" in msg else None)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/lights/reset",
+        vol.Required("entity_id"): str,
+        vol.Optional("what", default="all"): vol.In(["all", "brightness", "colors"]),
+    }
+)
+@websocket_api.async_response
+async def ws_reset_lights(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Bring single lights back to the curve: brightness, colors (with a chosen color), or all."""
+    engine = _engine_for_entity(hass, msg["entity_id"])
+    if engine is None:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Not a Crescendo object")
+        return
+    if msg["what"] == "colors":
+        await engine.async_reset_color()
+    else:
+        engine.reset_lights(msg["what"])
     connection.send_result(msg["id"])
 
 

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.0b8
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Added
+
+- **Each light as a stripe**, the new default for what the control shows: one thin stripe per light along the scale, with its color and brightness at every position. On the dial they are rings, on the vertical fader they stand side by side. **Room light as a gradient**, the dashboard color and an own color stay available. Cards set to the former **Current light colors** get the stripes.
+- A light's name under the columns or in the window of single lights opens a color choice for that light alone. It offers only what the light's mode allows: white tones, colors or both, and nothing for lights that only dim. Combined lights such as „Waschtisch (3)“ get it too.
+- Buttons can show their light: tinted with the color and brightness they switch on, with an icon, with a small preview per light, or plain. Tinted with an icon is the default. A button without an icon of its own gets one that fits its name.
+- The header can be switched off part by part: name and status, value, power button. Without any part there is no header. The power button can also sit among the buttons or left of the slider.
+- The card editor has a button that opens the object in Crescendo's setup page.
+
+### Changed
+
+- **Reset dimming** and **Reset colors** replace **Reset single lights** and **Back to the stops**, side by side. Dimming brings single lights' brightness back to the stops, colors the chosen color and single lights' own colors. A light with a color of its own keeps it when a color is chosen for the whole object.
+- The color selection follows the finger while you drag, like dimming.
+- The color selection offers what the lights can show by their mode. If they can show both, the editor lets you offer white tones, colors or both.
+- The card editor is arranged in sections: connection and design, header, control, buttons, colors, single lights.
+- The power button matches the buttons' shape and stands out in the dashboard's color.
+- Columns glide to a new value or color instead of jumping, for example after a reset.
+- The value no longer turns into a button's name at its position; the lit button already shows it.
+
+### For other integrations
+
+- New attributes `deviating_brightness` and `deviating_color` say why a light is in `deviating`. `reset_color` also ends single lights' own colors.
+
 ## 0.1.0b7
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.

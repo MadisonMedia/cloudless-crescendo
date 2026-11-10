@@ -74,7 +74,7 @@ Das Objekt ist ein Licht, also funktioniert `light.turn_on` mit `brightness_pct`
 | `cloudless_crescendo.stop` | Ein laufendes Dimmen stoppen und die Leuchten lassen, wie sie gerade sind. Nimmt das optionale Feld `source` wie `fade_to`. |
 | `cloudless_crescendo.press_button` | Einen der Standard-Buttons über seinen Namen ausführen. |
 | `cloudless_crescendo.set_on_position` | Die Position festlegen, die beim Einschalten ohne Wert gilt, zum Beispiel nach Tageszeit. Sie übersteht einen Neustart. Ohne Position gilt wieder die Einstellung des Objekts. |
-| `cloudless_crescendo.reset_color` | Eine von Hand gewählte Farbe beenden und zu den Farben der Stufen zurückkehren. |
+| `cloudless_crescendo.reset_color` | Eine von Hand gewählte Farbe beenden, auch eigene Farben einzelner Leuchten, und zu den Farben der Stufen zurückkehren. |
 
 ```yaml
 # In 30 Minuten auf 80 %, zum Beispiel als Aufwachlicht
@@ -91,7 +91,7 @@ data:
 - Änderst du während des Dimmens eine einzelne Leuchte von Hand, fällt nur diese Leuchte heraus. Beim nächsten Befehl an das Objekt ist sie wieder dabei.
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
 - Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter, und eine gewählte Farbe bleibt.
-- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Zurück zu den Stufen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Die Karte zeigt dann die Farben, die die Leuchten wirklich haben.
+- Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder **Farben zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte eine Farbauswahl nur für sie, mit dem, was ihr Modus erlaubt. **Dimming zurücksetzen** bringt die Helligkeit einzelner Leuchten zurück zu den Stufen, **Farben zurücksetzen** ihre Farben.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
 
 ## Für andere Integrationen
@@ -108,7 +108,7 @@ Andere Integrationen, zum Beispiel Cloudless Maestro, erkennen an den Attributen
 | `crescendo_api` | Die Version dieser Attribute und Felder, derzeit `1` |
 
 - Einschalten ohne Wert ist `switch_on`, auch mit einer Farbe. Eine Helligkeit, ein Button, `fade_to` über 0 oder ein Ziehen am Slider einer Karte ist `set`. Ausschalten, ein Ziel von 0 oder ein Ziehen, das bei 0 endet, ist `switch_off`.
-- Eine Farbe allein, einzelne Leuchten, `set_on_position` und geänderte Einstellungen lassen die Attribute, wie sie sind. Eine gewählte Farbe zeigt `color_override`, einzelne Leuchten zeigt `deviating`.
+- Eine Farbe allein, einzelne Leuchten, `set_on_position` und geänderte Einstellungen lassen die Attribute, wie sie sind. Eine gewählte Farbe zeigt `color_override`, einzelne Leuchten zeigt `deviating`: von Hand gedimmte zusätzlich `deviating_brightness`, solche mit eigener Farbe zusätzlich `deviating_color`.
 - Ein Befehl, der nichts ändert, lässt sie ebenfalls stehen: Einschalten eines Objekts, das an ist oder hochdimmt, `stop` ohne laufendes Dimmen und `reset_color` ohne gewählte Farbe.
 - Übernimmt ein anderes Objekt die Leuchten, stoppt das Dimmen dieses Objekts mit `command: stop` und der Herkunft des Befehls, der sie übernommen hat.
 - Mit `devices: false` bleiben Schwellen und mitlaufende Werte, wo sie sind. Der nächste Befehl mit Geräten holt sie nach: Eine Schwelle löst einmal aus, wenn das Ziel auf ihrer anderen Seite liegt, und ein mitlaufender Wert läuft von dem Wert weiter, den er zuletzt bekam.

@@ -289,11 +289,14 @@ class CrescendoLight(LightEntity, RestoreEntity):
             ATTR_STOPS: engine.base_curve.positions,
             ATTR_BUTTONS: [
                 {"name": b["name"], "position": b["position"], "duration": b["duration"]}
+                | ({"icon": b["icon"]} if b.get("icon") else {})
                 for b in options.get(CONF_BUTTONS, ())
             ],
             ATTR_CURVE_ID: hashlib.sha256(json.dumps(options, sort_keys=True).encode()).hexdigest()[:10],
             ATTR_COLOR_OVERRIDE: engine.override is not None,
             "deviating": list(engine.deviating),
+            "deviating_brightness": [eid for eid in engine.deviating if eid in engine.apart_brightness],
+            "deviating_color": [eid for eid in engine.deviating if eid in engine.apart_color],
             ATTR_EXTERNAL_ON_POSITION: engine.external_on_position,
             ATTR_CRESCENDO_API: CRESCENDO_API,
         }
