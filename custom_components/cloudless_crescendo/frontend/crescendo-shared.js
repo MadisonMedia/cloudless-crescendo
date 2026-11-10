@@ -129,6 +129,57 @@ export function rgbOf(light, value) {
   return kRgb(value?.kelvin ?? 3000);
 }
 
+// Home Assistant's conversions between sRGB and CIE xy (Wide RGB D65), so blends match what the lights get.
+const linear = (v) => (v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92);
+const gamma = (v) => (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+
+export function rgbToXy(rgb) {
+  const [r, g, b] = rgb.map((v) => linear(v / 255));
+  const X = r * 0.664511 + g * 0.154324 + b * 0.162028;
+  const Y = r * 0.283881 + g * 0.668433 + b * 0.047685;
+  const Z = r * 0.000088 + g * 0.07231 + b * 0.986039;
+  const sum = X + Y + Z;
+  return sum ? [X / sum, Y / sum] : [0, 0];
+}
+
+export function xyToRgb([x, y]) {
+  const Y = 1;
+  const X = (Y / (y || 1e-11)) * x;
+  const Z = (Y / (y || 1e-11)) * (1 - x - y);
+  const rgb = [
+    X * 1.656492 - Y * 0.354851 - Z * 0.255038,
+    -X * 0.707196 + Y * 1.655397 + Z * 0.036152,
+    X * 0.051713 - Y * 0.121364 + Z * 1.01153,
+  ].map((v) => Math.max(0, gamma(v)));
+  const top = Math.max(...rgb);
+  return rgb.map((v) => (top > 1 ? v / top : v) * 255);
+}
+
+const kelvinXy = (k) => rgbToXy(kRgb(k).map(Math.round));
+
+// A stop's color as the integration reads it: a color temperature, an xy point, or none.
+function colorOf(light, value) {
+  if (light.mode === "onoff" || light.mode === "dim") return {};
+  if (light.mode === "cct") return { k: value.kelvin };
+  if (value.color) return { xy: rgbToXy(value.color) };
+  if (value.kelvin == null) return {};
+  return light.mode === "rgb" ? { xy: kelvinXy(value.kelvin) } : { k: value.kelvin };
+}
+
+// Between two stops: color temperatures in mireds, everything else in xy, like the lights' own transitions.
+function blendColor(light, va, vb, t) {
+  if (!(va.brightness > 0) || t >= 1) return rgbOf(light, vb);
+  if (!(vb.brightness > 0) || t <= 0) return rgbOf(light, va);
+  const a = colorOf(light, va),
+    b = colorOf(light, vb);
+  if (a.k != null && b.k != null) return kRgb(1e6 / lerp(1e6 / a.k, 1e6 / b.k, t));
+  if (a.k == null && !a.xy) return rgbOf(light, vb);
+  if (b.k == null && !b.xy) return rgbOf(light, va);
+  const ax = a.xy || kelvinXy(a.k),
+    bx = b.xy || kelvinXy(b.k);
+  return xyToRgb([lerp(ax[0], bx[0], t), lerp(ax[1], bx[1], t)]);
+}
+
 export function lampAt(options, light, pos, override) {
   const stops = options.stops;
   let i = 0;
@@ -141,9 +192,7 @@ export function lampAt(options, light, pos, override) {
   if (light.mode === "onoff") {
     return { v: (t >= 1 ? vb.brightness : va.brightness) > 0 ? 100 : 0, c: kRgb(2900) };
   }
-  const ca = rgbOf(light, va),
-    cb = rgbOf(light, vb);
-  let c = va.brightness === 0 ? cb : vb.brightness === 0 ? ca : lerp3(ca, cb, t);
+  let c = blendColor(light, va, vb, t);
   if (followsOverride(light, override)) c = override.rgb;
   return { v: lerp(va.brightness, vb.brightness, t), c };
 }
@@ -154,7 +203,7 @@ function followsOverride(light, override) {
   return light.mode !== "cct" || !!override.white;
 }
 
-export function roomLight(options, pos, override) {
+export function roomLight(options, pos, override, lamps = null) {
   let tot = 0,
     r = 0,
     g = 0,
@@ -162,7 +211,7 @@ export function roomLight(options, pos, override) {
     top = 0,
     follows = false;
   for (const light of options.lights) {
-    const l = lampAt(options, light, pos, override),
+    const l = lamps?.get(light.entity_id) ?? lampAt(options, light, pos, override),
       w = l.v / 100;
     tot += w;
     r += l.c[0] * w;

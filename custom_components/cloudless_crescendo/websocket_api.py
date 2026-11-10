@@ -12,7 +12,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 
-from .const import CONF_LIGHTS, DOMAIN
+from .const import CONF_DEVICES, CONF_LIGHTS, DOMAIN
 from .curve import curve_from_options
 from .engine import Engine, Origin
 from .model import normalize_options
@@ -79,12 +79,18 @@ def ws_objects(hass: HomeAssistant, connection: websocket_api.ActiveConnection, 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/object", vol.Required("entity_id"): str})
 @callback
 def ws_object(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Return one object's settings, for drawing a card."""
+    """Return one object's settings, for drawing a card.
+
+    Cards are shown to users without admin rights too. They get no device actions, which a card does not need.
+    """
     entry = _entry_for_entity(hass, msg["entity_id"])
     if entry is None:
         connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Not a Crescendo object")
         return
-    connection.send_result(msg["id"], _describe(hass, entry))
+    described = _describe(hass, entry)
+    if not connection.user.is_admin:
+        described["options"] = {k: v for k, v in described["options"].items() if k != CONF_DEVICES}
+    connection.send_result(msg["id"], described)
 
 
 @websocket_api.websocket_command(

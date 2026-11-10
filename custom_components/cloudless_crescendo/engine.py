@@ -473,6 +473,8 @@ class Engine:
                 self._devices_at = start
         if duration <= 0 and not device_steps and not steps:
             self.position = target
+            if target <= 0:
+                self.override = None
             self._on_change()
             return
         self.fade = Fade(start, target, duration, time.monotonic(), dt_util.utcnow(), devices)

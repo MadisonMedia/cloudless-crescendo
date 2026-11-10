@@ -397,6 +397,30 @@ setTimeout(async () => {
     const softly = await newCard({ color: "solid" }, atPosition(50));
     const edges = (softly.shadowRoot.querySelector(".js-grad").style.backgroundImage.match(/rgb\([^)]+\) [\d.]+%/g) || []).map((x) => parseFloat(x.split(") ")[1]));
     report("real colors: neighbors blend instead of meeting in a hard edge", edges.length >= 4 && edges[2] - edges[1] > 1, edges.join(" "));
+    // The card blends colors like the lights do: color temperature in mireds, color to white in CIE xy.
+    // Expected values come from Home Assistant's own color functions.
+    const shared = await import(`${base}/crescendo-shared.js`);
+    const toWhite = shared.lampAt(options, options.lights[0], 37.5).c.map(Math.round);
+    report("card colors blend like the lights: a color to white in xy", Math.abs(toWhite[1] - 131) <= 2 && Math.abs(toWhite[2] - 63) <= 2, toWhite.join(","));
+    const between = shared.lampAt(options, options.lights[0], 75).c;
+    const inMireds = shared.kRgb(1e6 / ((1e6 / 2700 + 1e6 / 4000) / 2));
+    report("card colors blend like the lights: white in mireds", between.every((v, i) => Math.abs(v - inMireds[i]) < 0.5), `${between.map(Math.round)} ${inMireds.map(Math.round)}`);
+    const plain = await newCard({});
+    plain._hass = { ...hass, states: { ...hass.states, "light.plain": { state: "on", attributes: { friendly_name: "Plain" } } } };
+    report("a plain on/off light set by hand counts as fully on", Math.round(plain._reported("light.plain").v) === 100, plain._reported("light.plain").v);
+    // During a fade the real colors repaint about ten times a second, which spares slow wall tablets.
+    const repainting = await newCard({ color: "solid" }, atPosition(50, { ...fadeFor(2), fade_from: 50 }));
+    await wait(300);
+    let repaints = 0,
+      lastPaint = paintOf(repainting);
+    for (let i = 0; i < 40; i++) {
+      await wait(16);
+      if (paintOf(repainting) !== lastPaint) {
+        repaints++;
+        lastPaint = paintOf(repainting);
+      }
+    }
+    report("real colors repaint about ten times a second during a fade", repaints >= 3 && repaints <= 9, repaints);
     // Beside the buttons there is no gap: few buttons grow to the columns' height, many make the columns grow.
     const sideBy = async (count) => {
       const box = document.createElement("div");

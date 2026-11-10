@@ -453,3 +453,39 @@ async def test_a_light_changed_by_hand_changes_only_deviating(
     assert FLOOR in entity.engine.deviating
     assert FLOOR in hass.states.get(OBJECT).attributes["deviating"]
     assert _object_without_deviating(hass) == before
+
+
+# -- review of 0.1.0b5 ----------------------------------------------------------------------------
+
+
+async def test_a_color_while_switching_off_switches_back_on(hass: HomeAssistant, setup_object) -> None:
+    entity = await setup_object()
+    await _call(hass, "cloudless_crescendo", "fade_to", {"position": 60, "duration": 0.1})
+    await _wait(hass)
+    await _call(hass, "light", "turn_off", {"transition": 5})
+    await _call(hass, "light", "turn_on", {"xy_color": [0.6, 0.35], "transition": 0.1})
+    assert _command(hass)["command"] == "switch_on"
+    assert entity.engine.fade is not None
+    assert entity.engine.fade.target > 0
+    await _wait(hass)
+    assert entity.engine.position == pytest.approx(60, abs=0.5)
+    assert entity.engine.override == {"xy": (0.6, 0.35)}
+
+
+async def test_switching_off_at_once_forgets_the_color_with_nothing_to_send(
+    hass: HomeAssistant, setup_object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine_module, "VERIFY_DELAY", 0.01)
+    entity = await setup_object()
+    await _call(hass, "light", "turn_on", {"brightness_pct": 70, "xy_color": [0.6, 0.35], "transition": 0.1})
+    await _wait(hass)
+    assert entity.engine.override is not None
+    for light in sample_options()["lights"]:
+        state = hass.states.get(light["entity_id"])
+        hass.states.async_set(light["entity_id"], "off", state.attributes)
+    await _wait(hass, 0.05)
+    await _call(hass, "light", "turn_off", {"transition": 0})
+    await _wait(hass, 0.05)
+    assert entity.engine.position == 0
+    assert entity.engine.override is None
+    assert hass.states.get(OBJECT).attributes["color_override"] is False

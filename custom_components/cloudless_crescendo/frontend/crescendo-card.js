@@ -258,6 +258,8 @@ const REG = `<div class="regh"><div class="track js-grad" data-slider="x"><div c
 const BTNS = `<div class="btns"><div class="presets js-presets"></div></div>`;
 const ARC = "M59.29 200.71 A100 100 0 1 1 200.71 200.71";
 
+const BAND_INTERVAL = 100;
+
 // Neighboring light colors blend over a few percent, so they read as light rather than as blocks.
 function bandGradient(bands, dir) {
   if (!bands.length) return "none";
@@ -610,25 +612,27 @@ class CrescendoCard extends HTMLElement {
     });
   }
 
-  // The lights' colors side by side, each as wide as its light is bright. They come from the curve at the shown
-  // position, like the columns, so they move with it instead of jumping with each report. A light taken out by
-  // hand shows what it reports.
-  _solidBands(p = this._shown ?? this._ctl?.pos ?? 0) {
+  // What a light taken out by hand reports. A plain on/off light reports no brightness while it is on.
+  _reported(entityId) {
+    const real = this._hass.states[entityId];
+    if (real?.state !== "on") return { v: 0, c: null };
+    return { v: (real.attributes.brightness ?? 255) / 2.55, c: real.attributes.rgb_color || null };
+  }
+
+  // The lights' colors side by side, in the lights' order, each wider the brighter its light is (by the square root,
+  // so a dim light stays visible). They come from the curve at the shown position, like the columns, so they move
+  // with it instead of jumping with each report. A light taken out by hand shows what it reports.
+  _solidBands(p, lamps) {
     const o = this._options;
     if (!o) return [];
     const override = this._override();
     const deviating = this._ctl?.state?.attributes?.deviating || [];
     const parts = [];
     for (const light of o.lights) {
-      const l = lampAt(o, light, p, override);
-      let v = l.v,
-        c = l.c;
-      if (deviating.includes(light.entity_id)) {
-        const real = this._hass.states[light.entity_id];
-        v = real?.state === "on" ? (real.attributes.brightness || 0) / 2.55 : 0;
-        c = real?.attributes?.rgb_color || c;
-      }
-      if (v > 0.3) parts.push({ w: Math.sqrt(v), c });
+      const l = lamps?.get(light.entity_id) ?? lampAt(o, light, p, override);
+      const real = deviating.includes(light.entity_id) ? this._reported(light.entity_id) : null;
+      const v = real ? real.v : l.v;
+      if (v > 0.3) parts.push({ w: Math.sqrt(v), c: real?.c || l.c });
     }
     const total = parts.reduce((sum, x) => sum + x.w, 0);
     let at = 0;
@@ -651,6 +655,7 @@ class CrescendoCard extends HTMLElement {
     this._built = true;
     this._activeKey = null;
     this._bandKey = null;
+    this._bandAt = 0;
     const root = this.shadowRoot;
     const opensBy = (...how) => how.includes(mode);
     root.querySelector(".cc").toggleAttribute("data-tap", opensBy("card", "both"));
@@ -753,7 +758,8 @@ class CrescendoCard extends HTMLElement {
     const dark = this._dark;
     const fade = (c) =>
       dark ? `linear-gradient(${dir}, ${c}, ${c})` : `linear-gradient(${dir}, color-mix(in srgb, ${c} 12%, transparent), ${c})`;
-    if (cfg.color === "solid") return bandGradient(this._solidBands(), dir);
+    // Painted by _live, which knows the shown position.
+    if (cfg.color === "solid") return "none";
     if (cfg.color === "accent") return fade("var(--cr-accent)");
     if (cfg.color === "custom") return fade(cfg.custom_color);
     if (this._options) return roomGradient(this._options, dir, this._override(), dark);
@@ -793,7 +799,7 @@ class CrescendoCard extends HTMLElement {
     const cfg = this._config,
       ctl = this._ctl;
     const dark = this._dark;
-    if (cfg.color === "solid") return bandAt(this._solidBands(), pct);
+    if (cfg.color === "solid") return "var(--reg)";
     const mix = (c) => (dark ? c : `color-mix(in srgb, ${c} ${Math.round(12 + (88 * pct) / 100)}%, transparent)`);
     if (cfg.color === "accent") return mix("var(--cr-accent)");
     if (cfg.color === "custom") return mix(cfg.custom_color);
@@ -913,8 +919,10 @@ class CrescendoCard extends HTMLElement {
     );
     const o = this._options;
     const override = this._override();
-    const tot = o ? o.lights.reduce((sum, light) => sum + lampAt(o, light, p, override).v / 100, 0) : 0;
-    const avg = tot ? roomLight(o, p, override).c : null;
+    // Each light's place on the curve, once per frame for everything below.
+    const lamps = o ? new Map(o.lights.map((light) => [light.entity_id, lampAt(o, light, p, override)])) : null;
+    const tot = o ? o.lights.reduce((sum, light) => sum + lamps.get(light.entity_id).v / 100, 0) : 0;
+    const avg = tot ? roomLight(o, p, override, lamps).c : null;
     let reg = "var(--cr-accent)";
     if (cfg.color === "custom") reg = cfg.custom_color;
     else if (cfg.color !== "accent") {
@@ -923,11 +931,14 @@ class CrescendoCard extends HTMLElement {
       else if (ctl.scheme === "light" && ctl.on) reg = `rgb(${css(lightColor(ctl.state.attributes.rgb_color || kRgb(2900)))})`;
     }
     host.style.setProperty("--reg", reg);
-    if (cfg.color === "solid") {
-      const bands = this._solidBands(p);
-      const key = bands.map((b) => `${b.color}@${b.to.toFixed(1)}`).join("|");
+    // During a fade the colors repaint about ten times a second, which looks the same and spares slow devices.
+    const bandNow = performance.now();
+    if (cfg.color === "solid" && (!this._fade || bandNow - this._bandAt >= BAND_INTERVAL)) {
+      const bands = this._solidBands(p, lamps);
+      const key = bands.map((b) => `${b.color}@${b.to.toFixed(0)}`).join("|");
       if (key !== this._bandKey) {
         this._bandKey = key;
+        this._bandAt = bandNow;
         const across = bandGradient(bands, "90deg"),
           up = bandGradient(bands, "0deg");
         $$(".js-grad", (el) => (el.style.backgroundImage = across));
@@ -990,16 +1001,15 @@ class CrescendoCard extends HTMLElement {
       const ids = el.dataset.ids.split(",");
       const light = o?.lights.find((x) => x.entity_id === ids[0]);
       if (!light) return;
-      const l = lampAt(o, light, p, override);
+      const l = lamps.get(light.entity_id);
       const drag = this._drag?.kind === "bar" && this._drag.ids[0] === ids[0] ? this._drag.pos : null;
       const hold = this._barHolds[ids[0]];
       const kept = hold && now < hold.until ? hold.pos : null;
       if (kept !== null) holding = true;
       const awayId = ids.find((id) => deviating.includes(id));
-      const real = awayId ? this._hass.states[awayId] : null;
-      const lit = real?.state === "on";
-      const v = drag ?? kept ?? (awayId ? (lit ? (real.attributes.brightness || 0) / 2.55 : 0) : l.v);
-      const color = lit && real.attributes.rgb_color ? real.attributes.rgb_color : l.c;
+      const real = awayId ? this._reported(awayId) : null;
+      const v = drag ?? kept ?? (real ? real.v : l.v);
+      const color = real?.c || l.c;
       el.style.height = `${v}%`;
       el.style.background = this._dark ? lightA(color, 1) : `linear-gradient(0deg, ${lightA(color, 0.35)}, ${lightA(color, 1)})`;
       el.parentElement.classList.toggle("dev", !!awayId || drag !== null);
@@ -1047,7 +1057,7 @@ class CrescendoCard extends HTMLElement {
       const target = +el.dataset.pos;
       el.classList.toggle("on", f ? Math.abs(f.target - target) < 0.5 : Math.abs(p - target) < 0.6);
     });
-    $$(".js-pic", (el) => this._drawPicture(el, p, override));
+    $$(".js-pic", (el) => this._drawPicture(el, p, override, lamps));
     if (f || this._hold || this._drag || this._glide || holding) this._kick();
     void first;
   }
@@ -1073,7 +1083,7 @@ class CrescendoCard extends HTMLElement {
     return defaultMark(index, count);
   }
 
-  _drawPicture(el, p, override) {
+  _drawPicture(el, p, override, lamps) {
     const w = el.clientWidth;
     if (!w) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1097,7 +1107,7 @@ class CrescendoCard extends HTMLElement {
       ctx.drawImage(photo, (W - dw) / 2, (H - dh) / 2, dw, dh);
     };
     const lit = o.lights
-      .map((light, i) => ({ l: lampAt(o, light, p, override), pt: this._point(light.entity_id, i, o.lights.length) }))
+      .map((light, i) => ({ l: lamps?.get(light.entity_id) ?? lampAt(o, light, p, override), pt: this._point(light.entity_id, i, o.lights.length) }))
       .filter((x) => x.l.v > 0.3);
     if (photo) {
       cover(g);

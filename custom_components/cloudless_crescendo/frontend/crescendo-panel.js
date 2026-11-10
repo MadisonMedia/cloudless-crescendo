@@ -17,7 +17,8 @@ const {
   laneGradient,
   langOf,
   lerp,
-  lerp3,
+  rgbToXy,
+  xyToRgb,
   lightA,
   lightColor,
   lumOf,
@@ -228,10 +229,13 @@ function interpVal(a, b, t) {
   const brightness = Math.round(lerp(a.brightness, b.brightness, t));
   if (a.brightness === 0) return { ...clone(b), brightness };
   if (b.brightness === 0) return { ...clone(a), brightness };
-  if (a.kelvin && b.kelvin) return { brightness, kelvin: Math.round(lerp(a.kelvin, b.kelvin, t) / 50) * 50 };
+  // Like the lights between two stops: color temperature in mireds, colors in xy.
+  if (a.kelvin && b.kelvin) return { brightness, kelvin: Math.round(1e6 / lerp(1e6 / a.kelvin, 1e6 / b.kelvin, t) / 50) * 50 };
   if (!a.kelvin && !a.color) return { ...clone(b), brightness };
   if (!b.kelvin && !b.color) return { ...clone(a), brightness };
-  return { brightness, color: lerp3(rgbOf({ mode: "rgbcct" }, a), rgbOf({ mode: "rgbcct" }, b), t).map(Math.round) };
+  const ax = rgbToXy(rgbOf({ mode: "rgbcct" }, a)),
+    bx = rgbToXy(rgbOf({ mode: "rgbcct" }, b));
+  return { brightness, color: xyToRgb([lerp(ax[0], bx[0], t), lerp(ax[1], bx[1], t)]).map(Math.round) };
 }
 
 class CrescendoPanel extends HTMLElement {
