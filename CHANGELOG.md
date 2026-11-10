@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0b10
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Changed
+
+- **Speed instead of durations:** the setup page sets how long 0 to 100 % takes, and every fade without a duration takes its share: from 80 to 100 % a fifth. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. Buttons no longer have durations of their own. A duration given by an automation or another integration, such as Cloudless Maestro, counts exactly as before. The former **Fade without a duration** becomes this speed and keeps its value.
+- **One reset:** a single **Reset** brings single lights and a chosen color back to the stops. Its button sits beside the slider by default, or in the header, and fades in only while something differs. It no longer covers the card when there is no header.
+- The light window follows what the lights report while it is open, so **Reset this light** appears as soon as a light differs.
+- The setup page's standard buttons get an icon, which cards use unless they set their own.
+- The light glow also shows inside the card, as a soft light from the top, where no dashboard layout can cut it off.
+- Card editor: the slider choices drop the word „Wide“, the option to show values on buttons is gone, and the reset button's place can be chosen.
+
+### Fixed
+
+- Icons chosen in the card editor were not saved: the editor rebuilt itself while the icon picker was still in use.
+
 ## 0.1.0b9
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.

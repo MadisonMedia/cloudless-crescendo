@@ -70,7 +70,7 @@ The object is a light, so `light.turn_on` with `brightness_pct` and `transition`
 
 | Action | Purpose |
 | --- | --- |
-| `cloudless_crescendo.fade_to` | Move to a position over any duration. The optional `source` names the caller in the object's attributes, and `devices: false` leaves other devices alone for this command. |
+| `cloudless_crescendo.fade_to` | Move to a position over any duration. Without a duration, the fade takes its share of the object's speed. The optional `source` names the caller in the object's attributes, and `devices: false` leaves other devices alone for this command. |
 | `cloudless_crescendo.stop` | Stop a running fade and keep the lights as they are. Takes the optional `source` like `fade_to`. |
 | `cloudless_crescendo.press_button` | Run one of the standard buttons by name. |
 | `cloudless_crescendo.set_on_position` | Set the position used when switching on without a value, for example by time of day. It survives a restart. Without a position, the object's own setting applies again. |
@@ -91,7 +91,8 @@ data:
 - If you change a single light by hand during a fade, only that light drops out. It rejoins at the next command to the object.
 - If a light belongs to several objects, the last command wins and the other object's fade stops.
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant, and a chosen color stays.
-- A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset colors**. Lights without color keep their white. On the card, a light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. A combined column lists its lights there, each with its own settings. **Reset dimming** brings single lights' brightness back to the stops, **Reset colors** their colors.
+- A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset** on the card. Lights without color keep their white. On the card, a light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. A combined column lists its lights there, each with its own settings. **Reset** brings single lights and a chosen color back to the stops.
+- Fades without a duration take their share of the time set for 0 to 100 % (**Speed** in the setup page's further settings): from 80 to 100 % a fifth of it. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. A given duration, for example from an automation, counts exactly.
 - A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
 
 ## For other integrations

@@ -236,6 +236,10 @@ async def ws_reset_lights(hass: HomeAssistant, connection: websocket_api.ActiveC
         engine.reset_lights(msg["what"], msg["lights"])
     elif msg["what"] == "colors":
         await engine.async_reset_color()
+    elif msg["what"] == "all":
+        # Everything back to the stops: single lights and a chosen color.
+        engine.reset_lights("all")
+        await engine.async_reset_color()
     else:
         engine.reset_lights(msg["what"])
     connection.send_result(msg["id"])
