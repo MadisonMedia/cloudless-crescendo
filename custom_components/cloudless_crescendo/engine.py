@@ -696,13 +696,16 @@ class Engine:
                 self._send_step(Step(0.0, eid, (command,), None, 0.3))
         self._on_change()
 
-    def reset_lights(self, what: str = "all") -> None:
-        """Bring single lights back to the curve: their brightness, their colors, or both."""
+    def reset_lights(self, what: str = "all", entity_ids: Iterable[str] | None = None) -> None:
+        """Bring single lights back to the curve: their brightness, their colors, or both; all lights or the given ones."""
         brightness, colors = what in ("all", "brightness"), what in ("all", "colors")
         lit = self._lit()
         position = self.current_position()
         changed = False
+        chosen = set(entity_ids) if entity_ids is not None else None
         for eid in list(self.deviating):
+            if chosen is not None and eid not in chosen:
+                continue
             back_b = brightness and (eid in self.apart_brightness or what == "all")
             back_c = colors and eid in self.apart_color
             if not back_b and not back_c:

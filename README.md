@@ -91,7 +91,7 @@ data:
 - If you change a single light by hand during a fade, only that light drops out. It rejoins at the next command to the object.
 - If a light belongs to several objects, the last command wins and the other object's fade stops.
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant, and a chosen color stays.
-- A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset colors**. Lights without color keep their white. On the card, a light's name opens a color choice for that light alone, with only what its mode allows. **Reset dimming** brings single lights' brightness back to the stops, **Reset colors** their colors.
+- A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset colors**. Lights without color keep their white. On the card, a light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. A combined column lists its lights there, each with its own settings. **Reset dimming** brings single lights' brightness back to the stops, **Reset colors** their colors.
 - A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
 
 ## For other integrations

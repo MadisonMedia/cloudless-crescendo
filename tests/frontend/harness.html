@@ -169,7 +169,9 @@ setTimeout(async () => {
     const bad = hass.states["light.bad"];
     card.hass = { ...hass, states: { ...hass.states, "light.bad": { ...bad, attributes: { ...bad.attributes, color_override: true, rgb_color: [255, 0, 0], color_mode: "xy", supported_color_modes: ["color_temp", "xy"] } } } };
     await wait(60);
-    report("colors can be reset while a color is chosen", getComputedStyle(card.shadowRoot.querySelector(".js-reset-color")).display !== "none" && card.shadowRoot.querySelector(".js-reset-dim").hidden);
+    report("colors can be reset while a color is chosen", card.shadowRoot.querySelector(".reset-wrap").classList.contains("show") && !card.shadowRoot.querySelector(".js-reset-color").hidden && card.shadowRoot.querySelector(".js-reset-dim").hidden);
+    card.shadowRoot.querySelector(".js-resets-open").click();
+    report("the reset icon opens a small menu", !card.shadowRoot.querySelector(".js-reset-menu").hidden);
     calls.length = 0;
     card.shadowRoot.querySelector(".js-reset-color").click();
     await wait(20);
@@ -180,7 +182,7 @@ setTimeout(async () => {
     const atPosition = (position, extra = {}) => ({ ...hass, states: { ...hass.states, "light.bad": { ...hass.states["light.bad"], attributes: { ...hass.states["light.bad"].attributes, position, brightness: Math.round(position * 2.55), ...extra } } } });
     fader.hass = atPosition(50);
     await wait(60);
-    report("the value stays a number at a button's position", big() === "50", big());
+    report("the value shows a button's name at its position", big() === options.buttons[1].name, big());
     fader.hass = atPosition(62);
     await wait(60);
     // The dial has one shape in light and dark, a wedge unless switched off.
@@ -284,9 +286,9 @@ setTimeout(async () => {
     report("single lights: combining can be switched off there", columns().length === 4, columns().length);
     // A light's name opens its own color choice, with only what its mode allows.
     const picker = viaButton.shadowRoot.querySelector(".js-lightpick");
-    const bars = () => [...picker.querySelectorAll(".js-pickbar")].map((b) => (b.hidden ? "-" : b.dataset.kind)).join(" ");
+    const bars = () => [...picker.querySelectorAll(".lp-ctl")].map((c) => (c.hidden ? "-" : c.dataset.ctl)).join(" ");
     viaButton.shadowRoot.querySelector('.js-details .js-pick[data-ids="light.boden"]').click();
-    report("single lights: a color light offers white tones and colors", picker.open && bars() === "white hue", bars());
+    report("single lights: a color light offers brightness, white tones, colors and saturation", picker.open && bars() === "bri white hue sat", bars());
     capture(picker.querySelector('[data-kind="hue"]'));
     const hueBox = picker.querySelector('[data-kind="hue"]').getBoundingClientRect();
     calls.length = 0;
@@ -296,9 +298,28 @@ setTimeout(async () => {
     report("single lights: the color goes to that light only", colored1?.lights?.join() === "light.boden" && Array.isArray(colored1.xy), JSON.stringify(colored1));
     picker.querySelector(".js-lp-close").click();
     viaButton.shadowRoot.querySelector('.js-details .js-pick[data-ids="light.spiegel"]').click();
-    report("single lights: a white light offers white tones only", picker.open && bars() === "white -", bars());
+    report("single lights: a white light offers brightness and white tones", picker.open && bars() === "bri white - -", bars());
+    capture(picker.querySelector('[data-kind="bri"]'));
+    const briBox = picker.querySelector('[data-kind="bri"]').getBoundingClientRect();
+    calls.length = 0;
+    point(picker.querySelector('[data-kind="bri"]'), "pointerdown", briBox.left + briBox.width * 0.4, briBox.top + 5);
+    point(picker.querySelector('[data-kind="bri"]'), "pointerup", briBox.left + briBox.width * 0.4, briBox.top + 5);
+    const dimmed = calls.find((c) => c.type === "cloudless_crescendo/lights/set");
+    report("single lights: the brightness goes to that light", dimmed?.lights?.join() === "light.spiegel" && Math.abs(dimmed.brightness - 40) <= 2, JSON.stringify(dimmed));
     picker.querySelector(".js-lp-close").click();
     report("single lights: the window stays open behind the color choice", dialogOf(viaButton).open && !picker.open);
+    // A combined column lists its lights, each with its own brightness and settings.
+    viaButton.shadowRoot.querySelector(".js-dgroup").click();
+    await wait(30);
+    viaButton.shadowRoot.querySelector('.js-details .js-pick[data-ids="light.links,light.rechts"]').click();
+    report("single lights: a group lists its lights", picker.querySelectorAll(".js-lp-member").length === 2 && picker.querySelectorAll(".lp-mini").length === 2);
+    picker.querySelector('.js-lp-member[data-id="light.rechts"]').click();
+    report("single lights: a light of a group opens with a way back", picker.querySelector(".js-lp-name").textContent === "Waschtisch rechts" && !picker.querySelector(".js-lp-back").hidden);
+    picker.querySelector(".js-lp-back").click();
+    report("single lights: back leads to the group", picker.querySelectorAll(".js-lp-member").length === 2);
+    picker.querySelector(".js-lp-close").click();
+    viaButton.shadowRoot.querySelector(".js-dgroup").click();
+    await wait(30);
     const redFloor = (extra = {}) => ({
       ...hass,
       states: {
@@ -412,7 +433,37 @@ setTimeout(async () => {
     // Buttons show their light and an icon by default.
     const styled = await newCard({});
     const night = styled.shadowRoot.querySelector('.preset[data-pos="25"]');
-    report("buttons: tinted with an icon by default", night?.classList.contains("tint") && night.querySelector("ha-icon")?.getAttribute("icon") === "mdi:weather-night", night?.outerHTML.slice(0, 120));
+    report("buttons: tinted by default, without an icon nobody chose", night?.classList.contains("tint") && !night.querySelector("ha-icon"), night?.outerHTML.slice(0, 120));
+    const withIcon = await newCard({ buttons: [{ name: "Nacht", position: 25, duration: 3, icon: "mdi:weather-night" }] });
+    report("buttons: a chosen icon shows", withIcon.shadowRoot.querySelector('.preset[data-pos="25"] ha-icon')?.getAttribute("icon") === "mdi:weather-night");
+    const twoColors = await newCard({}, redFloor());
+    const bg50 = twoColors.shadowRoot.querySelector('.preset[data-pos="50"]').style.background;
+    report("buttons: a tint shows every light color at its position", bg50.includes("255, 51, 0") && (bg50.match(/rgba\(/g) || []).length >= 2, bg50.slice(0, 120));
+    calls.length = 0;
+    bare.shadowRoot.querySelector(".power-tile").click();
+    await wait(20);
+    report("the power button among the buttons works", calls.some((c) => Array.isArray(c) && /^turn_(on|off)$/.test(c[1])) && !JSON.stringify(calls).includes("null"), JSON.stringify(calls).slice(0, 120));
+    // A slider pulled close to 0 switches off.
+    const nearZero = await newCard({});
+    const nzTrack = nearZero.shadowRoot.querySelector(".track");
+    capture(nzTrack);
+    const nzBox = nzTrack.getBoundingClientRect();
+    calls.length = 0;
+    point(nzTrack, "pointerdown", nzBox.left + nzBox.width * 0.3, nzBox.top + 10);
+    point(nzTrack, "pointermove", nzBox.left + nzBox.width * 0.2, nzBox.top + 10);
+    point(nzTrack, "pointermove", nzBox.left + nzBox.width * 0.015, nzBox.top + 10);
+    point(nzTrack, "pointerup", nzBox.left + nzBox.width * 0.015, nzBox.top + 10);
+    await wait(20);
+    const lastPos = calls.filter((c) => c.type === "cloudless_crescendo/position").at(-1);
+    report("a slider near 0 switches off", lastPos?.position === 0 && lastPos.final === true, JSON.stringify(lastPos));
+    // Columns can open a light's settings instead of dimming.
+    const gear = await newCard({ design: "columns", columns_mode: "settings" });
+    const gearWell = gear.shadowRoot.querySelector(".bars .well");
+    report("columns: settings by tapping, with a gear and no dimming", gearWell.classList.contains("js-pick") && !!gearWell.querySelector(".gear") && !gearWell.hasAttribute("data-slider"));
+    gearWell.click();
+    report("columns: a tap on the column opens its settings", gear.shadowRoot.querySelector(".js-lightpick").open);
+    gear.shadowRoot.querySelector(".js-lp-close").click();
+    report("columns: names without a count", ![...gear.shadowRoot.querySelectorAll(".bars .bar-name")].some((b) => b.textContent.includes("(")), [...gear.shadowRoot.querySelectorAll(".bars .bar-name")].map((b) => b.textContent).join(", "));
     const previewed = await newCard({ button_style: "icon_preview" });
     report("buttons: a light preview with one field per light", previewed.shadowRoot.querySelectorAll('.preset[data-pos="25"] .pv i').length === 3);
     // Dimming and colors reset separately.
@@ -496,7 +547,7 @@ setTimeout(async () => {
     await pick("dial");
     report("no horizontal slider setting for the dial", !ed("#slider") && !!ed("#dial_wedge"));
     await pick("gradient");
-    report("horizontal slider setting where it exists", !!ed("#slider") && !ed("#dial_wedge"));
+    report("one slider setting with its look where it exists", !!ed("#control") && !ed("#slider") && !ed("#dial_wedge") && ed("#control").value === "wide:stripes", ed("#control")?.value);
     report("single lights setting in plain sight", !!ed("#details") && !ed("#details").closest("details") && ed("#details").value === "button");
     ed("#details").value = "both";
     ed("#details").dispatchEvent(new Event("change", { bubbles: true }));

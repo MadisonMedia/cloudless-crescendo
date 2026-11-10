@@ -362,3 +362,16 @@ async def test_dimming_and_colors_reset_separately(hass: HomeAssistant, setup_ob
     await asyncio.sleep(0.2)
     assert lights.last(FLOOR)["data"]["color_temp_kelvin"] == 3000
     assert hass.states.get("light.bad").attributes["deviating"] == []
+
+
+async def test_one_light_can_be_reset_alone(hass: HomeAssistant, setup_object, lights: FakeLights) -> None:
+    entity = await setup_object()
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.bad", "brightness_pct": 60, "transition": 0}, blocking=True
+    )
+    await asyncio.sleep(0.2)
+    entity.engine.set_lights([FLOOR, MIRROR], 30)
+    await asyncio.sleep(0.2)
+    entity.engine.reset_lights("all", [MIRROR])
+    await asyncio.sleep(0.2)
+    assert set(entity.engine.deviating) == {FLOOR}

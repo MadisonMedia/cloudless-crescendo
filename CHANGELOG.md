@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0b9
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Fixed
+
+- The power button among the buttons failed with an error.
+
+### Changed
+
+- A light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. Lights that only dim or switch get them too. A combined column lists its lights, each with its own brightness and settings, and a light set apart can be reset there alone.
+- Resetting is a small icon that fades in only while something differs from the stops. It opens a menu with **Reset dimming** and **Reset colors**, so it takes no room on the card.
+- Tinted buttons show every light color at their position side by side, and follow a chosen color at once.
+- Buttons show an icon only when one was chosen for them. Icons are no longer guessed from the name.
+- Combined columns show their name without the count, for example „Waschtisch“. The settings window says how many lights it holds.
+- At a button's position the value shows the button's name again. The editor can switch this off.
+- A slider or a column pulled below 3 % switches off instead of staying at 1 or 2 %.
+- Columns can dim, open a light's settings, do both, or only show. With settings only, a small gear marks the columns.
+- Card editor: one setting for the slider and its look, the color selection as one choice with **Off**, **Add your own button** instead of **Button only for this card**. The option to show the duration on buttons is gone.
+
 ## 0.1.0b8
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
