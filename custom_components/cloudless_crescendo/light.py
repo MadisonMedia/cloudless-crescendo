@@ -329,13 +329,15 @@ class CrescendoLight(LightEntity, RestoreEntity):
         kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
         xy = kwargs.get(ATTR_XY_COLOR)
         brightness = kwargs.get(ATTR_BRIGHTNESS)
+        # On, or on the way there. A fade down to off counts as off, so turn_on switches back on.
+        heading_on = engine.fade.target > 0 if engine.fade is not None else engine.current_position() > 0
         if kelvin is not None or xy is not None:
             if xy is not None:
                 engine.override = {"xy": tuple(xy)}
             else:
                 engine.override = {"kelvin": float(kelvin)}
             if brightness is None:
-                if engine.current_position() <= 0:
+                if not heading_on:
                     await engine.async_fade_to(
                         engine.on_position(), transition, origin=self._origin(), kind=COMMAND_SWITCH_ON
                     )
@@ -344,7 +346,7 @@ class CrescendoLight(LightEntity, RestoreEntity):
                 return
         if brightness is not None:
             await engine.async_fade_to(brightness * 100 / 255, transition, origin=self._origin())
-        elif not (engine.fade.target > 0 if engine.fade is not None else engine.current_position() > 0):
+        elif not heading_on:
             await engine.async_fade_to(engine.on_position(), transition, origin=self._origin(), kind=COMMAND_SWITCH_ON)
 
     async def async_turn_off(self, **kwargs: Any) -> None:

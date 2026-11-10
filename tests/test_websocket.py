@@ -103,3 +103,25 @@ async def test_diagnostics_report_answers(hass: HomeAssistant, setup_object, has
     floor = next(x for x in result["lights"] if x["entity_id"] == FLOOR)
     assert floor["answers"] >= 1
     assert floor["failures"] == 0
+
+
+async def test_a_card_without_admin_rights_gets_no_device_actions(
+    hass: HomeAssistant, setup_object, hass_ws_client, hass_read_only_access_token
+) -> None:
+    from .conftest import sample_options
+
+    await setup_object(
+        options=sample_options(
+            devices=[{"entity_id": "cover.bad", "kind": "threshold", "at": 60, "action": "open_cover", "back": None}]
+        )
+    )
+    assert await async_setup_component(hass, "websocket_api", {})
+    reader = await hass_ws_client(hass, hass_read_only_access_token)
+    await reader.send_json_auto_id({"type": "cloudless_crescendo/object", "entity_id": "light.bad"})
+    seen = (await reader.receive_json())["result"]["options"]
+    assert seen["lights"]
+    assert seen["stops"]
+    assert "devices" not in seen
+    admin = await hass_ws_client(hass)
+    await admin.send_json_auto_id({"type": "cloudless_crescendo/object", "entity_id": "light.bad"})
+    assert (await admin.receive_json())["result"]["options"]["devices"]

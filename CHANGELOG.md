@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.0b6
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Fixed
+
+- Switching on with only a color while the object was fading off let it go off anyway. It now switches back on.
+- Switching off at once while all lights were already off by hand kept a chosen color for the next switch-on.
+- A plain on/off light switched on by hand showed as off in the columns and in the real colors.
+- The card blended colors in plain RGB, while the lights blend color temperatures in mireds and colors in CIE xy. Columns, gradients and real colors now show what the lights show between two stops. A stop inserted on the setup page also gets the value the lights pass through there.
+
+### Changed
+
+- During a fade, the real colors repaint about ten times a second instead of on every frame, and the card looks up each light on the curve once per frame. This spares slow wall tablets.
+- Cards shown to users without admin rights no longer receive the object's device actions, which a card does not need.
+
 ## 0.1.0b5
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
