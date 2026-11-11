@@ -476,6 +476,13 @@ setTimeout(async () => {
     // Dimming and colors reset separately.
     const apart = await newCard({}, atPosition(62, { deviating: ["light.boden"], deviating_brightness: ["light.boden"], deviating_color: [] }));
     report("reset: shown for a light dimmed apart", !!apart.shadowRoot.querySelector(".reset-wrap.show"));
+    // Beside the control the buttons stand like a fader: the brightest at the top, the power button at the bottom.
+    const upright = await newCard({ button_position: "right", power: "buttons" });
+    const stack = [...upright.shadowRoot.querySelectorAll(".js-presets > *")].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    report("buttons beside the control: brightest at the top, power at the bottom", stack[0].dataset.pos === "100" && stack.at(-1).classList.contains("power-tile"), stack.map((b) => b.dataset.pos || "power").join(" "));
+    const flat = await newCard({ button_position: "bottom", power: "buttons" });
+    const rowOrder = [...flat.shadowRoot.querySelectorAll(".js-presets > *")].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+    report("buttons below the control: power first, then from dim to bright", rowOrder[0].classList.contains("power-tile") && rowOrder.at(-1).dataset.pos === "100", rowOrder.map((b) => b.dataset.pos || "power").join(" "));
     // A button takes its share of the time for 0 to 100 %: the object's (here 1 s) or the card's own.
     const sped = await newCard({}, atPosition(62));
     calls.length = 0;
@@ -520,7 +527,7 @@ setTimeout(async () => {
       c.hass = { ...hass, states: { ...hass.states, "light.links": { ...links, attributes: { ...links.attributes, friendly_name: "Waschtisch links am Fenster" } } } };
       await wait(80);
       const r = (sel) => c.shadowRoot.querySelector(sel).getBoundingClientRect();
-      const buttons = [...c.shadowRoot.querySelectorAll(".preset")].map((b) => b.getBoundingClientRect());
+      const buttons = [...c.shadowRoot.querySelectorAll(".preset")].map((b) => b.getBoundingClientRect()).sort((a, b) => a.top - b.top);
       const out = { reg: r(".reg"), well: r(".bars .well"), wells: [...c.shadowRoot.querySelectorAll(".bars .well")].map((w) => w.getBoundingClientRect()), slider: r(".regh"), first: buttons[0], last: buttons.at(-1) };
       box.remove();
       return out;
@@ -559,9 +566,9 @@ setTimeout(async () => {
     editor.addEventListener("config-changed", (e) => editor.setConfig(e.detail.config));
     const ed = (sel) => editor.shadowRoot.querySelector(sel);
     report("settings come in sections", editor.shadowRoot.querySelectorAll(".grp").length >= 5, editor.shadowRoot.querySelectorAll(".grp").length);
-    ed("#glow").click();
+    ed("#snap").click();
     await wait(30);
-    report("a setting is saved and stays shown", editor._config.glow === false && !!ed("#glow"));
+    report("a setting is saved and stays shown", editor._config.snap === false && !!ed("#snap"));
     report("header settings are offered", !!ed("#show_title") && !!ed("#show_header_value") && !!ed("#power") && !!ed("#reset_place"));
     report("no value or duration options for buttons", !ed("#show_value") && !ed("#show_duration") && !ed('[data-f="duration"]'));
     // Icons are saved, typed or picked; picking does not rebuild the form.
@@ -574,8 +581,10 @@ setTimeout(async () => {
     editor.setConfig({ ...editor._config });
     await wait(20);
     const fakePicker = ed('ha-icon-picker[data-i="1"]');
-    fakePicker.dispatchEvent(new CustomEvent("value-changed", { detail: { value: "mdi:sofa" }, bubbles: true, composed: true }));
+    // Like Home Assistant's own picker: the event stays on the element.
+    fakePicker.dispatchEvent(new CustomEvent("value-changed", { detail: { value: "mdi:sofa" }, bubbles: false, composed: false }));
     await wait(20);
+    report("no glow setting", !ed("#glow"));
     report("a picked icon is saved and the picker stays", editor._config.buttons?.[1]?.icon === "mdi:sofa" && ed('ha-icon-picker[data-i="1"]') === fakePicker, JSON.stringify(editor._config.buttons?.[1]));
     const pick = async (design) => { ed(`[data-design="${design}"]`).click(); await wait(30); };
     await pick("dial");
