@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0b1
+
+The same as 0.1.0b10, under a number the Marketplace offers. Home Assistant's Marketplace sorts versions as text, so it placed 0.1.0b10 below 0.1.0b9 and never offered it. Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
 ## 0.1.0b10
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
