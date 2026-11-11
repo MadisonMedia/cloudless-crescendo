@@ -60,7 +60,6 @@ const DEFAULTS = {
   group: true,
   columns_operable: true,
   snap: true,
-  glow: true,
   show_lanes: true,
   color_control: false,
   dial_wedge: true,
@@ -84,11 +83,11 @@ const STYLE = `
 :host { display: block; --cr-ink: var(--primary-text-color, #171d2d); --cr-muted: var(--secondary-text-color, #566077);
   --cr-bg: var(--ha-card-background, var(--card-background-color, #fff)); --cr-line: var(--divider-color, #d4dae6);
   --cr-accent: var(--primary-color, #2f5fd0); --cr-accent-ink: var(--text-primary-color, #fff);
-  --cr-well: color-mix(in srgb, var(--cr-ink) 11%, var(--cr-bg)); --p: 0%; --pn: 0; --reg: var(--cr-accent); --glowc: transparent;
+  --cr-well: color-mix(in srgb, var(--cr-ink) 11%, var(--cr-bg)); --p: 0%; --pn: 0; --reg: var(--cr-accent);
   --cr-s1:#2a78d6; --cr-s2:#eb6834; --cr-s3:#1baf7a; --cr-s4:#eda100; --cr-s5:#e87ba4; --cr-s6:#008300; --cr-s7:#6250d6; --cr-s8:#e34948; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-ha-card, .card { display: block; position: relative; height: 100%; overflow: visible; background: var(--cr-bg); background-image: radial-gradient(120% 70% at 50% 0%, var(--glowin, transparent), transparent 75%); color: var(--cr-ink); box-shadow: var(--ha-card-box-shadow, none), 0 0 30px 3px var(--glowc); border-radius: var(--ha-card-border-radius, 16px); transition: background-color .4s; }
+ha-card, .card { display: block; position: relative; height: 100%; overflow: visible; background: var(--cr-bg); color: var(--cr-ink); border-radius: var(--ha-card-border-radius, 16px); }
 .cc { container-type: inline-size; padding: 16px; display: grid; gap: 14px; min-width: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
 .progress { position: absolute; left: 16px; right: 16px; top: 5px; height: 4px; border-radius: 2px; background: var(--cr-line); overflow: hidden; pointer-events: none; }
@@ -157,6 +156,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Beside the control, neither side leaves a gap: the buttons grow to the control's height, and columns, a fader or channels grow to the buttons'. */
 :is([data-pos="left"], [data-pos="right"]) .btns { align-self: stretch; display: grid; }
 :is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) { grid-auto-rows: 1fr; }
+/* Beside the control the buttons stand like a fader: the last one at the top, the power button at the bottom. */
+:is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) > * { order: calc(1000 - var(--o, 0)); }
 .reg:has(> .bars), .reg:has(> .fader-row), .reg:has(> .mix) { grid-template-rows: 1fr; }
 .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
 .preset { border: 1px solid var(--cr-line); background: transparent; border-radius: 10px; padding: 9px 8px; display: grid; gap: 1px; text-align: center; justify-items: center; min-height: 40px; align-content: center; }
@@ -285,6 +286,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   [data-pos="auto"] .body { grid-template-columns: minmax(0, 1fr) minmax(120px, 170px); }
   [data-pos="auto"] .presets, [data-pos="auto"] .scenes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
   [data-pos="auto"] .btns { align-self: stretch; display: grid; }
+  [data-pos="auto"] :is(.presets, .scenes) > * { order: calc(1000 - var(--o, 0)); }
   .fader { min-height: 340px; }
   .bars { grid-template-rows: minmax(210px, 1fr) auto; }
   .mix { grid-template-rows: auto minmax(230px, 1fr) auto; }
@@ -746,6 +748,9 @@ class CrescendoCard extends HTMLElement {
       el.classList.toggle("four", list.length === 4 && !tile);
       el.innerHTML = tile + list.map((b) => this._buttonHtml(b, sub, us, override, dark, true)).join("");
     });
+    $$(".js-presets, .js-scenes", (el) =>
+      [...el.children].forEach((b, i) => b.style.setProperty("--o", b.classList.contains("power-tile") ? -1 : i)),
+    );
     $$(".js-lanes", (el) => {
       el.hidden = !cfg.show_lanes || !us.length;
       el.innerHTML =
@@ -1232,13 +1237,6 @@ class CrescendoCard extends HTMLElement {
       else if (ctl.scheme === "light" && ctl.on) reg = `rgb(${css(lightColor(ctl.state.attributes.rgb_color || kRgb(2900)))})`;
     }
     host.style.setProperty("--reg", reg);
-    let glow = "transparent";
-    if (cfg.glow && o?.lights.length && avg) {
-      const g = 0.6 * Math.pow(Math.min(1, tot / o.lights.length), 0.6);
-      glow = `rgba(${css(lightColor(avg))},${g.toFixed(2)})`;
-    }
-    host.style.setProperty("--glowc", glow);
-    host.style.setProperty("--glowin", glow === "transparent" ? "transparent" : glow.replace(/,([\d.]+)\)$/, (m, g) => `,${(+g * 0.45).toFixed(2)})`));
     const f = this._fade;
     const long = !!f && f.total >= 3;
     root.querySelector(".cc")?.classList.toggle("long", long);
@@ -1942,9 +1940,6 @@ class CrescendoCardEditor extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._mark = null;
     this.shadowRoot.addEventListener("change", (e) => this._onChange(e));
-    this.shadowRoot.addEventListener("value-changed", (e) => {
-      if (e.target?.dataset?.f === "icon" && e.composedPath()[0] === e.target) this._onChange(e);
-    });
     this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
     this.shadowRoot.addEventListener(
       "toggle",
@@ -2247,8 +2242,7 @@ class CrescendoCardEditor extends HTMLElement {
         )}</p></div>`
             : ""
         }
-      ${check("glow", cfg.glow, t("Light glow around the card", "Lichtschein um die Karte"))}
-      <p class="hint">${esc(t("A glow around the card in the current light color, stronger the brighter the room is.", "Ein Schein um die Karte in der aktuellen Lichtfarbe, umso stärker, je heller der Raum ist."))}</p>
+
       ${showsDots ? check("colors_always", cfg.colors_always, t("Always show the active light colors as dots, not only when something differs from the stops", "Aktive Lichtfarben immer als Punkte zeigen, nicht nur wenn etwas von den Stufen abweicht")) : ""}`,
       )}
       ${group(
@@ -2279,6 +2273,12 @@ class CrescendoCardEditor extends HTMLElement {
       ${design === "gradient" ? check("show_lanes", cfg.show_lanes, t("Show a lane per light", "Spuren je Leuchte zeigen")) : ""}`,
       )}
     </div>`;
+    // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
+    this.shadowRoot.querySelectorAll("ha-icon-picker").forEach((el) => {
+      el.hass = this._hass;
+      el.value = el.getAttribute("value") || "";
+      el.addEventListener("value-changed", (e) => this._onChange(e));
+    });
   }
 
   async _onChange(e) {
@@ -2336,7 +2336,6 @@ class CrescendoCardEditor extends HTMLElement {
       case "show_lanes":
       case "columns_operable":
       case "snap":
-      case "glow":
       case "color_control":
       case "dial_wedge":
       case "button_names":

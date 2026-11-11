@@ -263,10 +263,6 @@ class CrescendoPanel extends HTMLElement {
     r.addEventListener("click", (e) => this._onClick(e));
     r.addEventListener("input", (e) => this._onInput(e));
     r.addEventListener("change", (e) => this._onChange(e));
-    // Home Assistant's icon picker reports through its own event.
-    r.addEventListener("value-changed", (e) => {
-      if (e.target?.dataset?.f === "icon" && e.composedPath()[0] === e.target) this._onChange(e);
-    });
     r.addEventListener("pointerdown", (e) => this._onDown(e));
     r.addEventListener("pointermove", (e) => this._onMove(e));
     r.addEventListener("pointerup", (e) => this._onUp(e));
@@ -788,6 +784,12 @@ class CrescendoPanel extends HTMLElement {
         )
         .join("") || `<tr><td colspan="4"><span class="note">${esc(t("No buttons yet.", "Noch keine Buttons."))}</span></td></tr>`
     }</tbody>`;
+    // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
+    this.shadowRoot.querySelectorAll("#btnTable ha-icon-picker").forEach((el) => {
+      el.hass = this._hass;
+      el.value = el.getAttribute("value") || "";
+      el.addEventListener("value-changed", (e) => this._onChange(e));
+    });
   }
 
   _renderSettings() {

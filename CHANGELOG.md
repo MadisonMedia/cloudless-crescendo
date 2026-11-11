@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0b2
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Fixed
+
+- Icons for buttons can be chosen again, in the card editor and for the standard buttons on the setup page. Home Assistant's icon picker reports its choice only on itself, and Crescendo listened one level higher, so the choice never arrived and the editor's save button stayed off.
+
+### Changed
+
+- Beside the control, buttons stand like a fader: the last one at the top, the first at the bottom, and the power button below them all. Above or below the control they keep their order from left to right, with the power button first.
+- The light glow around and inside the card is gone, together with its setting.
+
 ## 0.2.0b1
 
 The same as 0.1.0b10, under a number the Marketplace offers. Home Assistant's Marketplace sorts versions as text, so it placed 0.1.0b10 below 0.1.0b9 and never offered it. Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
