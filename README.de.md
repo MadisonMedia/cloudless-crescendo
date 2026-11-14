@@ -46,10 +46,12 @@ Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cl
 Öffne **Crescendo** in der Seitenleiste.
 
 1. Wähle oben das Objekt, oder **Neues Objekt**, und gib ihm einen Namen.
-2. Unter **Leuchten** fügst du seine Leuchten hinzu und wählst je Leuchte, was sie zeigt: Weißtöne, Farben oder beides. Unter **Mehr** stehen Überblendung und Slider-Verhalten.
-3. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an: Seine Einstellungen öffnen sich direkt daneben, mit Balken für Helligkeit, Weißton, Farbe und Sättigung. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
-4. Lege **Standard-Buttons** an. Neue Karten übernehmen sie als Vorlage.
-5. Unter **Geräte** suchst du Lautsprecher, Thermostat oder Rollo nach Name, Raum oder Art und lässt sie mit **Verlauf** oder **Schwelle** der Skala folgen. Unter **Verhalten** stellst du Tempo, Einschalten und Slider ein.
+2. Unter **Leuchten und Geräte** suchst du Leuchten und Geräte nach Name, Raum oder Art und fügst sie hinzu; Leuchten sind vorausgewählt. Je Leuchte wählst du, was sie zeigt: Weißtöne, Farben oder beides. Unter **Mehr** stehen Überblendung und Slider-Verhalten. Gleich eingestellte Leuchten schlägt die Seite als Gruppe vor, mit einem Anzeigenamen; mit **Leuchten gruppieren** bildest du Gruppen selbst.
+3. Unter **Stufen** stellst du das **Tempo** ein. **Vorlagen** geben allen Leuchten eine fertige Form, etwa nacheinander von warm zu neutral oder wie ein anderes Objekt. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an: Seine Einstellungen öffnen sich direkt daneben, mit Balken für Helligkeit, Weißton, Farbe und Sättigung; das Häkchen oder ein Tipp daneben schließt sie. Darunter stehen die Geräte mit ihrem Verlauf oder ihrer Schwelle. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
+4. Lege **Standard-Buttons** an. Neue Karten übernehmen sie als Vorlage. **Ein/Aus** steht als erster Eintrag dabei und legt fest, worauf das Objekt einschaltet.
+5. Unter **Verhalten** stellst du den Slider ein.
+
+**Exportieren** speichert ein Objekt als Datei, **Importieren** legt daraus ein neues an oder ersetzt das gewählte.
 
 Die Leiste am unteren Rand zeigt die Position, schaltet die Vorschau an den Leuchten und startet Probeläufe.
 
@@ -57,7 +59,7 @@ Um die Karte zu einem Dashboard hinzuzufügen, bearbeitest du das Dashboard, fü
 
 ## Einstellungen pro Leuchte
 
-Was eine Leuchte zeigt, steht direkt in ihrer Zeile; Überblendung und Slider-Verhalten unter **Mehr**.
+Was eine Leuchte zeigt, steht direkt in ihrer Zeile; Überblendung und Slider-Verhalten unter **Mehr**. Bei einer Gruppe stehen dort auch ihr Anzeigename und ihre Leuchten.
 
 | Einstellung | Möglichkeiten |
 | --- | --- |
@@ -95,7 +97,7 @@ data:
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
 - Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter, und eine gewählte Farbe bleibt.
 - Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder auf der Karte **Zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte ihre Einstellungen: Helligkeit sowie Weißton, Farbe und Sättigung, soweit ihr Modus das erlaubt. Eine zusammengefasste Säule listet dort ihre Leuchten, jede mit eigenen Einstellungen. **Zurücksetzen** bringt einzelne Leuchten und eine gewählte Farbe zurück zu den Stufen.
-- Überblendungen ohne Dauer dauern ihren Anteil an der Zeit für 0 bis 100 % (**Tempo** unter **Verhalten** auf der Einrichtungsseite): von 80 auf 100 % ein Fünftel davon. Das gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle. Eine Karte kann ein eigenes Tempo haben. Eine angegebene Dauer, etwa aus einer Automation, gilt genau.
+- Überblendungen ohne Dauer dauern ihren Anteil an der Zeit für 0 bis 100 % (**Tempo** unter **Stufen** auf der Einrichtungsseite): von 80 auf 100 % ein Fünftel davon. Das gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle. Eine Karte kann ein eigenes Tempo haben. Eine angegebene Dauer, etwa aus einer Automation, gilt genau.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
 
 ## Für andere Integrationen

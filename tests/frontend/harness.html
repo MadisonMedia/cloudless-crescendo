@@ -37,6 +37,7 @@ const options = {
     { id: "b2", name: "Morgen", position: 50, duration: 5 },
     { id: "b3", name: "Hell", position: 100, duration: 5 },
   ],
+  groups: [{ id: "g1", name: "", lights: ["light.links", "light.rechts"] }],
   slider_rate: 4, on_mode: "last", on_position: 40, default_transition: 1,
 };
 const lightAttrs = { supported_color_modes: ["color_temp", "xy"], min_color_temp_kelvin: 2700, max_color_temp_kelvin: 6500, brightness: 120, color_mode: "color_temp", color_temp_kelvin: 3000 };
@@ -44,6 +45,9 @@ const calls = [];
 const LANG = new URLSearchParams(location.search).get("lang") || "de";
 const hass = {
   language: LANG, locale: { language: LANG }, themes: { darkMode: new URLSearchParams(location.search).has("dark") }, config: { unit_system: { temperature: "°C" } },
+  areas: { bad: { area_id: "bad", name: "Bad" }, flur: { area_id: "flur", name: "Flur" } },
+  entities: { "light.bogen": { area_id: "flur" }, "light.boden": { area_id: "bad" }, "media_player.bad": { device_id: "dev1" } },
+  devices: { dev1: { area_id: "bad" } },
   states: {
     "light.bad": { entity_id: "light.bad", state: "on", attributes: { friendly_name: "Bad", crescendo: true, position: 62, curve_id: "x1", brightness: 158, buttons: options.buttons, stops: [0, 25, 50, 100], fading: false, deviating: [] } },
     "light.boden": { state: "on", attributes: { friendly_name: "Boden", ...lightAttrs } },
@@ -61,6 +65,7 @@ const hass = {
     if (m.type === "cloudless_crescendo/objects") return [{ entry_id: "e1", title: "Bad", entity_id: "light.bad", options }];
     if (m.type === "cloudless_crescendo/object") return { entry_id: "e1", title: "Bad", entity_id: "light.bad", options };
     if (m.type === "cloudless_crescendo/object/save") return { options: m.options };
+    if (m.type === "cloudless_crescendo/object/create") return { entry_id: "e2" };
     if (m.type === "cloudless_crescendo/diagnostics") return { lights: options.lights.map((l, i) => ({ entity_id: l.entity_id, network: "matter", state: "on", answers: 20 + i, failures: i === 1 ? 2 : 0, repeats: 0, average_ms: 80 + i * 9, last_ms: 90, last_error: null, following: true, rate: 3 })) };
     if (m.type === "cloudless_crescendo/sidebar") return { shown: window.__sidebar ?? true };
     if (m.type === "cloudless_crescendo/sidebar/set") { window.__sidebar = m.show; return { shown: m.show }; }
@@ -116,7 +121,11 @@ setTimeout(async () => {
   if (view === "cards") panel.hidden = true;
   if (view === "panel") host.hidden = true;
   if (view === "pointc") { host.hidden = true; const s50 = panel._o.options.stops.find((s) => s.position === 50); panel._selectPoint(s50._sid, "light.boden"); }
-  if (view === "devices") { host.hidden = true; for (const id of ["sec-lights", "sec-stops", "sec-buttons"]) panel.shadowRoot.getElementById(id).hidden = true; }
+  const only = (keep) => { host.hidden = true; for (const id of ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"]) panel.shadowRoot.getElementById(id).hidden = id !== keep; };
+  if (view === "lights") { only("sec-lights"); panel._o.options.groups = []; panel._renderStops(); }
+  if (view === "grouping") { only("sec-lights"); q('[data-act="group-start"]').click(); for (const k of ["light.spiegel", "light.boden"]) { const b = q(`[data-gsel="${k}"]`); b.checked = true; b.dispatchEvent(new Event("change", { bubbles: true })); } }
+  if (view === "stops") { only("sec-stops"); q('[data-act="tpl-toggle"]').click(); }
+  if (view === "buttons") only("sec-buttons");
   if (view === "point") { host.hidden = true; const ph = q('[data-pthit][data-lamp="light.spiegel"]'); const pb = ph.getBoundingClientRect(); capture(ph); point(ph, "pointerdown", pb.left + pb.width / 2, pb.top + pb.height / 2); point(ph, "pointerup", pb.left + pb.width / 2, pb.top + pb.height / 2); }
   if (view === "table") { host.hidden = true; q('[data-act="view-table"]').click(); q('[data-act="sel-cell"]:not(.locked)').click(); }
   if (view === "diag") { host.hidden = true; q('[data-v="diag"]').click(); await wait(300); q('[data-act="test-ask"]').click(); await wait(100); }
@@ -649,8 +658,15 @@ setTimeout(async () => {
     const stops = panel._o.options.stops.length;
     q('[data-act="add-stop"]').click();
     report("add stop", panel._o.options.stops.length === stops + 1);
-    q("#addSel").value = "l:light.bogen";
-    q('[data-act="add-item"]').click();
+    report("picker: lights are chosen first, those of the object marked", q('[data-act="dev-kind"][aria-pressed="true"]')?.dataset.domain === "light" && !!q('#devList [data-act="add-light"][data-id="light.bogen"]') && !q('#devList [data-act="add-dev"]') && !!q("#devList .tag"));
+    const roomSel = q("#roomSel");
+    roomSel.value = "Flur";
+    roomSel.dispatchEvent(new Event("change", { bubbles: true }));
+    const inFlur = [...panel.shadowRoot.querySelectorAll("#devList .pickrow code")].map((c) => c.textContent).join();
+    report("picker: a room keeps only what is in it", inFlur === "light.bogen", inFlur);
+    q("#roomSel").value = "";
+    q("#roomSel").dispatchEvent(new Event("change", { bubbles: true }));
+    q('#devList [data-act="add-light"][data-id="light.bogen"]').click();
     report("add light", panel._o.options.lights.some((l) => l.entity_id === "light.bogen"));
     report("new light has a value at every stop", panel._o.options.stops.every((s) => s.values["light.bogen"]));
     // The page as the user chose it: one page with a jump bar, the object in the header, modes in view, a live bar.
@@ -660,13 +676,17 @@ setTimeout(async () => {
     await wait(20);
     report("page: new object asks for a name in the header", !q("#newBox").hidden);
     q('[data-act="new-cancel"]').click();
-    report("page: jump bar with the five sections", q("#jump").querySelectorAll("a").length === 5 && ["sec-lights", "sec-stops", "sec-buttons", "sec-devices", "sec-behavior"].every((id) => !!q(`#${id}`)));
+    report("page: jump bar with four sections, devices with the lights", q("#jump").querySelectorAll("a").length === 4 && ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"].every((id) => !!q(`#${id}`)) && !q("#sec-devices"));
     report("page: every light shows what it shows, without an advanced switch", panel.shadowRoot.querySelectorAll('#rows select[data-mode]').length === panel._units().length && !q("#edAdv"));
-    report("page: lanes under the chart, devices in their own section", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#devRows .lrow").length === 3 && !!q("#devSearch"));
+    report("page: devices listed with the lights and laned under the stops", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#sec-stops #devRows .lrow").length === 3 && panel.shadowRoot.querySelectorAll("#rows .dev").length === 3 && !!q("#devSearch"));
+    report("page: the table shows thresholds too", (q('[data-act="view-table"]').click(), [...panel.shadowRoot.querySelectorAll("#matrix tbody tr")].some((r) => r.textContent.includes("Rollo Bad") && r.textContent.includes("Öffnen"))));
+    q('[data-act="view-chart"]').click();
     // Devices are found by search and by kind; each result offers a course and a threshold.
     const devSearch = q("#devSearch");
     devSearch.value = "lautsp";
     devSearch.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    report("picker: a search under lights points to the other kinds", panel.shadowRoot.querySelectorAll("#devList .pickrow").length === 0 && !!q('#devList .pickmore [data-act="dev-kind"][data-domain=""]'));
+    q('#devList .pickmore [data-act="dev-kind"]').click();
     report("devices: the search narrows the list and offers course and threshold", panel.shadowRoot.querySelectorAll("#devList .pickrow").length === 1 && !!q('#devList [data-act="add-dev"][data-kind="ramp"]') && !!q('#devList [data-act="add-dev"][data-kind="threshold"]') && q("#devList .pickmain small").textContent.includes("25 %"), q("#devList .pickmain")?.textContent);
     devSearch.value = "";
     devSearch.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
@@ -675,6 +695,75 @@ setTimeout(async () => {
     report("devices: a kind chip keeps only that kind", coverRows.length === 1 && coverRows[0] === "cover.bad" && q('#devList .tag') !== null, coverRows.join());
     q('[data-act="dev-kind"][data-domain=""]').click();
     report("devices: all kinds again", panel.shadowRoot.querySelectorAll("#devList .pickrow").length >= 3);
+    // A new threshold switches back below it, and the way back follows a new action.
+    q('[data-act="dev-kind"][data-domain="media_player"]').click();
+    q('#devList [data-act="add-dev"][data-kind="threshold"][data-id="media_player.bad"]').click();
+    const newDev = panel._o.options.devices.at(-1);
+    report("devices: a new threshold switches back below it", newDev.kind === "threshold" && newDev.action === "media_play" && newDev.back === "media_pause", JSON.stringify(newDev));
+    const actSel = q(`#dact-${newDev.id}`);
+    actSel.value = "turn_on";
+    actSel.dispatchEvent(new Event("change", { bubbles: true }));
+    report("devices: the way back follows a new action", panel._o.options.devices.at(-1).back === "turn_off", JSON.stringify(panel._o.options.devices.at(-1)));
+    q('[data-act="undo"]').click();
+    q('[data-act="undo"]').click();
+    await wait(20);
+    panel._devKind = undefined;
+    panel._renderPicker();
+    report("devices: undo takes the new one away", panel._o.options.devices.length === 3);
+    // Speed with the stops, on/off with the buttons.
+    report("page: the speed stands with the stops", !!q("#sec-stops #fadeDef") && !q("#sec-behavior #fadeDef"));
+    report("page: on/off leads the standard buttons", !!q("#btnTable tbody tr:first-child #onMode") && !q("#onPos"));
+    q("#onMode").value = "fixed";
+    q("#onMode").dispatchEvent(new Event("change", { bubbles: true }));
+    report("page: a fixed switch-on stop is set there", panel._o.options.on_mode === "fixed" && !!q("#btnTable #onPos"));
+    q('[data-act="undo"]').click();
+    await wait(20);
+    // Templates shape all stops for the object's lights; undo brings the old ones back.
+    q('[data-act="tpl-toggle"]').click();
+    report("templates: offered with a preview for each", !q("#tplBox").hidden && panel.shadowRoot.querySelectorAll("#tplBox .tpl").length >= 2 && panel.shadowRoot.querySelectorAll("#tplBox .tpl polyline").length >= 2 * panel._units().length);
+    const stopsBefore = JSON.stringify(panel._o.options.stops.map((s) => s.position));
+    q('[data-act="tpl-apply"][data-key="bath"]').click();
+    await wait(20);
+    const stopAt = (p) => panel._o.options.stops.find((s) => s.position === p);
+    const shapeOk =
+      JSON.stringify(panel._o.options.stops.map((s) => s.position)) === "[0,10,25,40,60,80,100]" &&
+      stopAt(10).values["light.boden"].brightness === 20 &&
+      stopAt(10).values["light.spiegel"].brightness === 0 &&
+      stopAt(60).values["light.links"].brightness === 26 && stopAt(60).values["light.links"].kelvin === 2700 &&
+      JSON.stringify(stopAt(60).values["light.rechts"]) === JSON.stringify(stopAt(60).values["light.links"]) &&
+      stopAt(80).values["light.bogen"].brightness === 45 &&
+      panel._o.options.buttons.length === 3;
+    report("templates: one after another, a color becoming warm white where needed", shapeOk, JSON.stringify(panel._o.options.stops.map((s) => [s.position, s.values["light.links"]])));
+    q('[data-act="undo"]').click();
+    await wait(20);
+    report("templates: undo brings the old stops back", JSON.stringify(panel._o.options.stops.map((s) => s.position)) === stopsBefore, stopsBefore);
+    // Groups are the user's: suggested for lights set the same, made by hand otherwise.
+    const gid = panel._o.options.groups[0].id;
+    report("groups: a group shows as one light and names its lights", panel.shadowRoot.querySelectorAll("#rows .lrow2:not(.dev)").length === panel._units().length && [...panel.shadowRoot.querySelectorAll("#rows .members")].some((m) => m.textContent.includes("Waschtisch links")));
+    q(`[data-act="ungroup"][data-gid="${gid}"]`).click();
+    await wait(20);
+    report("groups: lights set the same are suggested as a group with a name", panel._o.options.groups.length === 0 && !!q('[data-act="group-suggest"]') && q("#sug-0").value === "Waschtisch", q("#sug-0")?.value);
+    q("#sug-0").value = "Waschbecken";
+    q('[data-act="group-suggest"]').click();
+    await wait(20);
+    report("groups: a suggestion becomes a group with the chosen name", panel._o.options.groups.length === 1 && panel._o.options.groups[0].name === "Waschbecken" && panel._units().some((u) => u.name.startsWith("Waschbecken")) && !q('[data-act="group-suggest"]'));
+    q('[data-act="group-start"]').click();
+    for (const key of ["light.spiegel", "light.bogen"]) {
+      const box = q(`[data-gsel="${key}"]`);
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    report("groups: two ticked lights can be grouped, with a name offered", !q('[data-act="group-make"]').disabled && q("#groupName").value !== "", q("#groupName")?.value);
+    q("#groupName").value = "Licht";
+    q('[data-act="group-make"]').click();
+    await wait(20);
+    const handMade = panel._o.options.groups.find((g) => g.name === "Licht");
+    report("groups: made by hand, the first ticked light leads", !!handMade && handMade.lights.join() === "light.spiegel,light.bogen" && panel._o.options.stops.every((s) => JSON.stringify(s.values["light.bogen"]) === JSON.stringify(s.values["light.spiegel"])), JSON.stringify(handMade));
+    q('[data-act="undo"]').click();
+    q('[data-act="undo"]').click();
+    q('[data-act="undo"]').click();
+    await wait(20);
+    report("groups: undo brings the first group back", panel._o.options.groups.length === 1 && panel._o.options.groups[0].id === gid);
     report("page: the live bar holds position, preview and test run", !!q(".livebar #editPos") && !!q(".livebar #preview") && !!q('.livebar [data-act="run-up"]'));
     const pointHit = q("[data-pthit]");
     const phb = pointHit.getBoundingClientRect();
@@ -708,8 +797,44 @@ setTimeout(async () => {
     report("page: the saturation bar keeps the hue", v50().color[1] === 255 && v50().color[0] > 100 && q('[data-pout="hue"]').textContent === "120°", JSON.stringify(v50()));
     q('[data-pbar="white"]').dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true, composed: true }));
     report("page: a key on the white-tone bar returns to a white tone", v50().kelvin === 6500 && !v50().color, JSON.stringify(v50()));
+    report("page: the point's settings close with a check mark", q('[data-act="close-ins"]').classList.contains("done") && !!q('[data-act="close-ins"] svg'));
     q('[data-act="close-ins"]').click();
-    report("page: the point's settings can be closed", q("#inspector").hidden);
+    report("page: the point's settings can be closed", q("#inspector").hidden && !!panel._sel.stop);
+    panel._selectPoint(panel._o.options.stops.find((s) => s.position === 50)._sid, "light.spiegel");
+    const outside = q("#sec-buttons h2"), ob = outside.getBoundingClientRect();
+    point(outside, "pointerdown", ob.left + 2, ob.top + 2);
+    point(outside, "pointerup", ob.left + 2, ob.top + 2);
+    report("page: a press outside puts the point's settings away", q("#inspector").hidden);
+    // Export saves the object as a file; import offers a new object or replacing this one.
+    let exported = null,
+      exportName = "";
+    const realUrl = URL.createObjectURL,
+      realClick = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = (blob) => ((exported = blob), "blob:test");
+    HTMLAnchorElement.prototype.click = function () {
+      exportName = this.download;
+    };
+    q('[data-act="export"]').click();
+    URL.createObjectURL = realUrl;
+    HTMLAnchorElement.prototype.click = realClick;
+    const file = exported ? JSON.parse(await exported.text()) : null;
+    report("export: the object as a file", file?.title === "Bad" && file.options.lights.length === panel._o.options.lights.length && !JSON.stringify(file).includes("_sid") && exportName === "crescendo-bad.json", exportName);
+    const sample = { crescendo: 1, title: "Küche", options: { ...file.options, lights: [...file.options.lights, { entity_id: "light.gibtsnicht", mode: "dim" }] } };
+    panel._readImport(JSON.stringify(sample), "kueche.json");
+    report("import: shows what the file holds and what is missing", q("#importBox").textContent.includes("Küche") && q("#importBox").textContent.includes("light.gibtsnicht") && !!q('[data-act="import-new"]'));
+    q('[data-act="import-replace"]').click();
+    await wait(20);
+    report("import: replacing leaves out the missing light and can be undone", !panel._o.options.lights.some((l) => l.entity_id === "light.gibtsnicht") && panel._o.options.lights.length === file.options.lights.length && !q("#undoBtn").disabled);
+    q('[data-act="undo"]').click();
+    panel._readImport("{ nonsense", "kaputt.json");
+    report("import: a broken file is refused", !q('[data-act="import-new"]'));
+    panel._readImport(JSON.stringify(sample), "kueche.json");
+    calls.length = 0;
+    q('[data-act="import-new"]').click();
+    await wait(80);
+    const created = calls.find((c) => c.type === "cloudless_crescendo/object/create"),
+      savedNew = calls.find((c) => c.type === "cloudless_crescendo/object/save");
+    report("import: a new object gets the settings without the missing light", created?.title === "Küche" && savedNew?.entry_id === "e2" && !savedNew.options.lights.some((l) => l.entity_id === "light.gibtsnicht") && savedNew.options.stops.every((s) => !("light.gibtsnicht" in s.values)), JSON.stringify(created));
     q('[data-v="diag"]').click();
     await wait(200);
     report("test question closed at start", getComputedStyle(q("#testAsk")).display === "none");

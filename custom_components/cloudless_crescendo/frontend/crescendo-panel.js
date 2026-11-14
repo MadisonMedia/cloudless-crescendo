@@ -6,7 +6,9 @@ const {
   RAMP_DOMAINS,
   clamp,
   EASE_MAX_SECONDS,
+  colorGap,
   comma,
+  commonName,
   css,
   ease,
   esc,
@@ -80,10 +82,33 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .objrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .objpick { max-width: 240px; font-weight: 600; }
 .newbox { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.lrow2 { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; gap: 6px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+.lrow2 { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; gap: 6px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
 .lrow2:first-child { border-top: 0; }
 .lrow2 .lname { padding: 0; }
 .lrow2 select { min-height: 32px; padding: 3px 6px; font-size: 13px; }
+.lrow2 > ha-icon { --mdc-icon-size: 16px; color: var(--muted); display: flex; }
+.lrow2 .members { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+.lrow2 .dkind { font-size: 13px; color: var(--muted); }
+.gsel { margin: 0 2px 0 0; width: 16px; height: 16px; flex: none; }
+.gadv { padding-bottom: 0 !important; }
+.gmembers { display: flex; flex-wrap: wrap; gap: 6px; }
+.tempo { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+.tempo b { font-weight: 650; }
+.tempo .note { font-size: 12.5px; }
+.tplbox { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--accent-soft); }
+.tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.tpl { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; align-content: start; background: var(--surface); }
+.tpl b { font-weight: 650; }
+.tpl small { font-size: 12.5px; color: var(--muted); }
+.tpl svg { width: 100%; height: auto; display: block; }
+.tpl .tline { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.powerrow td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.powerrow ha-icon { color: var(--muted); }
+.powerrow .pname { font-weight: 600; }
+.x.done { color: var(--accent); display: grid; place-items: center; }
+.x.done:hover { background: var(--accent-soft); color: var(--accent); }
+.devrow .lname ha-icon { --mdc-icon-size: 16px; color: var(--muted); flex: none; }
+.picktop { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .lmore { grid-column: 1 / -1; }
 .lmore summary { cursor: pointer; font-size: 12.5px; color: var(--muted); list-style: none; padding-left: 24px; }
 .lmore summary::-webkit-details-marker { display: none; }
@@ -273,6 +298,38 @@ const DOMAIN_LABEL = {
 const STATE_DE = { on: "an", off: "aus", playing: "spielt", paused: "pausiert", idle: "bereit", standby: "Standby", open: "offen", closed: "geschlossen", opening: "öffnet", closing: "schließt", heat: "heizt", cool: "kühlt", auto: "automatisch", heat_cool: "heizt/kühlt", dry: "entfeuchtet", fan_only: "nur Lüfter", unavailable: "nicht erreichbar", unknown: "unbekannt" };
 // The name as outlines, each letter a step heavier. Fonts on a system rarely offer that many weights.
 const LOGO = '<svg viewBox="0 -720 4828 740" role="img" aria-label="Crescendo"><path fill="currentColor" d="M389 12Q290 12 214 -34Q137 -81 94 -162Q50 -244 50 -350Q50 -456 93 -538Q136 -619 212 -666Q288 -712 386 -712Q445 -712 502 -690Q558 -669 604 -630Q650 -592 675 -542L622 -509Q601 -552 564 -584Q526 -617 480 -636Q434 -654 386 -654Q307 -654 246 -615Q184 -576 149 -508Q114 -439 114 -350Q114 -260 149 -191Q184 -122 246 -83Q309 -44 389 -44Q438 -44 484 -64Q530 -85 568 -121Q605 -157 626 -203L679 -170Q653 -117 608 -76Q562 -34 505 -11Q448 12 389 12Z M780 0V-500H855V-411Q885 -458 933 -480Q980 -502 1032 -502V-432Q988 -432 947 -417Q907 -403 881 -369Q855 -334 855 -276V0Z M1321 12Q1248 12 1192 -22Q1136 -55 1104 -114Q1072 -173 1072 -250Q1072 -327 1104 -386Q1136 -445 1192 -478Q1248 -512 1321 -512Q1390 -512 1441 -478Q1493 -443 1522 -380Q1551 -317 1551 -232H1161Q1166 -154 1212 -111Q1258 -67 1326 -67Q1378 -67 1413 -91Q1448 -115 1467 -154L1543 -117Q1523 -79 1492 -49Q1460 -20 1417 -4Q1374 12 1321 12ZM1168 -304H1456Q1453 -345 1434 -375Q1416 -404 1386 -420Q1356 -435 1319 -435Q1283 -435 1250 -420Q1216 -404 1194 -375Q1172 -345 1168 -304Z M1814 12Q1762 12 1721 -4Q1679 -19 1650 -47Q1621 -74 1607 -109L1693 -146Q1709 -116 1740 -96Q1771 -76 1809 -76Q1852 -76 1878 -92Q1905 -107 1905 -135Q1905 -161 1885 -177Q1865 -192 1827 -201L1779 -214Q1710 -232 1670 -271Q1631 -309 1631 -358Q1631 -431 1679 -472Q1727 -512 1818 -512Q1863 -512 1901 -499Q1939 -485 1966 -461Q1992 -437 2004 -405L1920 -367Q1909 -396 1880 -410Q1851 -424 1814 -424Q1775 -424 1753 -408Q1731 -391 1731 -361Q1731 -344 1750 -330Q1769 -315 1805 -306L1860 -292Q1909 -280 1941 -256Q1973 -231 1989 -200Q2004 -169 2004 -136Q2004 -91 1980 -58Q1955 -24 1912 -6Q1869 12 1814 12Z M2322 12Q2245 12 2186 -22Q2127 -55 2094 -114Q2060 -173 2060 -250Q2060 -327 2093 -386Q2127 -445 2185 -478Q2244 -512 2320 -512Q2394 -512 2454 -476Q2514 -441 2543 -375L2439 -335Q2423 -368 2390 -388Q2357 -408 2315 -408Q2274 -408 2242 -388Q2210 -367 2192 -332Q2174 -296 2174 -250Q2174 -204 2192 -168Q2211 -133 2243 -113Q2276 -92 2317 -92Q2359 -92 2392 -114Q2425 -135 2441 -172L2545 -132Q2516 -64 2457 -26Q2397 12 2322 12Z M2844 12Q2770 12 2713 -22Q2656 -55 2623 -114Q2591 -173 2591 -250Q2591 -327 2624 -386Q2658 -445 2716 -478Q2774 -512 2850 -512Q2916 -512 2971 -478Q3026 -443 3059 -377Q3092 -311 3092 -217H2723Q2728 -164 2767 -133Q2806 -102 2857 -102Q2899 -102 2926 -120Q2953 -138 2967 -167L3081 -122Q3060 -81 3027 -50Q2993 -20 2948 -4Q2902 12 2844 12ZM2730 -312H2955Q2952 -344 2934 -364Q2917 -384 2893 -394Q2870 -404 2846 -404Q2823 -404 2798 -395Q2772 -385 2753 -365Q2734 -345 2730 -312Z M3157 0V-500H3293L3299 -434Q3323 -472 3360 -492Q3397 -512 3443 -512Q3503 -512 3544 -488Q3586 -464 3607 -413Q3628 -363 3628 -284V0H3484V-256Q3484 -301 3473 -327Q3463 -353 3444 -365Q3425 -376 3400 -377Q3352 -378 3326 -349Q3301 -320 3301 -263V0Z M3914 12Q3843 12 3793 -19Q3742 -51 3715 -110Q3688 -169 3688 -250Q3688 -332 3715 -391Q3742 -449 3793 -481Q3843 -512 3914 -512Q3960 -512 3995 -494Q4030 -477 4053 -443V-700H4215V0H4061L4057 -61Q4034 -26 3998 -7Q3961 12 3914 12ZM3956 -137Q3983 -137 4004 -150Q4025 -162 4038 -185Q4051 -208 4053 -236V-264Q4051 -292 4038 -315Q4025 -337 4004 -349Q3982 -362 3955 -362Q3927 -362 3905 -348Q3882 -334 3869 -308Q3857 -283 3857 -250Q3857 -217 3870 -192Q3883 -166 3906 -152Q3928 -137 3956 -137Z M4548 12Q4468 12 4407 -22Q4345 -55 4310 -114Q4275 -173 4275 -250Q4275 -327 4309 -386Q4344 -445 4405 -478Q4467 -512 4546 -512Q4626 -512 4687 -478Q4749 -445 4784 -386Q4818 -327 4818 -250Q4818 -173 4784 -114Q4749 -55 4688 -22Q4627 12 4548 12ZM4548 -154Q4573 -154 4592 -166Q4611 -179 4622 -200Q4633 -222 4633 -250Q4633 -278 4622 -300Q4611 -321 4591 -334Q4572 -346 4546 -346Q4521 -346 4502 -334Q4482 -321 4471 -300Q4460 -278 4460 -250Q4460 -222 4471 -200Q4482 -179 4502 -166Q4522 -154 4548 -154Z"/></svg>';
+const CHECK_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+// Below a threshold a device does the opposite by default: what switched on switches off again.
+const OPPOSITE = { turn_on: "turn_off", turn_off: "turn_on", open_cover: "close_cover", close_cover: "open_cover", media_play: "media_pause", play_media: "media_pause", media_pause: "media_play", media_stop: "media_play" };
+// Taken from a real bathroom: floor, shower niche, mirror, ceiling strip and washstand come on one after another,
+// warm at first and neutral at the top. Each role holds brightness and white tone, or a color, per stop.
+const BATH_STOPS = [10, 25, 40, 60, 80, 100];
+const BATH_ROLES = [
+  { 10: [20, 3000], 25: [100, 2700], 40: [100, 2700], 60: [100, 2700], 80: [100, 3000], 100: [100, 4000] },
+  { 25: [40, 3000], 40: [100, 3000], 60: [100, 3000], 80: [100, 3000], 100: [100, 4000] },
+  { 40: [30, 2700], 60: [70, 3000], 80: [80, 3000], 100: [100, 4000] },
+  { 60: [26, [255, 140, 60]], 80: [50, 3500], 100: [80, 4000] },
+  { 80: [45, 3000], 100: [100, 4000] },
+];
+const BATH_BUTTONS = [
+  [10, ["Night", "Nacht"], "mdi:moon-waning-crescent"],
+  [40, ["Morning", "Morgen"], "mdi:weather-sunset"],
+  [80, ["Day", "Tag"], "mdi:weather-sunny"],
+  [100, ["Bright", "Hell"], "mdi:light-flood-down"],
+];
+const EVEN_ROLE = { 50: [50, 2700], 100: [100, 4000] };
+const roleValue = (r, p) => (r[p] ? { brightness: r[p][0], ...(Array.isArray(r[p][1]) ? { color: [...r[p][1]] } : { kelvin: r[p][1] }) } : { brightness: 0 });
+// Spreads n lights over the roles: a few take roles from first to last, many share them in order.
+const roleIndex = (k, n, roles) => (n <= 1 ? 0 : n <= roles ? Math.round((k * (roles - 1)) / (n - 1)) : Math.floor((k * roles) / n));
+const slug = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "objekt";
 const MENU_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>';
 const PT = 10,
   PB = 30,
@@ -285,6 +342,7 @@ const newId = () => Math.random().toString(16).slice(2, 10);
 function withIds(options) {
   const o = clone(options);
   for (const stop of o.stops) stop._sid = `s${sidCounter++}`;
+  o.groups = o.groups || [];
   return o;
 }
 function stripIds(options) {
@@ -316,7 +374,8 @@ class CrescendoPanel extends HTMLElement {
     this._sel = { stop: null, lamp: null };
     this._preview = true;
     this._edView = "chart";
-    this._group = true;
+    this._gsel = new Set();
+    this._noGroup = new Set();
     this._openMore = new Set();
     this._newing = false;
     this._undo = [];
@@ -446,10 +505,9 @@ class CrescendoPanel extends HTMLElement {
       main = this.shadowRoot.getElementById("main");
     const o = this._o;
     const sections = [
-      ["sec-lights", t("Lights", "Leuchten")],
+      ["sec-lights", t("Lights and devices", "Leuchten und Geräte")],
       ["sec-stops", t("Stops", "Stufen")],
       ["sec-buttons", t("Buttons", "Buttons")],
-      ["sec-devices", t("Devices", "Geräte")],
       ["sec-behavior", t("Behavior", "Verhalten")],
     ];
     main.innerHTML = `<section class="edit">
@@ -458,46 +516,44 @@ class CrescendoPanel extends HTMLElement {
         o
           ? `<div class="sheet">
         <div class="objrow"><input class="field title-input" id="objName" aria-label="${esc(t("Name of the object", "Name des Objekts"))}">
-          <div class="row"><button class="btn" id="undoBtn" data-act="undo" disabled>${esc(t("Undo", "Rückgängig"))}</button><span id="deleteBox"></span></div></div>
-        <div class="sec" id="sec-lights"><h2>${esc(t("Lights", "Leuchten"))}</h2>
-          <p class="note">${esc(t("Each light with what it shows: white tones, colors or both. Under More you set how it fades and how it follows a slider.", "Jede Leuchte mit dem, was sie zeigt: Weißtöne, Farben oder beides. Unter „Mehr“ stellst du ein, wie sie überblendet und wie sie einem Slider folgt."))}</p>
+          <div class="row"><button class="btn" id="undoBtn" data-act="undo" disabled>${esc(t("Undo", "Rückgängig"))}</button><button class="btn" data-act="export">${esc(t("Export", "Exportieren"))}</button><button class="btn" data-act="import">${esc(t("Import", "Importieren"))}</button><input type="file" id="importFile" accept=".json,application/json" hidden><span id="deleteBox"></span></div></div>
+        <div id="importBox" hidden></div>
+        <div class="sec" id="sec-lights"><h2>${esc(t("Lights and devices", "Leuchten und Geräte"))}</h2>
+          <p class="note">${esc(t("Lights shape the curve; for each you choose what it shows, and under More how it fades. A speaker, a thermostat, a blind or another device follows the scale with a course between two stops or with an action at a threshold; you set both under Stops.", "Leuchten formen die Kurve; je Leuchte wählst du, was sie zeigt, und unter „Mehr“, wie sie überblendet. Lautsprecher, Thermostat, Rollo oder andere Geräte folgen der Skala mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle; beides stellst du unter „Stufen“ ein."))}</p>
           <div class="lrows" id="rows"></div>
+          <div class="stack" id="groupBar"></div>
           <div id="modeNotice"></div>
-          <label class="opt"><input type="checkbox" id="edGroup"${this._group ? " checked" : ""}> ${esc(t("Combine identical lights", "Gleiche Leuchten zusammenfassen"))}</label>
-          <div class="row"><select class="field" id="addSel" aria-label="${esc(t("Choose a light", "Leuchte auswählen"))}"></select><button class="btn" data-act="add-item">${esc(t("Add", "Hinzufügen"))}</button></div>
+          <div class="pick" id="devPick"><div class="sub">${esc(t("Add", "Hinzufügen"))}</div>
+            <div class="picktop"><input class="field" type="search" id="devSearch" autocomplete="off" placeholder="${esc(t("Search by name, room or kind", "Nach Name, Raum oder Art suchen"))}" aria-label="${esc(t("Search a light or device", "Leuchte oder Gerät suchen"))}"><select class="field" id="roomSel" aria-label="${esc(t("Room", "Raum"))}"></select></div>
+            <div class="chips" id="devKinds" role="group" aria-label="${esc(t("Kind", "Art"))}"></div>
+            <div class="picklist" id="devList"></div>
+          </div>
         </div>
         <div class="sec" id="sec-stops">
           <div class="row space"><h2>${esc(t("Stops", "Stufen"))}</h2>
             <div class="seg" role="group"><button data-act="view-chart" id="vChart">${esc(t("Chart", "Diagramm"))}</button><button data-act="view-table" id="vTable">${esc(t("Table", "Tabelle"))}</button></div></div>
+          <div class="tempo"><div class="row"><label for="fadeDef"><b>${esc(t("Speed", "Tempo"))}</b> · ${esc(t("0 to 100 % in", "0 auf 100 % in"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"><span>${esc(t("seconds", "Sekunden"))}</span></div>
+            <p class="note">${esc(t("Buttons, on/off and taps on a card's slider take their share: from 80 to 100 % a fifth. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Buttons, Ein/Aus und Tippen auf den Regler einer Karte brauchen ihren Anteil davon: von 80 auf 100 % ein Fünftel. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}</p></div>
           <p class="note" id="stopNote"></p>
           <div class="row" id="stopTools"></div>
+          <div class="tplbox" id="tplBox" hidden></div>
           <div class="lights" id="lights">
             <div class="chart-box" id="chartBox"></div>
             <div class="wrapx" id="tableWrap" hidden><table class="mx" id="matrix"></table></div>
             <div class="lanes" id="lanes"></div>
+            <div class="lanes" id="devRows" hidden></div>
             <div class="inspector" id="inspector" hidden></div>
           </div>
         </div>
         <div class="sec" id="sec-buttons"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>
           <p class="note">${esc(t("New cards take these buttons as a template. In each card you can leave out some or add your own. Automations can press them too.", "Neue Karten übernehmen diese Buttons als Vorlage. In jeder Karte kannst du einzelne weglassen oder eigene ergänzen. Automationen können sie ebenfalls auslösen."))}</p>
-          <div class="wrapx"><table class="tbl" id="btnTable"></table></div><div><button class="btn" data-act="add-btn">${esc(t("Add button", "Button hinzufügen"))}</button></div></div>
-        <div class="sec" id="sec-devices"><h2>${esc(t("Devices", "Geräte"))}</h2>
-          <p class="note">${esc(t("A speaker, a thermostat or a blind can follow the scale: with a course between two stops, or with an action at a threshold. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Lautsprecher, Thermostat oder Rollo können der Skala folgen: mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten."))}</p>
-          <div class="lrows" id="devRows"></div>
-          <div class="pick" id="devPick">
-            <input class="field" type="search" id="devSearch" autocomplete="off" placeholder="${esc(t("Search by name, room or kind", "Nach Name, Raum oder Art suchen"))}" aria-label="${esc(t("Search a device", "Gerät suchen"))}">
-            <div class="chips" id="devKinds" role="group" aria-label="${esc(t("Kind of device", "Art des Geräts"))}"></div>
-            <div class="picklist" id="devList"></div>
-          </div>
-        </div>
+          <div class="wrapx"><table class="tbl" id="btnTable"></table></div>
+          <p class="note">${esc(t("On/off switches on to the last position or to a fixed stop. This also applies to tiles and voice commands without a percentage. An automation can set the position with the action “Set switch-on position”, for example by time of day.", "Ein/Aus schaltet auf die letzte Position oder auf eine feste Stufe ein. Das gilt auch für Kacheln und Sprachbefehle ohne Prozentangabe. Eine Automation kann die Position mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}</p>
+          <div><button class="btn" data-act="add-btn">${esc(t("Add button", "Button hinzufügen"))}</button></div></div>
         <div class="sec" id="sec-behavior"><h2>${esc(t("Behavior", "Verhalten"))}</h2>
           <div class="stack">
           <div class="ctl"><div class="sub">${esc(t("Slider", "Slider"))}</div><div class="row"><label for="rate">${esc(t("Updates per second", "Aktualisierungen pro Sekunde"))}</label><input class="field num" type="number" id="rate" min="1" max="10" step="1"></div>
             <p class="note">${esc(t("The default is 4. More updates feel more direct, but too many can cause stutter.", "Standard ist 4. Mehr Aktualisierungen wirken direkter, zu viele können aber Ruckler verursachen."))}</p></div>
-          <div class="ctl"><div class="sub">${esc(t("Switching on without a stop", "Einschalten ohne Stufe"))}</div><div class="row"><select class="field" id="onMode" aria-label="${esc(t("Behavior when switching on", "Verhalten beim Einschalten"))}"><option value="last">${esc(t("Last position", "Letzte Position"))}</option><option value="fixed">${esc(t("Fixed stop", "Feste Stufe"))}</option></select><input class="field num" type="number" id="onPos" min="1" max="100" aria-label="${esc(t("Fixed stop in percent", "Feste Stufe in Prozent"))}"></div>
-            <p class="note">${esc(t("Applies to tiles and voice commands without a percentage. Another integration or automation can set this value with the action “Set switch-on position”, for example by time of day.", "Gilt für Kacheln und Sprachbefehle ohne Prozentangabe. Eine andere Integration oder Automation kann den Wert mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}</p></div>
-          <div class="ctl"><div class="sub">${esc(t("Speed", "Tempo"))}</div><div class="row"><label for="fadeDef">${esc(t("0 to 100 % takes (seconds)", "0 auf 100 % dauert (Sekunden)"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"></div>
-            <p class="note">${esc(t("Each fade takes its share: from 80 to 100 % a fifth. Applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands without a duration. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Jede Überblendung dauert ihren Anteil: von 80 auf 100 % ein Fünftel. Gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle ohne Dauer. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}</p></div>
           <div class="ctl"><div class="sub">${esc(t("In automations", "In Automationen"))}</div><p class="note">${esc(t("The object is a normal light. Its brightness is the position on the scale. The lights always run in the set sequence, backward when dimming down.", "Das Objekt ist ein normales Licht. Seine Helligkeit ist die Position auf der Skala. Die Leuchten laufen immer in der eingestellten Reihenfolge, rückwärts beim Runterdimmen."))}</p><pre id="yaml"></pre></div>
         <div class="ctl"><div class="sub">${esc(t("Entry in the sidebar", "Eintrag in der Seitenleiste"))}</div><div id="sideOpt"></div></div>
         </div></div>
@@ -519,6 +575,7 @@ class CrescendoPanel extends HTMLElement {
     this._resize?.disconnect();
     this._resize?.observe(this.shadowRoot.getElementById("chartBox"));
     this._renderDelete();
+    this._renderImport();
     this._renderTools();
     this._renderStops();
     this._renderInspector();
@@ -571,6 +628,10 @@ class CrescendoPanel extends HTMLElement {
     this._sel = { stop: null, lamp: null };
     this._undo = [];
     this._confirmDelete = false;
+    this._import = null;
+    this._grouping = false;
+    this._gsel = new Set();
+    this._tplOpen = false;
     this._renderEdit();
   }
 
@@ -596,7 +657,7 @@ class CrescendoPanel extends HTMLElement {
   }
 
   _units() {
-    return units(this._o.options, this._hass, this._group);
+    return units(this._o.options, this._hass, true);
   }
 
   _selUnit() {
@@ -615,7 +676,181 @@ class CrescendoPanel extends HTMLElement {
         <button class="btn" data-act="take-state" ${st.position === 0 ? "disabled" : ""}>${esc(t("Take current state", "Ist-Zustand übernehmen"))}</button>
         <button class="btn" data-act="del-stop" ${movable ? "" : "disabled"}>${esc(t("Delete stop", "Stufe löschen"))}</button>`
           : ""
-      }`;
+      }
+      <button class="btn" data-act="tpl-toggle" aria-expanded="${!!this._tplOpen}">${esc(t("Templates …", "Vorlagen …"))}</button>`;
+  }
+
+  // -- templates --------------------------------------------------------------------------------
+
+  _templates() {
+    const t = this._t;
+    const list = [
+      { key: "bath", name: t("One after another", "Nacheinander"), text: t("One light after another, warm at first and neutral at the top. Brings the buttons Night, Morning, Day and Bright if there are none yet.", "Eine Leuchte nach der anderen, erst warm, oben neutral. Bringt die Buttons Nacht, Morgen, Tag und Hell mit, falls noch keine da sind.") },
+      { key: "even", name: t("Together", "Gemeinsam"), text: t("All lights together, from warm to neutral.", "Alle Leuchten zusammen, von warm zu neutral.") },
+    ];
+    for (const x of this._objects) {
+      if (x.entry_id === this._o.entry_id || !x.options.lights.length) continue;
+      list.push({ key: `obj:${x.entry_id}`, name: t(`Like “${x.title}”`, `Wie „${x.title}“`), text: t("Its stops. Lights it shares with this object get exactly its values; the others take the light in the same place.", "Seine Stufen. Leuchten, die es mit diesem Objekt teilt, bekommen genau seine Werte; die anderen übernehmen die Leuchte an gleicher Stelle.") });
+    }
+    return list;
+  }
+
+  // The stops a template gives this object's lights, and the buttons it brings.
+  _template(key) {
+    const o = this._o.options;
+    let positions,
+      roles,
+      source = null,
+      at = null,
+      buttons = null;
+    if (key === "bath") {
+      positions = BATH_STOPS;
+      roles = BATH_ROLES.map((r) => (p) => roleValue(r, p));
+      buttons = BATH_BUTTONS.map(([position, name, icon]) => ({ id: newId(), name: this._lang === "de" ? name[1] : name[0], position, duration: 0, icon }));
+    } else if (key === "even") {
+      positions = [50, 100];
+      roles = [(p) => roleValue(EVEN_ROLE, p)];
+    } else {
+      source = this._objects.find((x) => x.entry_id === key.slice(4))?.options;
+      if (!source) return null;
+      positions = source.stops.map((s) => s.position).filter((p) => p > 0);
+      at = (id, p) => source.stops.find((s) => s.position === p)?.values[id] || { brightness: 0 };
+      roles = units(source, this._hass, true).map((u) => (p) => at(u.light.entity_id, p));
+    }
+    const us = this._units();
+    const stops = [0, ...positions].map((position) => ({ position, values: {} }));
+    us.forEach((u, k) => {
+      const shared = source && u.ids.find((id) => source.lights.some((l) => l.entity_id === id));
+      const role = shared ? (p) => at(shared, p) : roles[roleIndex(k, us.length, roles.length)];
+      for (const id of u.ids) {
+        const light = o.lights.find((l) => l.entity_id === id);
+        for (const s of stops) s.values[id] = s.position === 0 ? { brightness: 0 } : this._fitValue(light, role(s.position));
+      }
+    });
+    return { stops, buttons };
+  }
+
+  // A value as far as the light can show it: a color becomes the warmest white, a white tone a color.
+  _fitValue(light, v) {
+    const b = Math.round(v?.brightness || 0);
+    if (!b) return { brightness: 0 };
+    if (light.mode === "onoff") return { brightness: 100 };
+    if (light.mode === "dim") return { brightness: b };
+    const [kmin, kmax] = this._kelvinRange(light);
+    if (v.color) return light.mode === "cct" ? { brightness: b, kelvin: kmin } : { brightness: b, color: v.color.map(Math.round) };
+    const k = v.kelvin ?? 3000;
+    return light.mode === "rgb" ? { brightness: b, color: kRgb(k).map(Math.round) } : { brightness: b, kelvin: clamp(Math.round(k / 50) * 50, kmin, kmax) };
+  }
+
+  _tplPreview(stops) {
+    const W = 200,
+      H = 64,
+      P = 4;
+    const x = (p) => (P + (p / 100) * (W - 2 * P)).toFixed(1),
+      y = (v) => (P + (1 - v / 100) * (H - 2 * P)).toFixed(1);
+    const lines = this._units()
+      .map((u) => `<polyline class="tline" style="stroke:${seriesVar(u.slot)}" points="${stops.map((s) => `${x(s.position)},${y(s.values[u.ids[0]]?.brightness || 0)}`).join(" ")}"/>`)
+      .join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(this._t("Brightness of each light over the scale", "Helligkeit jeder Leuchte über die Skala"))}"><line class="c-axis" x1="${P}" x2="${W - P}" y1="${y(0)}" y2="${y(0)}"/>${lines}</svg>`;
+  }
+
+  _renderTemplates() {
+    const box = this.shadowRoot.getElementById("tplBox");
+    if (!box) return;
+    box.hidden = !this._tplOpen;
+    if (!this._tplOpen) return;
+    const t = this._t;
+    const head = `<div class="row space"><b>${esc(t("Templates", "Vorlagen"))}</b><button class="x" data-act="tpl-toggle" aria-label="${esc(t("Close", "Schließen"))}">×</button></div>`;
+    if (!this._o.options.lights.length) {
+      box.innerHTML = `${head}<p class="note">${esc(t("Add lights first; a template shapes their stops.", "Füge zuerst Leuchten hinzu; eine Vorlage formt ihre Stufen."))}</p>`;
+      return;
+    }
+    const cards = this._templates()
+      .map((x) => {
+        const tpl = this._template(x.key);
+        return tpl ? `<div class="tpl"><b>${esc(x.name)}</b>${this._tplPreview(tpl.stops)}<small>${esc(x.text)}</small><div><button class="btn" data-act="tpl-apply" data-key="${esc(x.key)}">${esc(t("Apply", "Übernehmen"))}</button></div></div>` : "";
+      })
+      .join("");
+    box.innerHTML = `${head}<p class="note">${esc(t("A template replaces all stops of this object with a shape for its lights. Undo brings them back.", "Eine Vorlage ersetzt alle Stufen dieses Objekts durch eine Form für seine Leuchten. „Rückgängig“ holt sie zurück."))}</p><div class="tpls">${cards}</div>`;
+  }
+
+  // -- export and import ------------------------------------------------------------------------
+
+  _export() {
+    const data = { crescendo: 1, title: this._o.title, exported: new Date().toISOString(), options: stripIds(this._o.options) };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `crescendo-${slug(this._o.title)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    this._toast(this._t(`Saved as ${link.download}.`, `Als ${link.download} gespeichert.`));
+  }
+
+  _readImport(text, file) {
+    const t = this._t;
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+    const options = data?.options && typeof data.options === "object" ? data.options : data;
+    if (!Array.isArray(options?.lights) || !Array.isArray(options?.stops)) {
+      this._toast(t(`${file} is not a Crescendo object.`, `${file} ist kein Crescendo-Objekt.`));
+      return;
+    }
+    const states = this._hass.states;
+    const missing = [...options.lights.map((l) => l?.entity_id), ...(options.devices || []).map((d) => d?.entity_id)].filter((id) => !id || !states[id]);
+    this._import = { file, title: String(data.title || file.replace(/\.json$/i, "") || "Crescendo"), options, missing };
+    this._renderImport();
+  }
+
+  // Only what exists here: lights and devices of this Home Assistant, a value for every light at every stop.
+  _cleanImport(raw) {
+    const states = this._hass.states;
+    const o = { slider_rate: 4, on_mode: "last", on_position: 40, default_transition: 5, ...clone(raw) };
+    o.lights = (o.lights || []).filter((l) => l?.entity_id && states[l.entity_id]);
+    const ids = new Set(o.lights.map((l) => l.entity_id));
+    o.devices = (o.devices || []).filter((d) => d?.entity_id && states[d.entity_id]).map((d) => ({ id: d.id || newId(), ...d }));
+    o.buttons = (o.buttons || []).map((b) => ({ id: b.id || newId(), ...b }));
+    o.groups = (o.groups || []).map((g) => ({ ...g, lights: (g.lights || []).filter((id) => ids.has(id)) })).filter((g) => g.lights.length >= 2);
+    o.stops = (o.stops || []).filter((s) => typeof s?.position === "number");
+    if (!o.stops.some((s) => s.position === 0)) o.stops.unshift({ position: 0, values: {} });
+    if (!o.stops.some((s) => s.position === 100)) o.stops.push({ position: 100, values: {} });
+    o.stops.sort((a, b) => a.position - b.position);
+    for (const s of o.stops) {
+      const values = {};
+      for (const id of ids) values[id] = s.position === 0 ? { brightness: 0 } : s.values?.[id] || { brightness: 0 };
+      s.values = values;
+      delete s._sid;
+    }
+    return o;
+  }
+
+  _renderImport() {
+    const box = this.shadowRoot.getElementById("importBox");
+    if (!box) return;
+    const imp = this._import,
+      t = this._t;
+    box.hidden = !imp;
+    if (!imp) {
+      box.innerHTML = "";
+      return;
+    }
+    const o = imp.options;
+    const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const facts = [
+      count(o.lights.length, t("light", "Leuchte"), t("lights", "Leuchten")),
+      count(o.stops.length, t("stop", "Stufe"), t("stops", "Stufen")),
+      count((o.buttons || []).length, "Button", "Buttons"),
+      count((o.devices || []).length, t("device", "Gerät"), t("devices", "Geräte")),
+    ].join(", ");
+    box.innerHTML = `<div class="notice calm"><b>${esc(imp.file)}: ${esc(imp.title)}</b><span>${esc(facts)}.</span>
+      ${imp.missing.length ? `<span>${esc(t(`Not in this Home Assistant, so left out: ${imp.missing.join(", ")}.`, `Nicht in diesem Home Assistant, daher weggelassen: ${imp.missing.join(", ")}.`))}</span>` : ""}
+      <div class="row"><button class="btn primary" data-act="import-new">${esc(t("Create as a new object", "Als neues Objekt anlegen"))}</button><button class="btn" data-act="import-replace">${esc(t(`Replace “${this._o.title}”`, `„${this._o.title}“ damit ersetzen`))}</button><button class="btn" data-act="import-cancel">${esc(t("Cancel", "Abbrechen"))}</button></div></div>`;
   }
 
   _renderStops() {
@@ -638,22 +873,11 @@ class CrescendoPanel extends HTMLElement {
     this._renderRows();
     this._renderDevices();
     const both = o.lights.filter((l) => l.mode === "rgbcct").map((l) => friendly(this._hass, l.entity_id));
+    this._renderTemplates();
     r.getElementById("modeNotice").innerHTML = both.length
       ? `<div class="notice"><b>${esc(t("Color + white", "Farbe + Weiß"))}: ${esc(both.join(", "))}</b><span>${esc(t("Changing between color and white can flicker badly. If that bothers you, set one of them for the light above. Another object with the same lights can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann die Leuchte unschön flackern. Falls das stört, lege oben bei der Leuchte eins davon fest. Ein weiteres Objekt mit denselben Leuchten kannst du anders einstellen."))}</span></div>`
       : "";
-    this._renderAddSelect();
-  }
-
-  _renderAddSelect() {
-    const hass = this._hass,
-      o = this._o.options;
-    const sel = this.shadowRoot.getElementById("addSel");
-    const keep = sel.value;
-    const ids = Object.keys(hass.states).sort((a, b) => friendly(hass, a).localeCompare(friendly(hass, b)));
-    const lights = ids.filter((id) => id.startsWith("light.") && !hass.states[id].attributes.crescendo && !o.lights.some((l) => l.entity_id === id));
-    sel.innerHTML = lights.map((id) => `<option value="l:${esc(id)}">${esc(friendly(hass, id))}</option>`).join("");
-    if (keep) sel.value = keep;
-    this._renderDevPick();
+    this._renderPicker();
   }
 
   _domainLabel(domain) {
@@ -668,22 +892,22 @@ class CrescendoPanel extends HTMLElement {
     return (areaId && h.areas?.[areaId]?.name) || "";
   }
 
-  // Every entity that can follow the scale, with the words a search may hit: name, id, room and kind.
-  _deviceCandidates() {
+  // Every light and device that can join, with the words a search may hit: name, id, room and kind.
+  _candidates() {
     const hass = this._hass;
     const out = [];
     for (const id of Object.keys(hass.states)) {
       const s = hass.states[id],
         domain = id.split(".")[0];
-      // The object's own lights belong under Lights; other lights may follow like any device.
-      if (s.attributes?.crescendo || this._o.options.lights.some((l) => l.entity_id === id)) continue;
-      const ramp = RAMP_DOMAINS.includes(domain),
-        threshold = !!DEVICE_ACTIONS[domain];
-      if (!ramp && !threshold) continue;
+      if (s.attributes?.crescendo) continue;
+      const light = domain === "light",
+        ramp = !light && RAMP_DOMAINS.includes(domain),
+        threshold = !light && !!DEVICE_ACTIONS[domain];
+      if (!light && !ramp && !threshold) continue;
       const name = friendly(hass, id),
         area = this._areaOf(id),
         kind = this._domainLabel(domain);
-      out.push({ id, domain, name, area, kind, ramp, threshold, text: `${name} ${id} ${area} ${kind}`.toLowerCase() });
+      out.push({ id, domain, name, area, kind, light, ramp, threshold, text: `${name} ${id} ${area} ${kind}`.toLowerCase() });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -719,40 +943,60 @@ class CrescendoPanel extends HTMLElement {
     const t = this._t,
       s = this._hass.states[c.id],
       o = this._o.options;
-    const facts = [c.kind, c.area, this._stateText(c)].filter(Boolean).join(" · ");
-    const tags = o.devices
-      .filter((d) => d.entity_id === c.id)
-      .map((d) => `<span class="tag">${esc(d.kind === "ramp" ? t("course added", "Verlauf dabei") : t("threshold added", "Schwelle dabei"))}</span>`)
-      .join("");
-    const r = RAMP_LABEL[c.domain];
-    const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("value", "Wert");
-    const btn = (kind, label, title) => `<button class="btn" data-act="add-dev" data-kind="${kind}" data-id="${esc(c.id)}" title="${esc(title)}">${esc(label)}</button>`;
-    const acts =
-      (c.ramp ? btn("ramp", t("Course", "Verlauf"), t(`${what} runs between two stops`, `${what} läuft zwischen zwei Stufen`)) : "") +
-      (c.threshold ? btn("threshold", t("Threshold", "Schwelle"), t("An action when a stop is crossed", "Eine Aktion beim Überschreiten einer Stufe")) : "");
-    return `<div class="pickrow"><ha-icon icon="${esc(s.attributes?.icon || DOMAIN_ICON[c.domain] || "mdi:devices")}"></ha-icon><div class="pickmain"><b>${esc(c.name)}${tags}</b><small>${esc(facts)}</small><code>${esc(c.id)}</code></div><div class="pickacts">${acts}</div></div>`;
+    let facts,
+      tags = "",
+      acts = "";
+    if (c.light) {
+      const modes = this._modesFor(c.id);
+      facts = [c.kind, this._modeLabels()[modes[modes.length - 1]], c.area, this._stateText(c)];
+      if (o.lights.some((l) => l.entity_id === c.id)) tags = `<span class="tag">${esc(t("added", "dabei"))}</span>`;
+      else acts = `<button class="btn" data-act="add-light" data-id="${esc(c.id)}">${esc(t("Add", "Hinzufügen"))}</button>`;
+    } else {
+      facts = [c.kind, c.area, this._stateText(c)];
+      tags = o.devices
+        .filter((d) => d.entity_id === c.id)
+        .map((d) => `<span class="tag">${esc(d.kind === "ramp" ? t("course added", "Verlauf dabei") : t("threshold added", "Schwelle dabei"))}</span>`)
+        .join("");
+      const r = RAMP_LABEL[c.domain];
+      const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("value", "Wert");
+      const btn = (kind, label, title) => `<button class="btn" data-act="add-dev" data-kind="${kind}" data-id="${esc(c.id)}" title="${esc(title)}">${esc(label)}</button>`;
+      acts =
+        (c.ramp ? btn("ramp", t("Course", "Verlauf"), t(`${what} runs between two stops`, `${what} läuft zwischen zwei Stufen`)) : "") +
+        (c.threshold ? btn("threshold", t("Threshold", "Schwelle"), t("An action when a stop is crossed", "Eine Aktion beim Überschreiten einer Stufe")) : "");
+    }
+    return `<div class="pickrow"><ha-icon icon="${esc(s.attributes?.icon || DOMAIN_ICON[c.domain] || "mdi:devices")}"></ha-icon><div class="pickmain"><b>${esc(c.name)}${tags}</b><small>${esc(facts.filter(Boolean).join(" · "))}</small><code>${esc(c.id)}</code></div><div class="pickacts">${acts}</div></div>`;
   }
 
-  // Devices come up by name, room or kind; each shows what it is now and what a course would move.
-  _renderDevPick() {
+  // Lights and devices come up by name, room or kind; lights are chosen first. Each shows what it is now.
+  _renderPicker() {
     const t = this._t,
       r = this.shadowRoot;
     const list = r.getElementById("devList"),
       chips = r.getElementById("devKinds"),
-      search = r.getElementById("devSearch");
+      search = r.getElementById("devSearch"),
+      room = r.getElementById("roomSel");
     if (!list) return;
     if (search.value !== (this._devQuery || "")) search.value = this._devQuery || "";
-    const all = this._deviceCandidates();
+    const all = this._candidates();
     const present = new Set(all.map((c) => c.domain));
-    if (this._devKind && !present.has(this._devKind)) this._devKind = "";
-    const kinds = [["", t("All", "Alle")], ...Object.keys(DOMAIN_LABEL).filter((d) => present.has(d)).map((d) => [d, this._domainLabel(d)])];
-    chips.innerHTML = kinds.map(([d, l]) => `<button class="chip" data-act="dev-kind" data-domain="${d}" aria-pressed="${(this._devKind || "") === d}">${esc(l)}</button>`).join("");
+    let kind = this._devKind ?? "light";
+    if (kind && !present.has(kind)) kind = "";
+    const order = ["light", ...Object.keys(DOMAIN_LABEL).filter((d) => d !== "light")];
+    const kinds = [...order.filter((d) => present.has(d)).map((d) => [d, this._domainLabel(d)]), ["", t("All kinds", "Alle Arten")]];
+    chips.innerHTML = kinds.map(([d, l]) => `<button class="chip" data-act="dev-kind" data-domain="${d}" aria-pressed="${kind === d}">${esc(l)}</button>`).join("");
+    const areas = [...new Set(all.map((c) => c.area).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    if (this._room && !areas.includes(this._room)) this._room = "";
+    room.innerHTML = `<option value="">${esc(t("All rooms", "Alle Räume"))}</option>` + areas.map((a) => `<option value="${esc(a)}"${a === this._room ? " selected" : ""}>${esc(a)}</option>`).join("");
+    room.hidden = !areas.length;
     const words = (this._devQuery || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const hits = all.filter((c) => (!this._devKind || c.domain === this._devKind) && words.every((w) => c.text.includes(w)));
+    const match = (c) => (!this._room || c.area === this._room) && words.every((w) => c.text.includes(w));
+    const hits = all.filter((c) => (!kind || c.domain === kind) && match(c));
+    const elsewhere = kind && (words.length || this._room) ? all.filter((c) => c.domain !== kind && match(c)).length : 0;
     const MAX = 12;
     const rows = hits.slice(0, MAX).map((c) => this._pickRow(c)).join("");
-    const more = hits.length > MAX ? `<div class="pickmore">${esc(t(`${hits.length - MAX} more. Narrow the search.`, `${hits.length - MAX} weitere. Grenze die Suche ein.`))}</div>` : "";
-    list.innerHTML = rows ? rows + more : `<div class="pickmore">${esc(all.length ? t("Nothing found.", "Nichts gefunden.") : t("No device to choose from.", "Kein Gerät zur Auswahl."))}</div>`;
+    let foot = hits.length > MAX ? `<div class="pickmore">${esc(t(`${hits.length - MAX} more. Narrow the search.`, `${hits.length - MAX} weitere. Grenze die Suche ein.`))}</div>` : "";
+    if (elsewhere) foot += `<div class="pickmore">${esc(t(`${elsewhere} more of other kinds.`, `${elsewhere} weitere bei anderen Arten.`))} <button class="btn" data-act="dev-kind" data-domain="">${esc(t("Show all kinds", "Alle Arten zeigen"))}</button></div>`;
+    list.innerHTML = (rows || `<div class="pickmore">${esc(all.length ? t("Nothing found.", "Nichts gefunden.") : t("Nothing to choose from.", "Nichts zur Auswahl."))}</div>`) + foot;
   }
 
   get _lang() {
@@ -872,8 +1116,46 @@ class CrescendoPanel extends HTMLElement {
       <label>${esc(t("When falling below", "Beim Unterschreiten"))} <select class="field" id="dbck-${esc(d.id)}" data-dev="${esc(d.id)}" data-f="back">${opts(d.back || "", actions.filter((a) => a !== "play_media"), true)}</select></label>${media}`;
   }
 
+  _devIcon(d) {
+    return this._hass.states[d.entity_id]?.attributes?.icon || DOMAIN_ICON[d.entity_id.split(".")[0]] || "mdi:devices";
+  }
+
+  // Under the stops: a device's lane and its values, beside the lights' lanes.
   _deviceRow(d) {
-    return `<div class="lrow"><div class="lname"><span>${esc(friendly(this._hass, d.entity_id))}<span class="devval" data-devval="${esc(d.id)}"></span></span><button class="x" data-act="rm-dev" data-id="${esc(d.id)}" aria-label="${esc(this._t("Remove", "Entfernen"))}">×</button></div>${this._devLane(d)}<div class="ladv">${this._devFields(d)}</div></div>`;
+    return `<div class="lrow devrow"><div class="lname"><ha-icon icon="${esc(this._devIcon(d))}"></ha-icon><span>${esc(friendly(this._hass, d.entity_id))}<span class="devval" data-devval="${esc(d.id)}"></span></span></div>${this._devLane(d)}<div class="ladv">${this._devFields(d)}</div></div>`;
+  }
+
+  // In the list of lights and devices: what the device is and how it follows.
+  _devItem(d) {
+    const t = this._t,
+      domain = d.entity_id.split(".")[0];
+    const r = RAMP_LABEL[domain];
+    const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("value", "Wert");
+    const kinds = [];
+    if (RAMP_DOMAINS.includes(domain)) kinds.push(["ramp", t(`Course: ${what}`, `Verlauf: ${what}`)]);
+    if (DEVICE_ACTIONS[domain]) kinds.push(["threshold", t("Action at a threshold", "Aktion an einer Schwelle")]);
+    const kind =
+      kinds.length > 1
+        ? `<select class="field" id="dk-${esc(d.id)}" data-devkind="${esc(d.id)}" aria-label="${esc(t("How it follows the scale", "Wie es der Skala folgt"))}">${kinds.map(([k, l]) => `<option value="${k}"${d.kind === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`
+        : `<span class="dkind">${esc((kinds.find(([k]) => k === d.kind) || kinds[0] || ["", ""])[1])}</span>`;
+    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(d))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, d.entity_id))}<small class="members">${esc(this._domainLabel(domain))}</small></span></div>${kind}<button class="x" data-act="rm-dev" data-id="${esc(d.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>`;
+  }
+
+  _actionName(a) {
+    return ACTION_LABEL[a] ? (this._lang === "de" ? ACTION_LABEL[a][1] : ACTION_LABEL[a][0]) : a;
+  }
+
+  // What a device does at a position: its value on a course, its action past a threshold.
+  _devAt(d, p) {
+    if (d.kind === "ramp") return this._fmtRamp(d, this._rampVal(d, p));
+    if (p >= d.at) return this._actionName(d.action);
+    return d.back ? this._actionName(d.back) : "–";
+  }
+
+  _opposite(entityId, action) {
+    const actions = DEVICE_ACTIONS[entityId.split(".")[0]] || ["turn_on", "turn_off"];
+    const back = OPPOSITE[action];
+    return back && back !== "play_media" && actions.includes(back) ? back : null;
   }
 
   _modesFor(entityId) {
@@ -901,18 +1183,28 @@ class CrescendoPanel extends HTMLElement {
   }
 
   // A light's row: what it shows, in view; how it fades and follows a slider, under "More".
+  // A group's row names its lights and offers its display name and a way out under "More".
   _lampRow(u) {
     const t = this._t,
       l = u.light,
-      label = this._modeLabels();
-    const avail = this._modesFor(l.entity_id);
+      label = this._modeLabels(),
+      g = u.group;
+    const avail = u.ids.map((id) => this._modesFor(id)).reduce((a, b) => a.filter((m) => b.includes(m)));
     const modes = (avail.includes(l.mode) ? avail : [...avail, l.mode]).map((m) => `<option value="${m}"${l.mode === m ? " selected" : ""}>${esc(label[m])}</option>`).join("");
     const key = esc(u.ids.join(","));
+    const names = u.ids.map((id) => friendly(this._hass, id));
+    const title = g ? (g.name || "").trim() || commonName(names) : u.name;
+    const pick = this._grouping ? `<input type="checkbox" class="gsel" data-gsel="${key}" aria-label="${esc(t(`Choose ${title}`, `${title} auswählen`))}"${this._gsel.has(u.ids.join(",")) ? " checked" : ""}>` : "";
     const steps = l.fade === "ontime" ? `<label>${esc(t("Steps per second", "Schritte pro Sekunde"))} <input class="field num" type="number" id="fs-${esc(l.entity_id)}" data-steps="${key}" min="1" max="8" value="${l.steps || 4}"></label>` : "";
-    return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname"><span>${esc(u.name)}</span></div>
+    const group = g
+      ? `<div class="ladv gadv"><label>${esc(t("Display name", "Anzeigename"))} <input class="field" id="gn-${esc(g.id)}" data-gname="${esc(g.id)}" value="${esc(g.name || "")}" placeholder="${esc(commonName(names))}"></label>
+        <span class="gmembers">${u.ids.map((id) => `<button class="chip" data-act="group-out" data-gid="${esc(g.id)}" data-id="${esc(id)}" title="${esc(t("Take out of the group", "Aus der Gruppe nehmen"))}">${esc(friendly(this._hass, id))} ×</button>`).join("")}</span>
+        <button class="btn quiet" data-act="ungroup" data-gid="${esc(g.id)}">${esc(t("Dissolve group", "Gruppe auflösen"))}</button></div>`
+      : "";
+    return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname">${pick}<span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
       <select class="field" id="mode-${esc(l.entity_id)}" data-mode="${key}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select>
       <button class="x" data-act="rm-lamp" data-ids="${key}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button>
-      <details class="lmore" data-more="${key}"${this._openMore.has(u.ids.join(",")) ? " open" : ""}><summary>${esc(t("More", "Mehr"))}</summary><div class="ladv">
+      <details class="lmore" data-more="${key}"${this._openMore.has(u.ids.join(",")) ? " open" : ""}><summary>${esc(t("More", "Mehr"))}</summary>${group}<div class="ladv">
       <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${key}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
       <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${key}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
       <span class="note">${esc(t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt."))}</span>
@@ -921,9 +1213,120 @@ class CrescendoPanel extends HTMLElement {
 
   _renderRows() {
     const box = this.shadowRoot.getElementById("rows"),
-      t = this._t;
-    const lamps = this._units().map((u) => this._lampRow(u)).join("");
-    box.innerHTML = lamps || `<p class="note">${esc(t("No light yet. Add the first one below.", "Noch keine Leuchte. Füge unten die erste hinzu."))}</p>`;
+      t = this._t,
+      o = this._o.options;
+    const rows = this._units().map((u) => this._lampRow(u)).join("") + o.devices.map((d) => this._devItem(d)).join("");
+    box.innerHTML = rows || `<p class="note">${esc(t("Nothing yet. Add the first light below.", "Noch nichts. Füge unten die erste Leuchte hinzu."))}</p>`;
+    this._renderGroupBar();
+  }
+
+  // -- groups -----------------------------------------------------------------------------------
+
+  // Lights set the same or almost the same, not grouped yet. Not offered while the curve has only its two ends.
+  _groupSuggestions() {
+    const o = this._o.options;
+    const all = this._units();
+    const free = all.filter((u) => !u.group);
+    if (o.stops.length < 3 || free.length < 2) return [];
+    const val = (u, s) => s.values[u.light.entity_id] || { brightness: 0 };
+    const near = (a, b) =>
+      a.light.mode === b.light.mode &&
+      o.stops.every((s) => {
+        const x = val(a, s),
+          y = val(b, s);
+        if (Math.abs((x.brightness || 0) - (y.brightness || 0)) > 5) return false;
+        if (!x.brightness && !y.brightness) return true;
+        if (!!x.color !== !!y.color) return false;
+        return x.color ? colorGap(x.color, y.color) < 0.05 : Math.abs((x.kelvin ?? 3000) - (y.kelvin ?? 3000)) <= 250;
+      });
+    const same = (a, b) =>
+      o.stops.every((s) => {
+        const x = val(a, s),
+          y = val(b, s);
+        return (x.brightness || 0) === (y.brightness || 0) && (x.kelvin ?? null) === (y.kelvin ?? null) && String(x.color ?? "") === String(y.color ?? "");
+      });
+    const no = this._dismissed();
+    const out = [],
+      used = new Set();
+    for (const a of free) {
+      if (used.has(a)) continue;
+      const members = [a, ...free.filter((b) => b !== a && !used.has(b) && near(a, b))];
+      if (members.length < 2 || members.length === all.length) continue;
+      members.forEach((m) => used.add(m));
+      const ids = members.flatMap((m) => m.ids);
+      if (no.has([...ids].sort().join(","))) continue;
+      out.push({ ids, same: members.every((m) => same(a, m)), name: commonName(ids.map((id) => friendly(this._hass, id))) });
+    }
+    return out;
+  }
+
+  _dismissed() {
+    let stored = [];
+    try {
+      stored = JSON.parse(localStorage.getItem("crescendo-nogroup") || "{}")[this._o.entry_id] || [];
+    } catch {
+      stored = [];
+    }
+    return new Set([...stored, ...this._noGroup]);
+  }
+
+  _dismiss(key) {
+    this._noGroup.add(key);
+    try {
+      const all = JSON.parse(localStorage.getItem("crescendo-nogroup") || "{}");
+      all[this._o.entry_id] = [...new Set([...(all[this._o.entry_id] || []), key])];
+      localStorage.setItem("crescendo-nogroup", JSON.stringify(all));
+    } catch {
+      // Without storage the choice holds until the page is reloaded.
+    }
+  }
+
+  _renderGroupBar() {
+    const box = this.shadowRoot.getElementById("groupBar");
+    if (!box) return;
+    const t = this._t,
+      us = this._units();
+    const nameOf = (id) => friendly(this._hass, id);
+    if (this._grouping) {
+      const chosen = [...this._gsel].map((k) => us.find((u) => u.ids.join(",") === k)).filter(Boolean);
+      const ids = chosen.flatMap((u) => u.ids);
+      const named = chosen.find((u) => u.group?.name)?.group.name;
+      const suggested = named || (ids.length > 1 ? commonName(ids.map(nameOf)) : "");
+      const input = this.shadowRoot.getElementById("groupName");
+      const value = this._groupNameTouched && input ? input.value : suggested;
+      box.innerHTML = `<div class="notice calm"><b>${esc(t("Group lights", "Leuchten gruppieren"))}</b><span>${esc(t("Tick at least two lights above. A group shows as one light, here and in the cards, and takes the settings of the first one ticked.", "Hake oben mindestens zwei Leuchten an. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der zuerst angehakten."))}</span>
+        <div class="row"><label class="opt" for="groupName">${esc(t("Display name", "Anzeigename"))}</label><input class="field" id="groupName" value="${esc(value)}"><button class="btn primary" data-act="group-make"${chosen.length < 2 ? " disabled" : ""}>${esc(t("Make group", "Gruppe bilden"))}</button><button class="btn" data-act="group-cancel">${esc(t("Cancel", "Abbrechen"))}</button></div></div>`;
+      return;
+    }
+    this._suggest = this._groupSuggestions();
+    box.innerHTML =
+      this._suggest
+        .map(
+          (h, i) => `<div class="notice calm"><b>${esc(h.same ? t("Set the same", "Gleich eingestellt") : t("Set almost the same", "Fast gleich eingestellt"))}: ${esc(h.ids.map(nameOf).join(", "))}</b>
+        <span>${esc(t("As a group they show as one light, here and in the cards.", "Als Gruppe erscheinen sie als eine Leuchte, hier und in den Karten."))}${h.same ? "" : ` ${esc(t(`All take the values of ${nameOf(h.ids[0])}.`, `Alle übernehmen dabei die Werte von ${nameOf(h.ids[0])}.`))}`}</span>
+        <div class="row"><label class="opt" for="sug-${i}">${esc(t("Display name", "Anzeigename"))}</label><input class="field" id="sug-${i}" value="${esc(h.name)}"><button class="btn primary" data-act="group-suggest" data-i="${i}">${esc(t("Group", "Gruppieren"))}</button><button class="btn" data-act="group-dismiss" data-i="${i}">${esc(t("Do not group", "Nicht gruppieren"))}</button></div></div>`,
+        )
+        .join("") + (us.length > 1 ? `<div><button class="btn quiet" data-act="group-start">${esc(t("Group lights …", "Leuchten gruppieren …"))}</button></div>` : "");
+  }
+
+  // The lights become one group with the lead light's mode, as far as all can show it, and its values.
+  _makeGroup(ids, name, leadId) {
+    const o = this._o.options;
+    const lead = o.lights.find((l) => l.entity_id === leadId);
+    if (!lead || ids.length < 2) return;
+    const PREF = ["rgbcct", "rgb", "cct", "dim", "onoff"];
+    const common = ids.map((id) => this._modesFor(id)).reduce((a, b) => a.filter((m) => b.includes(m)));
+    const mode = common.includes(lead.mode) ? lead.mode : PREF.find((m) => common.includes(m)) || "onoff";
+    const values = Object.fromEntries(o.stops.map((s) => [s._sid, clone(s.values[leadId] || { brightness: 0 })]));
+    this._change(() => {
+      o.groups = (o.groups || []).map((g) => ({ ...g, lights: g.lights.filter((id) => !ids.includes(id)) })).filter((g) => g.lights.length >= 2);
+      o.groups.push({ id: newId(), name: String(name || "").trim(), lights: o.lights.map((l) => l.entity_id).filter((id) => ids.includes(id)) });
+      for (const id of ids) {
+        const l = o.lights.find((x) => x.entity_id === id);
+        Object.assign(l, { mode, fade: lead.fade, steps: lead.steps, slider: lead.slider });
+        for (const s of o.stops) s.values[id] = s.position === 0 ? { brightness: 0 } : this._fitValue(l, values[s._sid]);
+      }
+    });
   }
 
   _renderLanes() {
@@ -941,7 +1344,11 @@ class CrescendoPanel extends HTMLElement {
     const box = this.shadowRoot.getElementById("devRows"),
       t = this._t,
       o = this._o.options;
-    box.innerHTML = o.devices.map((d) => this._deviceRow(d)).join("") || `<p class="note">${esc(t("No device yet.", "Noch kein Gerät."))}</p>`;
+    box.hidden = !o.devices.length;
+    box.innerHTML = o.devices.length
+      ? o.devices.map((d) => this._deviceRow(d)).join("") +
+        `<p class="note">${esc(t("Drag a bar to move where a device starts and ends. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Ziehe einen Balken, um zu verschieben, wo ein Gerät beginnt und endet. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten."))}</p>`
+      : "";
   }
 
   _renderMatrix() {
@@ -977,8 +1384,7 @@ class CrescendoPanel extends HTMLElement {
       )
       .join("");
     const devRows = o.devices
-      .filter((d) => d.kind === "ramp")
-      .map((d) => `<tr><th scope="row">${esc(friendly(this._hass, d.entity_id))}</th>${o.stops.map((s) => `<td class="num-cell" style="text-align:center;font-size:12.5px">${esc(this._fmtRamp(d, this._rampVal(d, s.position)))}</td>`).join("")}</tr>`)
+      .map((d) => `<tr><th scope="row">${esc(friendly(this._hass, d.entity_id))}</th>${o.stops.map((s) => `<td class="num-cell" style="text-align:center;font-size:12.5px">${esc(this._devAt(d, s.position))}</td>`).join("")}</tr>`)
       .join("");
     this.shadowRoot.getElementById("matrix").innerHTML = `<thead><tr><th>${esc(t("Stop", "Stufe"))}</th>${head}</tr></thead><tbody><tr><th scope="row">${esc(t("Room", "Raum"))}</th>${room}</tr>${rows || `<tr><th scope="row">${esc(t("No light yet", "Noch keine Leuchte"))}</th><td colspan="${o.stops.length}"><span class="note">${esc(t("Add the first one below.", "Füge unten die erste hinzu."))}</span></td></tr>`}${devRows}</tbody>`;
   }
@@ -1031,7 +1437,7 @@ class CrescendoPanel extends HTMLElement {
       u = this._selUnit();
     box.hidden = !st || !u;
     if (!st || !u) return;
-    const close = `<button class="x" data-act="close-ins" aria-label="${esc(t("Close", "Schließen"))}">×</button>`;
+    const close = `<button class="x done" data-act="close-ins" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
     const light = u.light;
     const m = this._insModel(st, u);
     let html = `<h3><i class="swatch" style="background:${m.shine}"></i>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
@@ -1076,6 +1482,18 @@ class CrescendoPanel extends HTMLElement {
     }
   }
 
+  // Changes apply as they are made, so closing only puts the settings away. The stop stays chosen for its tools.
+  _closeInspector() {
+    this._sel = { stop: this._sel.stop, lamp: null };
+    this._renderInspector();
+    const r = this.shadowRoot;
+    r.querySelectorAll(".c-dot.sel").forEach((el) => {
+      el.classList.remove("sel");
+      el.setAttribute("r", "4.5");
+    });
+    r.querySelectorAll(".cell.sel").forEach((el) => el.classList.remove("sel"));
+  }
+
   // Moves the selected point's value along a bar: 0 to 1 across its width.
   _applyIns(kind, place) {
     const st = this._stop(),
@@ -1109,6 +1527,10 @@ class CrescendoPanel extends HTMLElement {
 
   // Arrow keys move a bar's mark in small steps; a white tone by 50 K.
   _onKey(e) {
+    if (e.key === "Escape" && this.shadowRoot.getElementById("inspector")?.hidden === false) {
+      this._closeInspector();
+      return;
+    }
     const bar = e.target?.closest?.("[data-pbar]");
     if (!bar || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     const st = this._stop(),
@@ -1156,7 +1578,11 @@ class CrescendoPanel extends HTMLElement {
   _renderButtons() {
     const t = this._t,
       o = this._o.options;
-    this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Stop (%)", "Stufe (%)"))}</th><th>${esc(t("Icon", "Symbol"))}</th><th></th></tr></thead><tbody>${
+    const power = `<tr class="powerrow"><td><span class="pname">${esc(t("On/off", "Ein/Aus"))}</span></td>
+        <td><div class="row"><select class="field" id="onMode" aria-label="${esc(t("Switches on to", "Schaltet ein auf"))}"><option value="last"${o.on_mode === "last" ? " selected" : ""}>${esc(t("Last position", "Letzte Position"))}</option><option value="fixed"${o.on_mode === "fixed" ? " selected" : ""}>${esc(t("Fixed stop", "Feste Stufe"))}</option></select>${o.on_mode === "fixed" ? `<input class="field num" type="number" id="onPos" min="1" max="100" value="${o.on_position}" aria-label="${esc(t("Fixed stop in percent", "Feste Stufe in Prozent"))}">` : ""}</div></td>
+        <td><ha-icon icon="mdi:power"></ha-icon></td>
+        <td><div class="row"><button class="btn" data-act="test-power">${esc(t("Test", "Testen"))}</button></div></td></tr>`;
+    this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Stop (%)", "Stufe (%)"))}</th><th>${esc(t("Icon", "Symbol"))}</th><th></th></tr></thead><tbody>${power}${
       o.buttons
         .map(
           (b) => `<tr><td><input class="field txt" id="bn-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}"></td>
@@ -1168,7 +1594,7 @@ class CrescendoPanel extends HTMLElement {
         }</td>
         <td><div class="row"><button class="btn" data-act="test-btn" data-id="${esc(b.id)}">${esc(t("Test", "Testen"))}</button><button class="x" data-act="rm-btn" data-id="${esc(b.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></td></tr>`,
         )
-        .join("") || `<tr><td colspan="4"><span class="note">${esc(t("No buttons yet.", "Noch keine Buttons."))}</span></td></tr>`
+        .join("")
     }</tbody>`;
     // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
     this.shadowRoot.querySelectorAll("#btnTable ha-icon-picker").forEach((el) => {
@@ -1186,9 +1612,6 @@ class CrescendoPanel extends HTMLElement {
     const r = this.shadowRoot,
       o = this._o.options;
     r.getElementById("rate").value = o.slider_rate;
-    r.getElementById("onMode").value = o.on_mode;
-    r.getElementById("onPos").value = o.on_position;
-    r.getElementById("onPos").hidden = o.on_mode !== "fixed";
     r.getElementById("fadeDef").value = o.default_transition;
     const entity = this._o.entity_id || "light.example";
     r.getElementById("yaml").innerHTML = `<span class="c">${esc(this._t("# In 30 minutes to 80 %, for example as a wake-up light", "# In 30 Minuten auf 80 %, zum Beispiel als Aufwachlicht"))}</span>
@@ -1434,9 +1857,13 @@ data:
   }
 
   _addDevice(kind, entityId) {
+    const d = this._newDevice(kind, entityId);
+    this._change(() => this._o.options.devices.push(d));
+  }
+
+  _newDevice(kind, entityId) {
     const domain = entityId.split(".")[0],
       a = this._hass.states[entityId]?.attributes || {};
-    const o = this._o.options;
     const d = { id: newId(), entity_id: entityId, kind };
     if (kind === "ramp") {
       d.from = 20;
@@ -1449,9 +1876,9 @@ data:
       else Object.assign(d, { min: 0, max: 100 });
     } else {
       const actions = DEVICE_ACTIONS[domain] || ["turn_on", "turn_off"];
-      Object.assign(d, { at: 50, action: actions[0], back: null });
+      Object.assign(d, { at: 50, action: actions[0], back: this._opposite(entityId, actions[0]) });
     }
-    this._change(() => o.devices.push(d));
+    return d;
   }
 
   async _onClick(e) {
@@ -1509,10 +1936,7 @@ data:
         break;
       }
       case "close-ins":
-        this._sel = { stop: null, lamp: null };
-        this._renderTools();
-        this._renderStops();
-        this._renderInspector();
+        this._closeInspector();
         break;
       case "delete-ask":
         this._confirmDelete = true;
@@ -1638,6 +2062,7 @@ data:
         this._change(() => {
           o.lights = o.lights.filter((l) => !ids.includes(l.entity_id));
           for (const s of o.stops) for (const id of ids) delete s.values[id];
+          o.groups = (o.groups || []).map((g) => ({ ...g, lights: g.lights.filter((id) => !ids.includes(id)) })).filter((g) => g.lights.length >= 2);
           if (ids.includes(this._sel.lamp)) this._sel.lamp = null;
         });
         this._renderInspector();
@@ -1650,16 +2075,125 @@ data:
         break;
       case "add-dev":
         this._addDevice(a.dataset.kind, a.dataset.id);
-        this._toast(this._t(`${friendly(hass, a.dataset.id)} added. Set it up above.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Stelle es oben ein.`));
+        this._toast(t(`${friendly(hass, a.dataset.id)} added. Set it up under Stops.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Stelle es unter „Stufen“ ein.`));
         break;
       case "dev-kind":
         this._devKind = a.dataset.domain;
-        this._renderDevPick();
+        this._renderPicker();
         break;
-      case "add-item": {
-        const v = this.shadowRoot.getElementById("addSel").value;
-        if (!v) return;
-        const x = v.slice(2);
+      case "group-start":
+        this._grouping = true;
+        this._gsel = new Set();
+        this._groupNameTouched = false;
+        this._renderRows();
+        break;
+      case "group-cancel":
+        this._grouping = false;
+        this._gsel = new Set();
+        this._renderRows();
+        break;
+      case "group-make": {
+        const chosen = [...this._gsel].map((k) => this._units().find((u) => u.ids.join(",") === k)).filter(Boolean);
+        const name = this.shadowRoot.getElementById("groupName")?.value || "";
+        this._grouping = false;
+        this._gsel = new Set();
+        this._makeGroup(chosen.flatMap((u) => u.ids), name, chosen[0]?.ids[0]);
+        this._renderInspector();
+        break;
+      }
+      case "group-suggest": {
+        const h = this._suggest?.[+a.dataset.i];
+        if (!h) return;
+        this._makeGroup(h.ids, this.shadowRoot.getElementById(`sug-${a.dataset.i}`)?.value || h.name, h.ids[0]);
+        this._renderInspector();
+        break;
+      }
+      case "group-dismiss": {
+        const h = this._suggest?.[+a.dataset.i];
+        if (!h) return;
+        this._dismiss([...h.ids].sort().join(","));
+        this._renderGroupBar();
+        break;
+      }
+      case "ungroup":
+        this._change(() => {
+          o.groups = o.groups.filter((g) => g.id !== a.dataset.gid);
+        });
+        this._renderInspector();
+        break;
+      case "group-out":
+        this._change(() => {
+          const g = o.groups.find((x) => x.id === a.dataset.gid);
+          if (!g) return;
+          g.lights = g.lights.filter((id) => id !== a.dataset.id);
+          if (g.lights.length < 2) o.groups = o.groups.filter((x) => x !== g);
+        });
+        this._renderInspector();
+        break;
+      case "tpl-toggle":
+        this._tplOpen = !this._tplOpen;
+        this._renderTools();
+        this._renderTemplates();
+        break;
+      case "tpl-apply": {
+        const tpl = this._template(a.dataset.key);
+        if (!tpl) return;
+        const withButtons = !!tpl.buttons && !o.buttons.length;
+        this._change(() => {
+          o.stops = tpl.stops.map((s) => ({ ...s, _sid: `s${sidCounter++}` }));
+          if (withButtons) o.buttons = tpl.buttons;
+        });
+        this._sel = { stop: null, lamp: null };
+        this._tplOpen = false;
+        this._renderEdit();
+        this._toast(withButtons ? t("Template applied, with its buttons. Undo brings back the old stops.", "Vorlage übernommen, mit ihren Buttons. „Rückgängig“ holt die alten Stufen zurück.") : t("Template applied. Undo brings back the old stops.", "Vorlage übernommen. „Rückgängig“ holt die alten Stufen zurück."));
+        break;
+      }
+      case "export":
+        this._export();
+        break;
+      case "import":
+        this.shadowRoot.getElementById("importFile").click();
+        break;
+      case "import-cancel":
+        this._import = null;
+        this._renderImport();
+        break;
+      case "import-replace": {
+        const clean = this._cleanImport(this._import.options);
+        this._import = null;
+        this._change(() => {
+          this._o.options = withIds(clean);
+        });
+        this._sel = { stop: null, lamp: null };
+        this._renderEdit();
+        this._toast(t("Imported. Undo brings back the old settings.", "Importiert. „Rückgängig“ holt die alten Einstellungen zurück."));
+        break;
+      }
+      case "import-new": {
+        const imp = this._import;
+        const clean = this._cleanImport(imp.options);
+        const base = imp.title.trim() || "Crescendo";
+        const taken = new Set(this._objects.map((x) => x.title));
+        let title = base;
+        for (let n = 2; taken.has(title); n++) title = `${base} ${n}`;
+        try {
+          const res = await hass.callWS({ type: "cloudless_crescendo/object/create", title, lights: [] });
+          await hass.callWS({ type: "cloudless_crescendo/object/save", entry_id: res.entry_id, title, options: clean });
+          this._import = null;
+          await this._load(res.entry_id);
+          this._toast(t(`“${title}” created.`, `„${title}“ angelegt.`));
+        } catch (err) {
+          this._toast(t(`Import failed: ${err?.message || err}`, `Import fehlgeschlagen: ${err?.message || err}`));
+        }
+        break;
+      }
+      case "test-power":
+        hass.callService("light", "toggle", {}, { entity_id: this._o.entity_id });
+        break;
+      case "add-light": {
+        const x = a.dataset.id;
+        if (o.lights.some((l) => l.entity_id === x)) return;
         const modes = this._modesFor(x);
         const mode = modes.includes("cct") ? "cct" : modes[modes.length - 1];
         this._change(() => {
@@ -1668,6 +2202,7 @@ data:
           const top = o.stops[o.stops.length - 1];
           top.values[x] = mode === "cct" || mode === "rgbcct" ? { brightness: 100, kelvin: 3000 } : { brightness: 100 };
         });
+        this._toast(t(`${friendly(hass, x)} added.`, `${friendly(hass, x)} hinzugefügt.`));
         break;
       }
       case "copy-all": {
@@ -1718,7 +2253,9 @@ data:
       this._save();
     } else if (t.id === "devSearch") {
       this._devQuery = t.value;
-      this._renderDevPick();
+      this._renderPicker();
+    } else if (t.id === "groupName") {
+      this._groupNameTouched = true;
     } else if (t.id === "editPos") {
       this._scrubPos = +t.value;
       this.shadowRoot.getElementById("editPosOut").textContent = `${t.value} %`;
@@ -1749,10 +2286,28 @@ data:
         this._pickObject(+t.value);
         this._renderObjects();
       }
-    } else if (t.id === "edGroup") {
-      this._group = t.checked;
-      this._renderStops();
-      this._renderInspector();
+    } else if (t.id === "roomSel") {
+      this._room = t.value;
+      this._renderPicker();
+    } else if (t.id === "importFile") {
+      const file = t.files?.[0];
+      t.value = "";
+      if (file) file.text().then((text) => this._readImport(text, file.name));
+    } else if (t.dataset.gsel) {
+      if (t.checked) this._gsel.add(t.dataset.gsel);
+      else this._gsel.delete(t.dataset.gsel);
+      this._renderGroupBar();
+    } else if (t.dataset.gname) {
+      const g = o.groups.find((x) => x.id === t.dataset.gname);
+      if (g) this._change(() => (g.name = t.value.trim()));
+    } else if (t.dataset.devkind) {
+      const i = o.devices.findIndex((x) => x.id === t.dataset.devkind);
+      if (i < 0) return;
+      this._change(() => {
+        const d = this._newDevice(t.value, o.devices[i].entity_id);
+        d.id = o.devices[i].id;
+        o.devices[i] = d;
+      });
     } else if (t.id === "diagObj") {
       this._i = +t.value;
       this._test = {};
@@ -1804,8 +2359,12 @@ data:
       const d = o.devices.find((x) => x.id === t.dataset.dev),
         f = t.dataset.f;
       this._change(() => {
-        if (f === "action") d.action = t.value;
-        else if (f === "back") d.back = t.value || null;
+        if (f === "action") {
+          // A "back" that was the opposite of the old action follows the new one.
+          const follows = (d.back || null) === this._opposite(d.entity_id, d.action);
+          d.action = t.value;
+          if (follows) d.back = this._opposite(d.entity_id, t.value);
+        } else if (f === "back") d.back = t.value || null;
         else if (f === "media_content_id" || f === "media_content_type") d.data = { media_content_type: "music", ...d.data, [f]: t.value };
         else if (f === "min" || f === "max") d[f] = +t.value || 0;
         else d[f] = clamp(+t.value || 0, 0, 100);
@@ -1815,7 +2374,7 @@ data:
       t.value = o.slider_rate;
     } else if (t.id === "onMode") {
       this._change(() => (o.on_mode = t.value));
-      this._renderSettings();
+      this._renderButtons();
     } else if (t.id === "onPos") {
       this._change(() => (o.on_position = clamp(Math.round(+t.value) || 40, 1, 100)));
       t.value = o.on_position;
@@ -1841,6 +2400,9 @@ data:
   }
 
   _onDown(e) {
+    // A press outside a point's settings puts them away, unless it chooses another point or a tool of the stop.
+    const ins = this.shadowRoot.getElementById("inspector");
+    if (ins && !ins.hidden && !e.composedPath().includes(ins) && !e.target.closest?.("[data-pthit], .cell, #stopTools")) this._closeInspector();
     const pbar = e.target.closest?.("[data-pbar]");
     if (pbar) {
       e.preventDefault();
@@ -2015,10 +2577,7 @@ data:
       this._units()
         .map((u) => `<div><i class="key" style="background:${seriesVar(u.slot)}"></i>${esc(u.name)}<em>${Math.round(lampAt(o, u.light, pos).v)} %</em></div>`)
         .join("") +
-      o.devices
-        .filter((d) => d.kind === "ramp")
-        .map((d) => `<div>${esc(friendly(this._hass, d.entity_id))}<em>${esc(this._fmtRamp(d, this._rampVal(d, pos)))}</em></div>`)
-        .join("");
+      o.devices.map((d) => `<div>${esc(friendly(this._hass, d.entity_id))}<em>${esc(this._devAt(d, pos))}</em></div>`).join("");
     tip.hidden = false;
     const left = p.x + 14 + tip.offsetWidth > this._chartW ? p.x - 14 - tip.offsetWidth : p.x + 14;
     tip.style.left = `${left}px`;

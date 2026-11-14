@@ -46,10 +46,12 @@ Go to **Settings → Devices & services → Add integration → Cloudless Cresce
 Open **Crescendo** in the sidebar.
 
 1. Choose the object at the top, or **New object**, and name it.
-2. Under **Lights**, add its lights and choose for each what it shows: white tones, colors or both. **More** holds the fade and slider behavior.
-3. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it, with bars for brightness, white tone, color and saturation. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
-4. Add **Standard buttons**. New cards take them as a template.
-5. Under **Devices**, search a speaker, a thermostat or a blind by name, room or kind and let it follow the scale with a **Course** or a **Threshold**. Under **Behavior**, set the speed, switching on and the slider.
+2. Under **Lights and devices**, search lights and devices by name, room or kind and add them; lights are chosen first. For each light choose what it shows: white tones, colors or both. **More** holds the fade and slider behavior. Lights set the same are suggested as a group with a display name; **Group lights** makes groups by hand.
+3. Under **Stops**, set the **Speed**. **Templates** give all lights a ready shape, such as one after another from warm to neutral, or like another object. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it, with bars for brightness, white tone, color and saturation; the check mark or a tap beside them closes them. Below stand the devices with their course or threshold. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
+4. Add **Standard buttons**. New cards take them as a template. **On/off** comes first and sets what the object switches on to.
+5. Under **Behavior**, set the slider.
+
+**Export** saves an object as a file; **Import** creates a new one from it or replaces the chosen one.
 
 The bar at the bottom shows the position, switches the preview on the lights and starts test runs.
 
@@ -57,7 +59,7 @@ To add the card to a dashboard, edit the dashboard, add a card and choose **Cres
 
 ## Per-light settings
 
-What a light shows stands in its row; the fade and slider behavior under **More**.
+What a light shows stands in its row; the fade and slider behavior under **More**. For a group, **More** also holds its display name and its lights.
 
 | Setting | Options |
 | --- | --- |
@@ -95,7 +97,7 @@ data:
 - If a light belongs to several objects, the last command wins and the other object's fade stops.
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant, and a chosen color stays.
 - A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset** on the card. Lights without color keep their white. On the card, a light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. A combined column lists its lights there, each with its own settings. **Reset** brings single lights and a chosen color back to the stops.
-- Fades without a duration take their share of the time set for 0 to 100 % (**Speed** under **Behavior** on the setup page): from 80 to 100 % a fifth of it. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. A given duration, for example from an automation, counts exactly.
+- Fades without a duration take their share of the time set for 0 to 100 % (**Speed** under **Stops** on the setup page): from 80 to 100 % a fifth of it. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. A given duration, for example from an automation, counts exactly.
 - A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
 
 ## For other integrations

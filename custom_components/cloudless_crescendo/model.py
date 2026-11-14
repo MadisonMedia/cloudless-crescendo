@@ -13,11 +13,13 @@ Stored per config entry, versioned by the entry's VERSION::
         {"id": "b2", "entity_id": "cover.x", "kind": "threshold", "at": 50, "action": "open_cover", "back": null}
       ],
       "buttons": [{"id": "c3", "name": "Morgen", "position": 40, "duration": 5}],
+      "groups": [{"id": "d4", "name": "Waschtisch", "lights": ["light.y", "light.z"]}],
       "slider_rate": 4, "on_mode": "last", "on_position": 40, "default_transition": 5
     }
 
 Every light has an explicit value at every stop. Stops at 0 and 100 always exist,
-and at 0 every light is off.
+and at 0 every light is off. Groups are chosen by the user and only change how lights
+are shown and edited together; each light belongs to at most one group.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from .const import (
     CONF_BUTTONS,
     CONF_DEFAULT_TRANSITION,
     CONF_DEVICES,
+    CONF_GROUPS,
     CONF_LIGHTS,
     CONF_ON_MODE,
     CONF_ON_POSITION,
@@ -115,12 +118,21 @@ BUTTON_SCHEMA = vol.Schema(
     }
 )
 
+GROUP_SCHEMA = vol.Schema(
+    {
+        vol.Optional("id"): str,
+        vol.Optional("name", default=""): vol.All(str, vol.Length(max=64)),
+        vol.Required("lights"): [cv.entity_domain("light")],
+    }
+)
+
 OPTIONS_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_LIGHTS, default=[]): [LIGHT_SCHEMA],
         vol.Optional(CONF_STOPS, default=[]): [STOP_SCHEMA],
         vol.Optional(CONF_DEVICES, default=[]): [vol.Any(RAMP_SCHEMA, THRESHOLD_SCHEMA)],
         vol.Optional(CONF_BUTTONS, default=[]): [BUTTON_SCHEMA],
+        vol.Optional(CONF_GROUPS, default=[]): [GROUP_SCHEMA],
         vol.Optional(CONF_SLIDER_RATE, default=DEFAULT_SLIDER_RATE): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
         vol.Optional(CONF_ON_MODE, default=ON_LAST): vol.In((ON_LAST, ON_FIXED)),
         vol.Optional(CONF_ON_POSITION, default=DEFAULT_ON_POSITION): vol.All(
@@ -178,6 +190,17 @@ def normalize_options(options: dict[str, Any]) -> dict[str, Any]:
     for button in data[CONF_BUTTONS]:
         button.setdefault("id", _new_id())
         button["position"] = _tidy(button["position"])
+
+    # A group keeps only lights of the object, each light in one group, and at least two of them.
+    groups = []
+    grouped: set[str] = set()
+    for group in data[CONF_GROUPS]:
+        members = [eid for eid in dict.fromkeys(group["lights"]) if eid in known and eid not in grouped]
+        if len(members) < 2:
+            continue
+        grouped.update(members)
+        groups.append({"id": group.get("id") or _new_id(), "name": group["name"].strip(), "lights": members})
+    data[CONF_GROUPS] = groups
     return data
 
 
