@@ -29,6 +29,7 @@ const {
   roomLight,
   seriesVar,
   tr,
+  loadIconPicker,
   units,
 } = shared;
 
@@ -787,9 +788,13 @@ class CrescendoPanel extends HTMLElement {
     // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
     this.shadowRoot.querySelectorAll("#btnTable ha-icon-picker").forEach((el) => {
       el.hass = this._hass;
-      el.value = el.getAttribute("value") || "";
       el.addEventListener("value-changed", (e) => this._onChange(e));
     });
+    // Home Assistant loads its icon picker on demand; the table appears again once it is there.
+    if (!customElements.get("ha-icon-picker") && !this._waitingForPicker) {
+      this._waitingForPicker = true;
+      loadIconPicker().then((ready) => ready && this._o && this.shadowRoot.getElementById("btnTable") && this._renderButtons());
+    }
   }
 
   _renderSettings() {

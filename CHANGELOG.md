@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0b3
+
+Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.
+
+### Fixed
+
+- Four scene buttons beside the control stood in a 2×2 block, mirrored. They now stack in one column like the other buttons.
+- The setup page showed plain text fields for icons when Home Assistant had not loaded its icon picker yet. The setup page and the card editor now load the picker themselves and show it as soon as it is there.
+- Settings of earlier versions that no longer exist, such as the light glow, are dropped from a card's configuration when it is saved.
+
+### Changed
+
+- Buttons beside the control are stacked with plain CSS instead of per-button ordering, which is lighter on slow devices.
+
 ## 0.2.0b2
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.

@@ -20,6 +20,7 @@ const {
   langOf,
   lightA,
   lightColor,
+  loadIconPicker,
   lumOf,
   rampColor,
   rgbHue,
@@ -51,8 +52,6 @@ const AUTO_POS = { fader: "right", scenes: "top" };
 const DEFAULTS = {
   design: "gradient",
   buttons_on: true,
-  show_value: false,
-  show_duration: false,
   button_position: "auto",
   slider: "wide",
   color: "stripes",
@@ -66,7 +65,6 @@ const DEFAULTS = {
   button_names: true,
   details: "button",
   colors_always: false,
-  tap_duration: 1,
   show_title: true,
   show_header_value: true,
   power: "header",
@@ -75,6 +73,9 @@ const DEFAULTS = {
   columns_mode: "dim_settings",
   reset_place: "slider",
 };
+
+// Settings of earlier versions that no longer do anything; they are dropped from a card's config when it is saved.
+const RETIRED = ["glow", "show_duration", "show_value", "tap_duration"];
 
 // Below this, a slider or a column switches off instead of hanging at 1 or 2 %.
 const OFF_SNAP = 3;
@@ -151,13 +152,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 [data-pos="left"] .body { grid-template-columns: auto minmax(0, 1fr); }
 [data-pos="left"] .btns { order: -1; }
 [data-pos="right"] .body { grid-template-columns: minmax(0, 1fr) auto; }
-[data-pos="left"] .presets, [data-pos="right"] .presets, [data-pos="left"] .scenes, [data-pos="right"] .scenes { grid-template-columns: minmax(78px, 112px); }
 .btns { min-width: 0; align-self: start; }
 /* Beside the control, neither side leaves a gap: the buttons grow to the control's height, and columns, a fader or channels grow to the buttons'. */
 :is([data-pos="left"], [data-pos="right"]) .btns { align-self: stretch; display: grid; }
-:is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) { grid-auto-rows: 1fr; }
-/* Beside the control the buttons stand like a fader: the last one at the top, the power button at the bottom. */
-:is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) > * { order: calc(1000 - var(--o, 0)); }
+/* Beside the control the buttons stand like a fader: the last one at the top, the power button at the bottom.
+   The markup keeps its order, so the keyboard still moves from the power button up through the buttons. */
+:is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) { display: flex; flex-direction: column-reverse; min-width: 78px; max-width: 112px; }
+:is([data-pos="left"], [data-pos="right"]) :is(.presets, .scenes) > * { flex: 1 1 0; min-width: 0; }
 .reg:has(> .bars), .reg:has(> .fader-row), .reg:has(> .mix) { grid-template-rows: 1fr; }
 .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
 .preset { border: 1px solid var(--cr-line); background: transparent; border-radius: 10px; padding: 9px 8px; display: grid; gap: 1px; text-align: center; justify-items: center; min-height: 40px; align-content: center; }
@@ -284,9 +285,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @container (min-width: 470px) {
   /* Matching the design: on a wide card the buttons stand beside the control, on a narrow one below it. */
   [data-pos="auto"] .body { grid-template-columns: minmax(0, 1fr) minmax(120px, 170px); }
-  [data-pos="auto"] .presets, [data-pos="auto"] .scenes { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; }
+  [data-pos="auto"] :is(.presets, .scenes) { display: flex; flex-direction: column-reverse; }
+  [data-pos="auto"] :is(.presets, .scenes) > * { flex: 1 1 0; min-width: 0; }
   [data-pos="auto"] .btns { align-self: stretch; display: grid; }
-  [data-pos="auto"] :is(.presets, .scenes) > * { order: calc(1000 - var(--o, 0)); }
   .fader { min-height: 340px; }
   .bars { grid-template-rows: minmax(210px, 1fr) auto; }
   .mix { grid-template-rows: auto minmax(230px, 1fr) auto; }
@@ -748,9 +749,6 @@ class CrescendoCard extends HTMLElement {
       el.classList.toggle("four", list.length === 4 && !tile);
       el.innerHTML = tile + list.map((b) => this._buttonHtml(b, sub, us, override, dark, true)).join("");
     });
-    $$(".js-presets, .js-scenes", (el) =>
-      [...el.children].forEach((b, i) => b.style.setProperty("--o", b.classList.contains("power-tile") ? -1 : i)),
-    );
     $$(".js-lanes", (el) => {
       el.hidden = !cfg.show_lanes || !us.length;
       el.innerHTML =
@@ -2009,6 +2007,7 @@ class CrescendoCardEditor extends HTMLElement {
   // An icon picker reports while it is used; rebuilding the form then would lose the choice, so it stays as it is.
   _set(patch, render = true) {
     this._config = { ...this._config, ...patch };
+    for (const k of RETIRED) delete this._config[k];
     const out = { ...this._config };
     for (const [k, v] of Object.entries(DEFAULTS)) if (out[k] === v) delete out[k];
     for (const [k, v] of Object.entries(out)) if (v === undefined) delete out[k];
@@ -2045,7 +2044,7 @@ class CrescendoCardEditor extends HTMLElement {
     // Home Assistant loads its icon picker on demand; the form appears again once it is there.
     if (!customElements.get("ha-icon-picker") && !this._waitingForPicker) {
       this._waitingForPicker = true;
-      customElements.whenDefined("ha-icon-picker").then(() => this._render());
+      loadIconPicker().then((ready) => ready && this._render());
     }
     const iconField = (b, i) =>
       customElements.get("ha-icon-picker")
@@ -2276,7 +2275,6 @@ class CrescendoCardEditor extends HTMLElement {
     // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
     this.shadowRoot.querySelectorAll("ha-icon-picker").forEach((el) => {
       el.hass = this._hass;
-      el.value = el.getAttribute("value") || "";
       el.addEventListener("value-changed", (e) => this._onChange(e));
     });
   }
@@ -2330,8 +2328,6 @@ class CrescendoCardEditor extends HTMLElement {
         this._set({ [t.id]: t.value });
         break;
       case "buttons_on":
-      case "show_value":
-      case "show_duration":
       case "group":
       case "show_lanes":
       case "columns_operable":
