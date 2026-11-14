@@ -293,6 +293,21 @@ export function stripeLayers(options, list, override, dark, vertical = false) {
 export const friendly = (hass, entityId) => hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
 
 // Lights with the same mode and the same values at every stop count as one unit.
+// Home Assistant loads its icon picker on demand. Opening the button card's editor pulls it in; then it is
+// there for our own forms. Resolves once the picker is defined, however it arrived.
+export async function loadIconPicker() {
+  if (customElements.get("ha-icon-picker")) return true;
+  try {
+    const helpers = await window.loadCardHelpers?.();
+    const card = helpers?.createCardElement({ type: "button", entity: "light.none" });
+    await card?.constructor?.getConfigElement?.();
+  } catch {
+    // Without the helpers the picker arrives whenever Home Assistant loads it for something else.
+  }
+  await customElements.whenDefined("ha-icon-picker");
+  return true;
+}
+
 export function units(options, hass, group, count = true) {
   const list = options.lights.map((light, slot) => ({ light, slot, ids: [light.entity_id] }));
   if (!group) return list.map((u) => ({ ...u, name: friendly(hass, u.light.entity_id) }));

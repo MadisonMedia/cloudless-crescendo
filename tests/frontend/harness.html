@@ -483,6 +483,10 @@ setTimeout(async () => {
     const flat = await newCard({ button_position: "bottom", power: "buttons" });
     const rowOrder = [...flat.shadowRoot.querySelectorAll(".js-presets > *")].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
     report("buttons below the control: power first, then from dim to bright", rowOrder[0].classList.contains("power-tile") && rowOrder.at(-1).dataset.pos === "100", rowOrder.map((b) => b.dataset.pos || "power").join(" "));
+    const fourScenes = await newCard({ design: "scenes", button_position: "right", buttons: [25, 50, 75, 100].map((p) => ({ name: `S${p}`, position: p, duration: 1 })) });
+    const sceneLefts = new Set([...fourScenes.shadowRoot.querySelectorAll(".js-scenes .preset")].map((b) => Math.round(b.getBoundingClientRect().left)));
+    const sceneTops = [...fourScenes.shadowRoot.querySelectorAll(".js-scenes .preset")].map((b) => b.getBoundingClientRect().top);
+    report("four scenes beside the control stand in one column, brightest on top", sceneLefts.size === 1 && sceneTops[3] < sceneTops[0], `${sceneLefts.size} columns`);
     // A button takes its share of the time for 0 to 100 %: the object's (here 1 s) or the card's own.
     const sped = await newCard({}, atPosition(62));
     calls.length = 0;
@@ -586,6 +590,10 @@ setTimeout(async () => {
     await wait(20);
     report("no glow setting", !ed("#glow"));
     report("a picked icon is saved and the picker stays", editor._config.buttons?.[1]?.icon === "mdi:sofa" && ed('ha-icon-picker[data-i="1"]') === fakePicker, JSON.stringify(editor._config.buttons?.[1]));
+    editor.setConfig({ ...editor._config, glow: false });
+    ed("#snap").click();
+    await wait(30);
+    report("retired settings are dropped when the card is saved", !("glow" in editor._config));
     const pick = async (design) => { ed(`[data-design="${design}"]`).click(); await wait(30); };
     await pick("dial");
     report("no horizontal slider setting for the dial", !ed("#slider") && !!ed("#dial_wedge"));
