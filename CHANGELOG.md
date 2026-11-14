@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0b9
+
+Restart Home Assistant after updating, then reload the browser or app once so the page loads anew.
+
+### Changed
+
+- **Rows open in place, without a popup.** A tap on a point or a light's name opens its row of stops right under its lane, looking like the table; a tap on a stop opens the bars below it, each with a field for an exact value: brightness in percent, white tone in kelvin, color in degrees and saturation in percent. In the table the settings open right under the light's row. Narrow screens stack everything; a second tap folds it.
+- **Devices hang on the stops.** A device's row of stops opens under its lane like a light's. At each stop it can have a value; between two stops with values it follows the scale, when dimming up and down, only up, only down or not at all. Each stop can fire one action when crossed upward and one when crossed downward. A point between two stops needs a stop there; the lights keep their curve. Earlier settings off the stops get stops of their own.
+- The flicker note under **More** stands below the settings.
+
+### Added
+
+- **Choose what a player plays.** For "Play a title or playlist", the page asks the player what it offers and shows it to browse and choose, Music Assistant's libraries included. A content ID can still be typed in by hand.
+
+### Fixed
+
+- A value at a single stop is sent the first time the scale crosses it.
+
 ## 0.2.0b8
 
 Restart Home Assistant after updating, then reload the browser or app once so the page loads anew.
