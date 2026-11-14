@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0b7
+
+Reload the browser or app once after updating so the page loads anew.
+
+### Changed
+
+- **The setup page is more compact.** Explanations sit behind a small **i** beside their heading. **More** stands beside a light's mode and opens its settings below the row. The flicker note for lights with colors and white tones is a small mark beside the mode. Adding a light or device folds away behind **+ Add a light or device**. The speed stands in the heading row of the stops, without a frame.
+- **Grouping happens under More.** A light chooses **Group with …** or **Join …** there and takes the settings of the light or group it joins; a group is renamed, loses a light or is dissolved in the same place. A suggestion for lights set the same takes one line.
+- **Standard buttons come from a template too:** Night · Morning · Day · Bright, or like another object. **+ Add button** and the templates stand as the last row of the list.
+
 ## 0.2.0b6
 
 Restart Home Assistant after updating, then reload the browser or app once so the card and the page load anew.

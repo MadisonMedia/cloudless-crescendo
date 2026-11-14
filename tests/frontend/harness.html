@@ -123,7 +123,8 @@ setTimeout(async () => {
   if (view === "pointc") { host.hidden = true; const s50 = panel._o.options.stops.find((s) => s.position === 50); panel._selectPoint(s50._sid, "light.boden"); }
   const only = (keep) => { host.hidden = true; for (const id of ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"]) panel.shadowRoot.getElementById(id).hidden = id !== keep; };
   if (view === "lights") { only("sec-lights"); panel._o.options.groups = []; panel._renderStops(); }
-  if (view === "grouping") { only("sec-lights"); q('[data-act="group-start"]').click(); for (const k of ["light.spiegel", "light.boden"]) { const b = q(`[data-gsel="${k}"]`); b.checked = true; b.dispatchEvent(new Event("change", { bubbles: true })); } }
+  if (view === "grouping") { only("sec-lights"); q('[data-act="more"][data-key="light.spiegel"]').click(); q('[data-act="more"][data-key="light.links,light.rechts"]').click(); q('[data-info-for^="flicker-"]').click(); }
+  if (view === "adding") { only("sec-lights"); q('[data-act="add-open"]').click(); }
   if (view === "stops") { only("sec-stops"); q('[data-act="tpl-toggle"]').click(); }
   if (view === "buttons") only("sec-buttons");
   if (view === "point") { host.hidden = true; const ph = q('[data-pthit][data-lamp="light.spiegel"]'); const pb = ph.getBoundingClientRect(); capture(ph); point(ph, "pointerdown", pb.left + pb.width / 2, pb.top + pb.height / 2); point(ph, "pointerup", pb.left + pb.width / 2, pb.top + pb.height / 2); }
@@ -658,6 +659,13 @@ setTimeout(async () => {
     const stops = panel._o.options.stops.length;
     q('[data-act="add-stop"]').click();
     report("add stop", panel._o.options.stops.length === stops + 1);
+    report("page: explanations stay folded until asked for", q('[data-info="lights"]').hidden && q('[data-info="tempo"]').hidden && q("#stopNote").hidden);
+    q('[data-info-for="lights"]').click();
+    report("page: the i shows its explanation", !q('[data-info="lights"]').hidden && q('[data-info-for="lights"]').getAttribute("aria-expanded") === "true");
+    q('[data-info-for="lights"]').click();
+    report("page: More stands beside the mode, the flicker note behind a mark", !!q('#rows .lrow2 .ctrls [data-act="more"]') && !!q("#rows .warnbtn") && q("#rows .lwarn").hidden && !panel.shadowRoot.querySelector("#sec-lights .notice"));
+    report("picker: folded until something is to be added", q("#devPick").hidden && !!q('[data-act="add-open"]'));
+    q('[data-act="add-open"]').click();
     report("picker: lights are chosen first, those of the object marked", q('[data-act="dev-kind"][aria-pressed="true"]')?.dataset.domain === "light" && !!q('#devList [data-act="add-light"][data-id="light.bogen"]') && !q('#devList [data-act="add-dev"]') && !!q("#devList .tag"));
     const roomSel = q("#roomSel");
     roomSel.value = "Flur";
@@ -737,33 +745,40 @@ setTimeout(async () => {
     q('[data-act="undo"]').click();
     await wait(20);
     report("templates: undo brings the old stops back", JSON.stringify(panel._o.options.stops.map((s) => s.position)) === stopsBefore, stopsBefore);
-    // Groups are the user's: suggested for lights set the same, made by hand otherwise.
+    // Groups are the user's: suggested for lights set the same, chosen under More otherwise.
     const gid = panel._o.options.groups[0].id;
     report("groups: a group shows as one light and names its lights", panel.shadowRoot.querySelectorAll("#rows .lrow2:not(.dev)").length === panel._units().length && [...panel.shadowRoot.querySelectorAll("#rows .members")].some((m) => m.textContent.includes("Waschtisch links")));
+    q('[data-act="more"][data-key="light.links,light.rechts"]').click();
     q(`[data-act="ungroup"][data-gid="${gid}"]`).click();
     await wait(20);
-    report("groups: lights set the same are suggested as a group with a name", panel._o.options.groups.length === 0 && !!q('[data-act="group-suggest"]') && q("#sug-0").value === "Waschtisch", q("#sug-0")?.value);
-    q("#sug-0").value = "Waschbecken";
-    q('[data-act="group-suggest"]').click();
+    const sug = q('[data-act="group-suggest"]');
+    report("groups: lights set the same are suggested in one line", panel._o.options.groups.length === 0 && !!sug && sug.textContent.includes("Waschtisch") && !!sug.closest(".sugline") && !q("#groupBar input"), sug?.textContent);
+    sug.click();
     await wait(20);
-    report("groups: a suggestion becomes a group with the chosen name", panel._o.options.groups.length === 1 && panel._o.options.groups[0].name === "Waschbecken" && panel._units().some((u) => u.name.startsWith("Waschbecken")) && !q('[data-act="group-suggest"]'));
-    q('[data-act="group-start"]').click();
-    for (const key of ["light.spiegel", "light.bogen"]) {
-      const box = q(`[data-gsel="${key}"]`);
-      box.checked = true;
-      box.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    report("groups: two ticked lights can be grouped, with a name offered", !q('[data-act="group-make"]').disabled && q("#groupName").value !== "", q("#groupName")?.value);
-    q("#groupName").value = "Licht";
-    q('[data-act="group-make"]').click();
+    const made = panel._o.options.groups[0];
+    report("groups: a suggestion becomes a group, its name ready to change", panel._o.options.groups.length === 1 && made.name === "Waschtisch" && !!q(`[data-gname="${made.id}"]`) && !q('[data-act="group-suggest"]'));
+    const nameBox = q(`[data-gname="${made.id}"]`);
+    nameBox.value = "Waschbecken";
+    nameBox.dispatchEvent(new Event("change", { bubbles: true }));
+    report("groups: the display name is changed under More", panel._units().some((u) => u.name.startsWith("Waschbecken")));
+    q('[data-act="more"][data-key="light.spiegel"]').click();
+    const withSel = q('[data-groupwith="light.spiegel"]');
+    report("groups: a light's More offers to group it", !!withSel && [...withSel.options].some((op) => op.value === "light.bogen") && [...withSel.options].some((op) => op.value === "light.links,light.rechts"));
+    withSel.value = "light.bogen";
+    withSel.dispatchEvent(new Event("change", { bubbles: true }));
     await wait(20);
-    const handMade = panel._o.options.groups.find((g) => g.name === "Licht");
-    report("groups: made by hand, the first ticked light leads", !!handMade && handMade.lights.join() === "light.spiegel,light.bogen" && panel._o.options.stops.every((s) => JSON.stringify(s.values["light.bogen"]) === JSON.stringify(s.values["light.spiegel"])), JSON.stringify(handMade));
-    q('[data-act="undo"]').click();
-    q('[data-act="undo"]').click();
-    q('[data-act="undo"]').click();
+    const handMade = panel._o.options.groups.find((g) => g.lights.includes("light.spiegel"));
+    report("groups: a light joins the chosen one and takes its values", !!handMade && handMade.lights.join() === "light.spiegel,light.bogen" && handMade.name === "Bogenlampe + Spiegel" && panel._o.options.stops.every((s) => JSON.stringify(s.values["light.spiegel"]) === JSON.stringify(s.values["light.bogen"])), JSON.stringify(handMade));
+    for (let i = 0; i < 4; i++) q('[data-act="undo"]').click();
     await wait(20);
     report("groups: undo brings the first group back", panel._o.options.groups.length === 1 && panel._o.options.groups[0].id === gid);
+    // Buttons: add and templates sit in the list.
+    report("buttons: adding sits in the list, with templates beside it", !!q('#btnTable .addline [data-act="add-btn"]') && !!q('#btnTable [data-act="btn-tpl"][data-key="day"]'));
+    q('#btnTable [data-act="btn-tpl"][data-key="day"]').click();
+    report("buttons: a template fills them", panel._o.options.buttons.map((b) => `${b.name}@${b.position}`).join() === "Nacht@10,Morgen@40,Tag@80,Hell@100" && panel._o.options.buttons.every((b) => b.icon && b.id), panel._o.options.buttons.map((b) => b.name).join());
+    q('[data-act="undo"]').click();
+    await wait(20);
+    report("buttons: undo brings the old ones back", panel._o.options.buttons.length === 3 && panel._o.options.buttons[0].id === "b1");
     report("page: the live bar holds position, preview and test run", !!q(".livebar #editPos") && !!q(".livebar #preview") && !!q('.livebar [data-act="run-up"]'));
     const pointHit = q("[data-pthit]");
     const phb = pointHit.getBoundingClientRect();
