@@ -46,6 +46,9 @@ from .const import (
     MODE_ONOFF,
     ON_FIXED,
     PROGRESS_INTERVAL,
+    RAMP_BOTH,
+    RAMP_DOWN,
+    RAMP_UP,
     SETTLE_TRANSITION,
     SLIDER_AUTO,
     SLIDER_DIRECT,
@@ -149,6 +152,16 @@ def ramp_value(device: Mapping[str, Any], position: float) -> float:
     return float(device["min"]) + (float(device["max"]) - float(device["min"])) * t
 
 
+def ramp_acts(device: Mapping[str, Any], start: float, end: float) -> bool:
+    """Whether a ramp acts on a movement: it must touch the ramp's range, in a direction the ramp allows."""
+    if end == start:
+        return False
+    direction = device.get("direction") or RAMP_BOTH
+    if (direction == RAMP_UP and end < start) or (direction == RAMP_DOWN and end > start):
+        return False
+    return max(start, end) >= float(device["from"]) and min(start, end) <= float(device["to"])
+
+
 def threshold_steps(
     devices: Iterable[Mapping[str, Any]],
     start: float,
@@ -162,7 +175,9 @@ def threshold_steps(
 
     Devices may have been left behind at another position by commands without devices. A threshold then
     acts once if that position and the target lie on different sides of it: when the fade crosses it, or
-    at once if the fade already starts on the target's side. A ramp moves from the value it last got.
+    at once if the fade already starts on the target's side. A ramp acts only while the fade runs through
+    its range, in a direction it allows, and moves from the value it last got. A fade that passes a whole
+    range leaves the device at the range's end.
     """
     steps: list[DeviceStep] = []
     behind = start if devices_from is None else devices_from
@@ -180,18 +195,29 @@ def threshold_steps(
             when = 0.0 if already or not distance else duration * abs(at - start) / distance
             steps.append(DeviceStep(when, device, action=action))
         elif device["kind"] == DEVICE_RAMP:
-            begin, last = ramp_value(device, start), ramp_value(device, target)
+            if not ramp_acts(device, behind, target):
+                continue
+            low, high = float(device["from"]), float(device["to"])
+            enter, leave = min(max(start, low), high), min(max(target, low), high)
+            begin, last = ramp_value(device, enter), ramp_value(device, leave)
             first = (sent or {}).get(device.get("id") or device["entity_id"], begin)
             offset = first - begin
             if abs(begin - last) < 1e-6 and abs(offset) < 1e-6:
                 continue
+
+            def when(position: float) -> float:
+                if not distance:
+                    return 0.0
+                return duration * min(1.0, max(0.0, (position - start) / (target - start)))
+
+            opens, window = when(enter), when(leave) - when(enter)
             spread = max(abs(begin - last), abs(first - last))
-            count = max(1, min(math.ceil(spread), math.floor(duration / DEVICE_MIN_INTERVAL)))
+            count = max(1, min(math.ceil(spread), math.floor(window / DEVICE_MIN_INTERVAL)))
             steps.extend(
                 DeviceStep(
-                    duration * i / count,
+                    opens + window * i / count,
                     device,
-                    value=ramp_value(device, start + (target - start) * i / count) + offset * (1 - i / count),
+                    value=ramp_value(device, enter + (leave - enter) * i / count) + offset * (1 - i / count),
                 )
                 for i in range(1, count + 1)
             )
@@ -242,6 +268,8 @@ class Engine:
         self._slider_start: float | None = None
         self._device_last: dict[str, float] = {}
         self._device_sent: dict[str, float] = {}
+        self._device_at: dict[str, float] = {}
+        """Where each ramp was last looked at during a slider drag."""
         self._network_cache: dict[str, str] = {}
         self._slider_cache: dict[str, bool] = {}
         self._unsubscribe: list[Callable[[], None]] = []
@@ -562,6 +590,7 @@ class Engine:
             # Thresholds count from where the devices were last left, which a command without them may have kept.
             self._slider_start = self._devices_at if self._devices_at is not None else self.position
             self._devices_at = None
+            self._device_at = {}
             self._claim()
             for eid in self.deviating:
                 self.last_targets[eid] = NOT_FOLLOWING
@@ -607,13 +636,13 @@ class Engine:
             direct = self._is_direct(light) or interval <= 0
             transition = 0.0 if direct else interval * SLIDER_GLIDE_FACTOR
             self._send_step(_step_to(light, state, lit[eid], transition))
-        self._ramp_devices(self.position, respect_interval=True)
+        self._ramp_devices(self.position, respect_interval=True, since=self._slider_start)
 
     def _finish_slider(self) -> None:
         start = self._slider_start if self._slider_start is not None else self.position
-        self._slider_start = None
         self._slider_tick(0.0)
-        self._ramp_devices(self.position, respect_interval=False)
+        self._slider_start = None
+        self._ramp_devices(self.position, respect_interval=False, since=start)
         for step in threshold_steps(
             [d for d in self.options.get(CONF_DEVICES, ()) if d["kind"] == DEVICE_THRESHOLD], start, self.position, 0.0
         ):
@@ -737,13 +766,18 @@ class Engine:
 
     # -- devices -----------------------------------------------------------------
 
-    def _ramp_devices(self, position: float, *, respect_interval: bool) -> None:
+    def _ramp_devices(self, position: float, *, respect_interval: bool, since: float | None) -> None:
+        """Ramps follow a drag only while it runs through their range, as far as it moved since they were last looked at."""
         now = time.monotonic()
         for device in self.options.get(CONF_DEVICES, ()):
             if device["kind"] != DEVICE_RAMP:
                 continue
             key = device.get("id") or device["entity_id"]
             if respect_interval and now - self._device_last.get(key, 0.0) < DEVICE_MIN_INTERVAL:
+                continue
+            before = self._device_at.get(key, position if since is None else since)
+            self._device_at[key] = position
+            if not ramp_acts(device, before, position):
                 continue
             value = ramp_value(device, position)
             if abs(self._device_sent.get(key, math.inf) - value) < 0.5:

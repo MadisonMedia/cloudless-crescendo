@@ -123,7 +123,9 @@ setTimeout(async () => {
   if (view === "pointc") { host.hidden = true; const s50 = panel._o.options.stops.find((s) => s.position === 50); panel._selectPoint(s50._sid, "light.boden"); }
   const only = (keep) => { host.hidden = true; for (const id of ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"]) panel.shadowRoot.getElementById(id).hidden = id !== keep; };
   if (view === "lights") { only("sec-lights"); panel._o.options.groups = []; panel._renderStops(); }
-  if (view === "grouping") { only("sec-lights"); q('[data-act="more"][data-key="light.spiegel"]').click(); q('[data-act="more"][data-key="light.links,light.rechts"]').click(); q('[data-info-for^="flicker-"]').click(); }
+  if (view === "grouping") { only("sec-lights"); q('[data-act="more"][data-key="light.spiegel"]').click(); q('[data-act="more"][data-key="light.links,light.rechts"]').click(); q('[data-act="more"][data-key="light.boden"]').click(); }
+  if (view === "devwin") { only("sec-stops"); q('#devRows [data-act="win-dev"][data-entity="media_player.bad"]').click(); q('[data-act="add-pt"][data-kind="threshold"]').click(); }
+  if (view === "lightwin") { only("sec-stops"); q('#lanes [data-act="win-light"][data-ids="light.spiegel"]').click(); }
   if (view === "adding") { only("sec-lights"); q('[data-act="add-open"]').click(); }
   if (view === "stops") { only("sec-stops"); q('[data-act="tpl-toggle"]').click(); }
   if (view === "buttons") only("sec-buttons");
@@ -663,7 +665,10 @@ setTimeout(async () => {
     q('[data-info-for="lights"]').click();
     report("page: the i shows its explanation", !q('[data-info="lights"]').hidden && q('[data-info-for="lights"]').getAttribute("aria-expanded") === "true");
     q('[data-info-for="lights"]').click();
-    report("page: More stands beside the mode, the flicker note behind a mark", !!q('#rows .lrow2 .ctrls [data-act="more"]') && !!q("#rows .warnbtn") && q("#rows .lwarn").hidden && !panel.shadowRoot.querySelector("#sec-lights .notice"));
+    report("page: More stands beside the mode and marks the flicker note", !!q('#rows .lrow2 .ctrls [data-act="more"]') && !!q('#rows [data-key="light.boden"] .wdot') && !q("#rows .lwarn") && !panel.shadowRoot.querySelector("#sec-lights .notice"));
+    q('[data-act="more"][data-key="light.boden"]').click();
+    report("page: the flicker note stands inside More", !!q("#rows .lpanel .lwarn"));
+    q('[data-act="more"][data-key="light.boden"]').click();
     report("picker: folded until something is to be added", q("#devPick").hidden && !!q('[data-act="add-open"]'));
     q('[data-act="add-open"]').click();
     report("picker: lights are chosen first, those of the object marked", q('[data-act="dev-kind"][aria-pressed="true"]')?.dataset.domain === "light" && !!q('#devList [data-act="add-light"][data-id="light.bogen"]') && !q('#devList [data-act="add-dev"]') && !!q("#devList .tag"));
@@ -695,7 +700,7 @@ setTimeout(async () => {
     devSearch.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
     report("picker: a search under lights points to the other kinds", panel.shadowRoot.querySelectorAll("#devList .pickrow").length === 0 && !!q('#devList .pickmore [data-act="dev-kind"][data-domain=""]'));
     q('#devList .pickmore [data-act="dev-kind"]').click();
-    report("devices: the search narrows the list and offers course and threshold", panel.shadowRoot.querySelectorAll("#devList .pickrow").length === 1 && !!q('#devList [data-act="add-dev"][data-kind="ramp"]') && !!q('#devList [data-act="add-dev"][data-kind="threshold"]') && q("#devList .pickmain small").textContent.includes("25 %"), q("#devList .pickmain")?.textContent);
+    report("devices: the search narrows the list and marks what is added", panel.shadowRoot.querySelectorAll("#devList .pickrow").length === 1 && !!q("#devList .tag") && !q('#devList [data-act="add-dev"]') && q("#devList .pickmain small").textContent.includes("25 %"), q("#devList .pickmain")?.textContent);
     devSearch.value = "";
     devSearch.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
     q('[data-act="dev-kind"][data-domain="cover"]').click();
@@ -703,21 +708,44 @@ setTimeout(async () => {
     report("devices: a kind chip keeps only that kind", coverRows.length === 1 && coverRows[0] === "cover.bad" && q('#devList .tag') !== null, coverRows.join());
     q('[data-act="dev-kind"][data-domain=""]').click();
     report("devices: all kinds again", panel.shadowRoot.querySelectorAll("#devList .pickrow").length >= 3);
-    // A new threshold switches back below it, and the way back follows a new action.
-    q('[data-act="dev-kind"][data-domain="media_player"]').click();
-    q('#devList [data-act="add-dev"][data-kind="threshold"][data-id="media_player.bad"]').click();
+    // A device's points: its window opens from its lane, a new switch point switches back below it.
+    report("chart: a device in percent is a dashed line, a switch point a mark", panel.shadowRoot.querySelectorAll("#chartBox .c-dev").length === 1 && panel.shadowRoot.querySelectorAll("#chartBox .c-mark").length === 1 && !!q("#chartBox .c-dev").getAttribute("stroke-dasharray"));
+    q('#devRows [data-act="win-dev"][data-entity="media_player.bad"]').click();
+    report("devices: the window lists the device's points", !q("#inspector").hidden && panel.shadowRoot.querySelectorAll("#inspector .pt").length === 1 && !!q('#inspector [data-act="add-pt"][data-kind="threshold"]') && !!q('#inspector [data-f="direction"]'));
+    q('#inspector [data-act="add-pt"][data-kind="threshold"]').click();
     const newDev = panel._o.options.devices.at(-1);
     report("devices: a new threshold switches back below it", newDev.kind === "threshold" && newDev.action === "media_play" && newDev.back === "media_pause", JSON.stringify(newDev));
     const actSel = q(`#dact-${newDev.id}`);
     actSel.value = "turn_on";
     actSel.dispatchEvent(new Event("change", { bubbles: true }));
     report("devices: the way back follows a new action", panel._o.options.devices.at(-1).back === "turn_off", JSON.stringify(panel._o.options.devices.at(-1)));
-    q('[data-act="undo"]').click();
-    q('[data-act="undo"]').click();
+    const upSel = q(`#dact-${newDev.id}`);
+    upSel.value = "";
+    upSel.dispatchEvent(new Event("change", { bubbles: true }));
+    report("devices: a switch point may act only one way", panel._o.options.devices.at(-1).action === null && panel._o.options.devices.at(-1).back === "turn_off" && panel.shadowRoot.querySelectorAll("#inspector .pt").length === 2);
+    const dirSel = q(`#ddir-d1`);
+    dirSel.value = "up";
+    dirSel.dispatchEvent(new Event("change", { bubbles: true }));
+    report("devices: a range acts in a chosen direction, shown on its lane", panel._o.options.devices[0].direction === "up" && q("#dvr-d1 .dir")?.textContent === "↑");
+    q('#inspector [data-act="add-pt"][data-kind="ramp"]').click();
+    report("devices: a second range for the same device", panel._o.options.devices.filter((d) => d.entity_id === "media_player.bad" && d.kind === "ramp").length === 2 && panel.shadowRoot.querySelectorAll("#devRows .lrow").length === 3 && panel.shadowRoot.querySelectorAll('#devRows [data-devlane="media_player.bad"] .devramp').length === 2);
+    report("devices: the list names the device's points", [...panel.shadowRoot.querySelectorAll("#rows .dev .members")].some((m) => m.textContent.includes("2 Bereiche") && m.textContent.includes("1 Schaltpunkt")));
+    for (let i = 0; i < 5; i++) q('[data-act="undo"]').click();
     await wait(20);
     panel._devKind = undefined;
     panel._renderPicker();
-    report("devices: undo takes the new one away", panel._o.options.devices.length === 3);
+    report("devices: undo takes the new points away", panel._o.options.devices.length === 3 && !panel._o.options.devices[0].direction);
+    q('[data-act="close-ins"]')?.click();
+    // A light's name opens all its stops; a stop opens its settings with a way back.
+    q('#lanes [data-act="win-light"][data-ids="light.spiegel"]').click();
+    const stopCount = panel._o.options.stops.filter((s) => s.position > 0).length;
+    report("lights: a light's window lists its stops", !q("#inspector").hidden && panel.shadowRoot.querySelectorAll("#inspector .ptrow").length === stopCount);
+    panel.shadowRoot.querySelectorAll("#inspector .ptrow")[1].click();
+    report("lights: a stop opens its settings with a way back", !!q('#inspector [data-pbar="bri"]') && !!q('#inspector [data-act="win-back"]'));
+    q('[data-act="win-back"]').click();
+    report("lights: back leads to the stops", panel.shadowRoot.querySelectorAll("#inspector .ptrow").length === stopCount);
+    q('[data-act="close-ins"]').click();
+    report("lights: the window closes", q("#inspector").hidden);
     // Speed with the stops, on/off with the buttons.
     report("page: the speed stands with the stops", !!q("#sec-stops #fadeDef") && !q("#sec-behavior #fadeDef"));
     report("page: on/off leads the standard buttons", !!q("#btnTable tbody tr:first-child #onMode") && !q("#onPos"));

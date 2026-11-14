@@ -60,6 +60,23 @@ def test_two_stops_at_one_position_are_rejected() -> None:
         normalize_options({"stops": [{"position": 10}, {"position": 10.0}]})
 
 
+def test_device_entries_get_a_direction_and_may_leave_an_action_out() -> None:
+    options = normalize_options(
+        {
+            "devices": [
+                {"entity_id": "media_player.bad", "kind": "ramp", "from": 60, "to": 80, "min": 20, "max": 40},
+                {"entity_id": "media_player.bad", "kind": "threshold", "at": 40, "back": "media_pause"},
+            ]
+        }
+    )
+    ramp, pause = options["devices"]
+    assert ramp["direction"] == "both"
+    assert pause["action"] is None
+    assert pause["back"] == "media_pause"
+    with pytest.raises(vol.Invalid):
+        normalize_options({"devices": [{**ramp, "direction": "sideways"}]})
+
+
 def test_groups_keep_known_lights_once_and_need_two() -> None:
     lights = [{"entity_id": f"light.{n}"} for n in ("a", "b", "c", "d")]
     options = normalize_options(

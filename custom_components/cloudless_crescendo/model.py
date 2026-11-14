@@ -9,7 +9,8 @@ Stored per config entry, versioned by the entry's VERSION::
         {"position": 100, "values": {"light.x": {"brightness": 100, "kelvin": 3000}}}
       ],
       "devices": [
-        {"id": "a1", "entity_id": "media_player.x", "kind": "ramp", "from": 20, "to": 100, "min": 0, "max": 40},
+        {"id": "a1", "entity_id": "media_player.x", "kind": "ramp", "from": 20, "to": 100, "min": 0, "max": 40,
+         "direction": "both"},
         {"id": "b2", "entity_id": "cover.x", "kind": "threshold", "at": 50, "action": "open_cover", "back": null}
       ],
       "buttons": [{"id": "c3", "name": "Morgen", "position": 40, "duration": 5}],
@@ -18,7 +19,9 @@ Stored per config entry, versioned by the entry's VERSION::
     }
 
 Every light has an explicit value at every stop. Stops at 0 and 100 always exist,
-and at 0 every light is off. Groups are chosen by the user and only change how lights
+and at 0 every light is off. A device may have several entries: ramps act only when a movement
+touches their range, in the direction they allow; a threshold may act on crossing up, down or both.
+Groups are chosen by the user and only change how lights
 are shown and edited together; each light belongs to at most one group.
 """
 
@@ -52,6 +55,9 @@ from .const import (
     MODE_CCT,
     ON_FIXED,
     ON_LAST,
+    RAMP_BOTH,
+    RAMP_DOWN,
+    RAMP_UP,
     SLIDER_AUTO,
     SLIDER_DIRECT,
     SLIDER_GLIDE,
@@ -89,6 +95,7 @@ RAMP_SCHEMA = vol.Schema(
         vol.Optional("id"): str,
         vol.Required("entity_id"): cv.entity_id,
         vol.Required("kind"): DEVICE_RAMP,
+        vol.Optional("direction", default=RAMP_BOTH): vol.In((RAMP_BOTH, RAMP_UP, RAMP_DOWN)),
         vol.Required("from"): PERCENT,
         vol.Required("to"): PERCENT,
         vol.Required("min"): vol.Coerce(float),
@@ -102,7 +109,7 @@ THRESHOLD_SCHEMA = vol.Schema(
         vol.Required("entity_id"): cv.entity_id,
         vol.Required("kind"): DEVICE_THRESHOLD,
         vol.Required("at"): PERCENT,
-        vol.Required("action"): str,
+        vol.Optional("action", default=None): vol.Any(None, str),
         vol.Optional("back"): vol.Any(None, str),
         vol.Optional("data"): dict,
     }
