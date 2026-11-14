@@ -39,26 +39,29 @@ Requires Home Assistant 2026.2 or newer.
 
 [![Open your Home Assistant instance and start setting up Crescendo.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=cloudless_crescendo)
 
-Go to **Settings → Devices & services → Add integration → Cloudless Crescendo**, enter a name and choose the lights. **Crescendo** then appears in the sidebar, where you can create more objects.
+Go to **Settings → Devices & services → Add integration → Cloudless Crescendo**, enter a name and choose the lights. **Crescendo** then appears in the sidebar. The page is also reachable through **Configure** on the object and from the card editor; the sidebar entry can be removed there under **Behavior**.
 
 ## Set up an object
 
 Open **Crescendo** in the sidebar.
 
-1. Choose the object, or enter a name and create another one.
-2. Add its lights and devices with the list below the chart.
-3. Drag the points in the chart to set each light's brightness, and tap a point to set its color. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
+1. Choose the object at the top, or **New object**, and name it.
+2. Under **Lights**, add its lights and choose for each what it shows: white tones, colors or both. **More** holds the fade and slider behavior.
+3. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
 4. Add **Standard buttons**. New cards take them as a template.
+5. Under **Devices**, let a speaker, a thermostat or a blind follow the scale; under **Behavior**, set the speed, switching on and the slider.
+
+The bar at the bottom shows the position, switches the preview on the lights and starts test runs.
 
 To add the card to a dashboard, edit the dashboard, add a card and choose **Crescendo**. The card editor offers the design, control colors, buttons, how the single lights open, and more.
 
 ## Per-light settings
 
-Turn on **Show advanced settings** to see these next to each light.
+What a light shows stands in its row; the fade and slider behavior under **More**.
 
 | Setting | Options |
 | --- | --- |
-| Color | On/off only, single-color dimming, white (CCT), color (RGB), color + white (RGB+CCT). Only what the light can do is offered. |
+| Color | On/off only, dimming only, white tones, colors, colors and white tones. Only what the light can do is offered. |
 | Fade | **Smooth** (default): the light fades by itself. **On time**: if a light reaches its target too late, try this setting. It then moves in short steps and may stutter more. |
 | On the slider | Automatic, glide or direct. |
 
@@ -92,7 +95,7 @@ data:
 - If a light belongs to several objects, the last command wins and the other object's fade stops.
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant, and a chosen color stays.
 - A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset** on the card. Lights without color keep their white. On the card, a light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. A combined column lists its lights there, each with its own settings. **Reset** brings single lights and a chosen color back to the stops.
-- Fades without a duration take their share of the time set for 0 to 100 % (**Speed** in the setup page's further settings): from 80 to 100 % a fifth of it. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. A given duration, for example from an automation, counts exactly.
+- Fades without a duration take their share of the time set for 0 to 100 % (**Speed** under **Behavior** on the setup page): from 80 to 100 % a fifth of it. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. A given duration, for example from an automation, counts exactly.
 - A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
 
 ## For other integrations

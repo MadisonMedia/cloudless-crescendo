@@ -39,26 +39,29 @@ Benötigt Home Assistant 2026.2 oder neuer.
 
 [![Home Assistant öffnen und die Einrichtung von Crescendo starten.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=cloudless_crescendo)
 
-Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cloudless Crescendo**, gib einen Namen ein und wähle die Leuchten. Danach erscheint **Crescendo** in der Seitenleiste, dort kannst du weitere Objekte anlegen.
+Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cloudless Crescendo**, gib einen Namen ein und wähle die Leuchten. Danach erscheint **Crescendo** in der Seitenleiste. Die Seite erreichst du auch über **Konfigurieren** beim Objekt und aus dem Karten-Editor; den Eintrag in der Seitenleiste kannst du dort unter **Verhalten** entfernen.
 
 ## Ein Objekt einrichten
 
 Öffne **Crescendo** in der Seitenleiste.
 
-1. Wähle das Objekt aus, oder gib einen Namen ein und lege ein weiteres an.
-2. Füge über die Liste unter dem Diagramm seine Leuchten und Geräte hinzu.
-3. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an, um die Farbe zu wählen. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
+1. Wähle oben das Objekt, oder **Neues Objekt**, und gib ihm einen Namen.
+2. Unter **Leuchten** fügst du seine Leuchten hinzu und wählst je Leuchte, was sie zeigt: Weißtöne, Farben oder beides. Unter **Mehr** stehen Überblendung und Slider-Verhalten.
+3. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an: Seine Einstellungen öffnen sich direkt daneben. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
 4. Lege **Standard-Buttons** an. Neue Karten übernehmen sie als Vorlage.
+5. Unter **Geräte** lässt du Lautsprecher, Thermostat oder Rollo der Skala folgen, unter **Verhalten** stellst du Tempo, Einschalten und Slider ein.
+
+Die Leiste am unteren Rand zeigt die Position, schaltet die Vorschau an den Leuchten und startet Probeläufe.
 
 Um die Karte zu einem Dashboard hinzuzufügen, bearbeitest du das Dashboard, fügst eine Karte hinzu und wählst **Crescendo**. Im Karten-Editor stellst du Design, Reglerfarbe, Buttons, das Öffnen der einzelnen Leuchten und mehr ein.
 
 ## Einstellungen pro Leuchte
 
-Schalte **Erweiterte Einstellungen einblenden** ein, dann stehen sie direkt bei jeder Leuchte.
+Was eine Leuchte zeigt, steht direkt in ihrer Zeile; Überblendung und Slider-Verhalten unter **Mehr**.
 
 | Einstellung | Möglichkeiten |
 | --- | --- |
-| Farbe | Nur an/aus, einfarbig dimmen, Weiß (CCT), Farbe (RGB), Farbe + Weiß (RGB+CCT). Angeboten wird nur, was die Leuchte kann. |
+| Farbe | Nur an/aus, Nur dimmen, Weißtöne, Farben, Farben und Weißtöne. Angeboten wird nur, was die Leuchte kann. |
 | Überblendung | **Weich** (Standard): Die Leuchte überblendet selbst. **Pünktlich**: Falls diese Leuchte zu spät ihr Ziel erreicht, probiere diese Einstellung. Sie läuft dann in kurzen Schritten und kann stärker ruckeln. |
 | Am Slider | Automatisch, Gleiten oder Direkt. |
 
@@ -92,7 +95,7 @@ data:
 - Gehört eine Leuchte zu mehreren Objekten, gilt der letzte Befehl, und das Dimmen des anderen Objekts stoppt.
 - Leuchten, die offline waren, holen ihren Stand nach, wenn sie zurückkommen. Das Dimmen läuft nach einem Neustart von Home Assistant weiter, und eine gewählte Farbe bleibt.
 - Eine Farbe, die du in der normalen Lichtsteuerung des Objekts oder auf der Karte wählst, überschreibt die Farben der Stufen, bis du ausschaltest oder auf der Karte **Zurücksetzen** wählst. Leuchten ohne Farbe behalten ihr Weiß. Auf der Karte öffnet der Name einer Leuchte ihre Einstellungen: Helligkeit sowie Weißton, Farbe und Sättigung, soweit ihr Modus das erlaubt. Eine zusammengefasste Säule listet dort ihre Leuchten, jede mit eigenen Einstellungen. **Zurücksetzen** bringt einzelne Leuchten und eine gewählte Farbe zurück zu den Stufen.
-- Überblendungen ohne Dauer dauern ihren Anteil an der Zeit für 0 bis 100 % (**Tempo** in den weiteren Einstellungen der Einrichtungsseite): von 80 auf 100 % ein Fünftel davon. Das gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle. Eine Karte kann ein eigenes Tempo haben. Eine angegebene Dauer, etwa aus einer Automation, gilt genau.
+- Überblendungen ohne Dauer dauern ihren Anteil an der Zeit für 0 bis 100 % (**Tempo** unter **Verhalten** auf der Einrichtungsseite): von 80 auf 100 % ein Fünftel davon. Das gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle. Eine Karte kann ein eigenes Tempo haben. Eine angegebene Dauer, etwa aus einer Automation, gilt genau.
 - Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.
 
 ## Für andere Integrationen

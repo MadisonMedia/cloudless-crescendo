@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_NAME
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 import voluptuous as vol
 
@@ -18,6 +19,12 @@ class CrescendoConfigFlow(ConfigFlow, domain=DOMAIN):
     """Create an object. Its stops and everything else are set up on the Crescendo page."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Return the flow behind the object's Configure button."""
+        return CrescendoOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Name the object and pick its lights."""
@@ -38,4 +45,21 @@ class CrescendoConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             description_placeholders={"panel": f"/{PANEL_URL}"},
+        )
+
+
+class CrescendoOptionsFlow(OptionsFlow):
+    """The object's settings live on the Crescendo page; this step only leads there."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Show the way to the page. Closing changes nothing."""
+        if user_input is not None:
+            return self.async_create_entry(data=dict(self.config_entry.options))
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "title": self.config_entry.title,
+                "url": f"/{PANEL_URL}?object={self.config_entry.entry_id}",
+            },
         )

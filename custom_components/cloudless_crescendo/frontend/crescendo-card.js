@@ -72,6 +72,7 @@ const DEFAULTS = {
   color_bar: "both",
   columns_mode: "dim_settings",
   reset_place: "slider",
+  show_button_names: true,
 };
 
 // Settings of earlier versions that no longer do anything; they are dropped from a card's config when it is saved.
@@ -843,7 +844,9 @@ class CrescendoCard extends HTMLElement {
             })
             .join("")}</span>`
         : "";
-    return `<button class="${cls}" data-pos="${b.position}" data-dur="${b.duration}"${attr}>${icon ? `<ha-icon icon="${esc(icon)}"></ha-icon>` : ""}<b>${esc(b.name)}</b>${sub(b)}${preview}</button>`;
+    // Without its name a button still says what it is, to screen readers and on hover.
+    const named = this._config.show_button_names || !icon;
+    return `<button class="${cls}" data-pos="${b.position}" data-dur="${b.duration}"${attr}${named ? "" : ` aria-label="${esc(b.name)}" title="${esc(b.name)}"`}>${icon ? `<ha-icon icon="${esc(icon)}"></ha-icon>` : ""}${named ? `<b>${esc(b.name)}</b>` : ""}${sub(b)}${preview}</button>`;
   }
 
   // -- a single light's own color ------------------------------------------------------------------
@@ -2208,7 +2211,8 @@ class CrescendoCardEditor extends HTMLElement {
         ["preview", t("With a light preview", "Mit Lichtvorschau")],
         ["plain", t("Plain", "Schlicht")],
       ])}
-      <p class="hint">${esc(t("In their light shows the color and brightness each button switches on. Without an icon of its own, a button gets one that fits its name.", "„In ihrer Lichtfarbe“ zeigt Farbe und Helligkeit, die ein Button einschaltet. Ohne eigenes Symbol bekommt ein Button eines, das zu seinem Namen passt."))}</p></div>
+      <p class="hint">${esc(t("In their light shows the color and brightness each button switches on.", "„In ihrer Lichtfarbe“ zeigt Farbe und Helligkeit, die ein Button einschaltet."))}</p></div>
+      ${check("show_button_names", cfg.show_button_names, t("Show names on the buttons (a button without an icon keeps its name)", "Namen auf den Buttons zeigen (ein Button ohne Symbol behält seinen Namen)"))}
       <div class="ctl"><label for="button_position">${esc(t("Button position", "Position der Buttons"))}</label>
         ${select("button_position", cfg.button_position, [
           ["auto", t("Matching the design: beside the control on wide cards", "Passend zum Design: auf breiten Karten neben dem Regler")],
@@ -2337,6 +2341,7 @@ class CrescendoCardEditor extends HTMLElement {
       case "button_names":
       case "colors_always":
       case "show_title":
+      case "show_button_names":
       case "show_header_value":
         this._set({ [t.id]: t.checked });
         break;

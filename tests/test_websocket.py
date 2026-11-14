@@ -151,3 +151,18 @@ async def test_single_light_colors_and_resets_over_the_websocket(
     assert (await client.receive_json())["success"]
     assert entity.engine.apart_color == {}
     assert entity.engine.deviating == {}
+
+
+async def test_the_sidebar_entry_can_be_removed_and_added(hass: HomeAssistant, setup_object, hass_ws_client) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    await setup_object()
+    client = await _client(hass, hass_ws_client)
+    await client.send_json_auto_id({"type": "cloudless_crescendo/sidebar"})
+    assert (await client.receive_json())["result"] == {"shown": True}
+    with patch("custom_components.cloudless_crescendo.frontend._async_apply_sidebar", new=AsyncMock()) as apply:
+        await client.send_json_auto_id({"type": "cloudless_crescendo/sidebar/set", "show": False})
+        assert (await client.receive_json())["success"]
+        apply.assert_awaited_once_with(hass, False)
+    await client.send_json_auto_id({"type": "cloudless_crescendo/sidebar"})
+    assert (await client.receive_json())["result"] == {"shown": False}

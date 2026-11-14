@@ -70,14 +70,36 @@ input.num { width: 76px; font-variant-numeric: tabular-nums; }
 .notice.calm { background: var(--accent-soft); color: var(--ink); }
 .wrapx { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; }
-.edit { display: grid; grid-template-columns: 180px minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
-.objects h2 { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.objlist { display: grid; gap: 2px; margin-top: 6px; }
-.objlist button { text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; overflow-wrap: anywhere; }
-.objlist button:hover { background: var(--line); }
-.objlist button[aria-current="true"] { background: var(--accent-soft); font-weight: 600; }
-.objnew { display: grid; gap: 6px; margin-top: 10px; }
-.objnew input { width: 100%; }
+.edit { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: start; }
+.jump { position: sticky; top: 12px; display: grid; gap: 2px; align-content: start; }
+.jump a { text-decoration: none; color: var(--muted); font-size: 13.5px; padding: 6px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; }
+.jump a:hover { color: var(--ink); background: var(--line); }
+.jump a.on { color: var(--ink); border-color: var(--accent); font-weight: 600; }
+.sec { scroll-margin-top: 12px; }
+.objrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.objpick { max-width: 240px; font-weight: 600; }
+.newbox { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lrow2 { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; gap: 6px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+.lrow2:first-child { border-top: 0; }
+.lrow2 .lname { padding: 0; }
+.lrow2 select { min-height: 32px; padding: 3px 6px; font-size: 13px; }
+.lmore { grid-column: 1 / -1; }
+.lmore summary { cursor: pointer; font-size: 12.5px; color: var(--muted); list-style: none; padding-left: 24px; }
+.lmore summary::-webkit-details-marker { display: none; }
+.lmore summary::before { content: "▸ "; }
+.lmore[open] summary::before { content: "▾ "; }
+.lmore .ladv { padding: 4px 0 4px 24px; }
+.lanes { display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 8px; }
+.lights { position: relative; }
+.inspector.pop { position: absolute; z-index: 4; width: min(300px, calc(100% - 16px)); box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.inspector h3 { display: flex; align-items: center; gap: 8px; }
+.inspector h3 .x { margin-left: auto; }
+.livebar { grid-column: 1 / -1; position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.livebar .scrub { grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding-right: 0; }
+.livebar .scrub label { white-space: nowrap; }
+.sideopt { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.sideopt .note { margin: 0; }
+.btn.quiet { color: var(--muted); border-color: transparent; padding-left: 4px; text-align: left; }
 .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; min-width: 0; }
 .sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 .sec > h2 { font-size: 17px; font-weight: 650; }
@@ -136,7 +158,6 @@ input.grad::-moz-range-thumb { width: 7px; height: 24px; border-radius: 3px; bac
 .cell.off { background: transparent; border: 1px dashed var(--line); color: var(--muted); font-weight: 400; }
 .cell.locked { border-style: dotted; cursor: not-allowed; opacity: .75; }
 .cell.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
-.side { display: grid; gap: 14px; position: sticky; top: 12px; min-width: 0; }
 .inspector { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
 .inspector h3 { font-size: 16px; font-weight: 650; }
 .inspector h3 small { font-size: 12.5px; font-weight: 400; color: var(--muted); margin-left: 6px; }
@@ -167,21 +188,17 @@ pre .c { color: #94a0bd; }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 .dtable { background: var(--surface); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20; max-width: calc(100vw - 32px); padding: 9px 14px; border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 14px; }
-@container (max-width: 1240px) {
-  .edit { grid-template-columns: minmax(0, 1fr) 280px; }
-  .objects { grid-column: 1 / -1; }
-  .objlist { display: flex; flex-wrap: wrap; }
-  .objnew { display: flex; flex-wrap: wrap; align-items: center; }
-  .objnew input { width: auto; }
-}
 @container (max-width: 640px) {
   .scrub label, .lrow .lname { grid-column: 1 / -1; padding-bottom: 2px; }
   .scrub input.grad, .lrow .llane { grid-column: 2; }
 }
 @container (max-width: 860px) {
   .edit { grid-template-columns: minmax(0, 1fr); }
-  .side { position: static; order: 1; }
-  .sheet { order: 2; padding: 14px; }
+  .jump { position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; gap: 2px 4px; padding: 6px 0; background: var(--bg); }
+  .jump a { border-left: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; padding: 4px 8px; }
+  .sheet { padding: 14px; }
+  .livebar { grid-template-columns: minmax(0, 1fr); }
+  .inspector.pop { position: static; width: auto; box-shadow: none; }
   .facts { grid-template-columns: minmax(0, 1fr); }
 }
 `;
@@ -249,8 +266,9 @@ class CrescendoPanel extends HTMLElement {
     this._sel = { stop: null, lamp: null };
     this._preview = true;
     this._edView = "chart";
-    this._adv = false;
     this._group = true;
+    this._openMore = new Set();
+    this._newing = false;
     this._undo = [];
     this._lastKey = null;
     this._chartW = 0;
@@ -272,6 +290,15 @@ class CrescendoPanel extends HTMLElement {
       this._devDrag = null;
     });
     r.addEventListener("pointerleave", () => this._hideTip(), true);
+    // A light's "More" stays open across re-renders.
+    r.addEventListener(
+      "toggle",
+      (e) => {
+        const key = e.target?.dataset?.more;
+        if (key) e.target.open ? this._openMore.add(key) : this._openMore.delete(key);
+      },
+      true,
+    );
   }
 
   set hass(hass) {
@@ -329,6 +356,7 @@ class CrescendoPanel extends HTMLElement {
       ...x,
       options: withIds(x.options),
     }));
+    this._sidebarShown = (await this._hass.callWS({ type: "cloudless_crescendo/sidebar" }).catch(() => null))?.shown ?? true;
     if (selectEntry) this._i = Math.max(0, this._objects.findIndex((x) => x.entry_id === selectEntry));
     this._i = Math.min(this._i, Math.max(0, this._objects.length - 1));
     this._sel = { stop: null, lamp: null };
@@ -344,6 +372,8 @@ class CrescendoPanel extends HTMLElement {
       <header class="top">
         <button class="menu" data-act="menu" aria-label="Menu" ${this._narrow ? "" : "hidden"}>${MENU_ICON}</button>
         <h1 class="mark">${LOGO}</h1>
+        <select class="field objpick" id="objPick" aria-label="${esc(t("Object", "Objekt"))}"></select>
+        <span class="newbox" id="newBox" hidden><input class="field" id="newObjName" placeholder="${esc(t("Name of the new object", "Name des neuen Objekts"))}" aria-label="${esc(t("Name of the new object", "Name des neuen Objekts"))}"><button class="btn primary" data-act="new-obj">${esc(t("Create", "Anlegen"))}</button><button class="btn" data-act="new-cancel">${esc(t("Cancel", "Abbrechen"))}</button></span>
         <div class="tabs" role="tablist">
           <button role="tab" data-act="tab" data-v="edit" aria-selected="${this._view === "edit"}">${esc(t("Setup", "Einrichtung"))}</button>
           <button role="tab" data-act="tab" data-v="diag" aria-selected="${this._view === "diag"}">${esc(t("Diagnostics", "Diagnose"))}</button>
@@ -351,6 +381,7 @@ class CrescendoPanel extends HTMLElement {
       </header>
       <main id="main"></main>
     </div><div class="toast" id="toast" hidden></div>`;
+    this._renderObjects();
     if (this._view === "edit") this._renderEdit();
     else this._renderDiagView();
   }
@@ -359,43 +390,49 @@ class CrescendoPanel extends HTMLElement {
     const t = this._t,
       main = this.shadowRoot.getElementById("main");
     const o = this._o;
+    const sections = [
+      ["sec-lights", t("Lights", "Leuchten")],
+      ["sec-stops", t("Stops", "Stufen")],
+      ["sec-buttons", t("Buttons", "Buttons")],
+      ["sec-devices", t("Devices", "Geräte")],
+      ["sec-behavior", t("Behavior", "Verhalten")],
+    ];
     main.innerHTML = `<section class="edit">
-      <aside class="objects"><h2>${esc(t("Objects", "Objekte"))}</h2><div class="objlist" id="objList"></div>
-        <div class="objnew"><input class="field" id="newObjName" placeholder="${esc(t("New object", "Neues Objekt"))}" aria-label="${esc(t("Name of the new object", "Name des neuen Objekts"))}">
-          <button class="btn" data-act="new-obj">${esc(t("Create", "Anlegen"))}</button></div></aside>
+      <nav class="jump" id="jump" aria-label="${esc(t("Sections", "Abschnitte"))}">${sections.map(([id, label]) => `<a href="#${id}" data-act="jump" data-to="${id}">${esc(label)}</a>`).join("")}</nav>
       ${
         o
           ? `<div class="sheet">
-        <div class="sec">
-          <div class="row space"><input class="field title-input" id="objName" aria-label="${esc(t("Name of the object", "Name des Objekts"))}">
-            <div class="row"><button class="btn" id="undoBtn" data-act="undo" disabled>${esc(t("Undo", "Rückgängig"))}</button><span id="deleteBox"></span></div></div>
-          <div class="row space"><label class="opt"><input type="checkbox" id="preview"${this._preview ? " checked" : ""}> ${esc(t("Preview on the lights", "Vorschau an den Leuchten"))}</label>
-            <div class="row"><label class="opt" for="runDur">${esc(t("Test run over", "Probelauf über"))}</label>
-              <select class="field" id="runDur"><option value="5">5 s</option><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select>
-              <button class="btn" data-act="run-up">${esc(t("Dim up", "Hochdimmen"))}</button><button class="btn" data-act="run-down">${esc(t("Dim down", "Runterdimmen"))}</button></div></div>
+        <div class="objrow"><input class="field title-input" id="objName" aria-label="${esc(t("Name of the object", "Name des Objekts"))}">
+          <div class="row"><button class="btn" id="undoBtn" data-act="undo" disabled>${esc(t("Undo", "Rückgängig"))}</button><span id="deleteBox"></span></div></div>
+        <div class="sec" id="sec-lights"><h2>${esc(t("Lights", "Leuchten"))}</h2>
+          <p class="note">${esc(t("Each light with what it shows: white tones, colors or both. Under More you set how it fades and how it follows a slider.", "Jede Leuchte mit dem, was sie zeigt: Weißtöne, Farben oder beides. Unter „Mehr“ stellst du ein, wie sie überblendet und wie sie einem Slider folgt."))}</p>
+          <div class="lrows" id="rows"></div>
+          <div id="modeNotice"></div>
+          <label class="opt"><input type="checkbox" id="edGroup"${this._group ? " checked" : ""}> ${esc(t("Combine identical lights", "Gleiche Leuchten zusammenfassen"))}</label>
+          <div class="row"><select class="field" id="addSel" aria-label="${esc(t("Choose a light", "Leuchte auswählen"))}"></select><button class="btn" data-act="add-item">${esc(t("Add", "Hinzufügen"))}</button></div>
         </div>
-        <div class="sec">
-          <div class="row space"><span class="h2">${esc(t("Lights and devices", "Leuchten und Geräte"))}</span>
+        <div class="sec" id="sec-stops">
+          <div class="row space"><h2>${esc(t("Stops", "Stufen"))}</h2>
             <div class="seg" role="group"><button data-act="view-chart" id="vChart">${esc(t("Chart", "Diagramm"))}</button><button data-act="view-table" id="vTable">${esc(t("Table", "Tabelle"))}</button></div></div>
           <p class="note" id="stopNote"></p>
           <div class="row" id="stopTools"></div>
-          <div class="row"><label class="opt"><input type="checkbox" id="edAdv"${this._adv ? " checked" : ""}> ${esc(t("Show advanced settings", "Erweiterte Einstellungen einblenden"))}</label>
-            <label class="opt"><input type="checkbox" id="edGroup"${this._group ? " checked" : ""}> ${esc(t("Combine identical lights", "Gleiche Leuchten zusammenfassen"))}</label></div>
-          <div class="notice calm" id="advNote" hidden><span><b>${esc(t("Fade.", "Überblendung."))}</b> ${esc(t("Smooth is the default: the light fades by itself. On time: if a light reaches its target too late, try this setting. It then moves in short steps and may stutter more.", "Weich ist der Standard: Die Leuchte überblendet selbst. Pünktlich: Falls eine Leuchte zu spät ihr Ziel erreicht, probiere diese Einstellung. Sie läuft dann in kurzen Schritten und kann stärker ruckeln."))}</span></div>
           <div class="lights" id="lights">
-            <div class="scrub"><label for="editPos">${esc(t("Position", "Position"))} <output id="editPosOut">0 %</output></label><input type="range" class="grad" id="editPos" min="0" max="100" step="1" value="0"></div>
             <div class="chart-box" id="chartBox"></div>
             <div class="wrapx" id="tableWrap" hidden><table class="mx" id="matrix"></table></div>
-            <div class="lrows" id="rows"></div>
+            <div class="lanes" id="lanes"></div>
+            <div class="inspector" id="inspector" hidden></div>
           </div>
-          <div id="modeNotice"></div>
-          <div class="row"><select class="field" id="addSel" aria-label="${esc(t("Choose a light or device", "Leuchte oder Gerät auswählen"))}"></select><button class="btn" data-act="add-item">${esc(t("Add", "Hinzufügen"))}</button></div>
-          <p class="note">${esc(t("A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten."))}</p>
         </div>
-        <div class="sec"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>
+        <div class="sec" id="sec-buttons"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>
           <p class="note">${esc(t("New cards take these buttons as a template. In each card you can leave out some or add your own. Automations can press them too.", "Neue Karten übernehmen diese Buttons als Vorlage. In jeder Karte kannst du einzelne weglassen oder eigene ergänzen. Automationen können sie ebenfalls auslösen."))}</p>
           <div class="wrapx"><table class="tbl" id="btnTable"></table></div><div><button class="btn" data-act="add-btn">${esc(t("Add button", "Button hinzufügen"))}</button></div></div>
-        <details><summary>${esc(t("More settings", "Weitere Einstellungen"))}</summary><div class="stack">
+        <div class="sec" id="sec-devices"><h2>${esc(t("Devices", "Geräte"))}</h2>
+          <p class="note">${esc(t("A speaker, a thermostat or a blind can follow the scale: with a course between two stops, or with an action at a threshold. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Lautsprecher, Thermostat oder Rollo können der Skala folgen: mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten."))}</p>
+          <div class="lrows" id="devRows"></div>
+          <div class="row"><select class="field" id="addDevSel" aria-label="${esc(t("Choose a device", "Gerät auswählen"))}"></select><button class="btn" data-act="add-dev">${esc(t("Add", "Hinzufügen"))}</button></div>
+        </div>
+        <div class="sec" id="sec-behavior"><h2>${esc(t("Behavior", "Verhalten"))}</h2>
+          <div class="stack">
           <div class="ctl"><div class="sub">${esc(t("Slider", "Slider"))}</div><div class="row"><label for="rate">${esc(t("Updates per second", "Aktualisierungen pro Sekunde"))}</label><input class="field num" type="number" id="rate" min="1" max="10" step="1"></div>
             <p class="note">${esc(t("The default is 4. More updates feel more direct, but too many can cause stutter.", "Standard ist 4. Mehr Aktualisierungen wirken direkter, zu viele können aber Ruckler verursachen."))}</p></div>
           <div class="ctl"><div class="sub">${esc(t("Switching on without a stop", "Einschalten ohne Stufe"))}</div><div class="row"><select class="field" id="onMode" aria-label="${esc(t("Behavior when switching on", "Verhalten beim Einschalten"))}"><option value="last">${esc(t("Last position", "Letzte Position"))}</option><option value="fixed">${esc(t("Fixed stop", "Feste Stufe"))}</option></select><input class="field num" type="number" id="onPos" min="1" max="100" aria-label="${esc(t("Fixed stop in percent", "Feste Stufe in Prozent"))}"></div>
@@ -403,14 +440,22 @@ class CrescendoPanel extends HTMLElement {
           <div class="ctl"><div class="sub">${esc(t("Speed", "Tempo"))}</div><div class="row"><label for="fadeDef">${esc(t("0 to 100 % takes (seconds)", "0 auf 100 % dauert (Sekunden)"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"></div>
             <p class="note">${esc(t("Each fade takes its share: from 80 to 100 % a fifth. Applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands without a duration. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Jede Überblendung dauert ihren Anteil: von 80 auf 100 % ein Fünftel. Gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle ohne Dauer. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}</p></div>
           <div class="ctl"><div class="sub">${esc(t("In automations", "In Automationen"))}</div><p class="note">${esc(t("The object is a normal light. Its brightness is the position on the scale. The lights always run in the set sequence, backward when dimming down.", "Das Objekt ist ein normales Licht. Seine Helligkeit ist die Position auf der Skala. Die Leuchten laufen immer in der eingestellten Reihenfolge, rückwärts beim Runterdimmen."))}</p><pre id="yaml"></pre></div>
-        </div></details>
+        <div class="ctl"><div class="sub">${esc(t("Sidebar", "Seitenleiste"))}</div><div id="sideOpt"></div></div>
+        </div></div>
       </div>
-      <aside class="side"><div class="inspector" id="inspector"></div></aside>`
-          : `<div class="sheet"><div class="sec"><h2>${esc(t("No object yet", "Noch kein Objekt"))}</h2><p class="note">${esc(t("Enter a name on the left and create your first object.", "Gib links einen Namen ein und lege dein erstes Objekt an."))}</p></div></div>`
+      <div class="livebar">
+        <div class="scrub"><label for="editPos">${esc(t("Position", "Position"))} <output id="editPosOut">0 %</output></label><input type="range" class="grad" id="editPos" min="0" max="100" step="1" value="0"></div>
+        <div class="row"><label class="opt"><input type="checkbox" id="preview"${this._preview ? " checked" : ""}> ${esc(t("Preview on the lights", "Vorschau an den Leuchten"))}</label>
+          <label class="opt" for="runDur">${esc(t("Test run over", "Probelauf über"))}</label>
+          <select class="field" id="runDur"><option value="5">5 s</option><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select>
+          <button class="btn" data-act="run-up">${esc(t("Dim up", "Hochdimmen"))}</button><button class="btn" data-act="run-down">${esc(t("Dim down", "Runterdimmen"))}</button></div>
+      </div>`
+          : `<div class="sheet"><div class="sec"><h2>${esc(t("No object yet", "Noch kein Objekt"))}</h2><p class="note">${esc(t("Choose “New object” at the top and give it a name.", "Wähle oben „Neues Objekt“ und gib ihm einen Namen."))}</p></div></div>`
       }
     </section>`;
-    this._renderObjects();
+    this._renderSidebarOption();
     if (!o) return;
+    this._watchSections();
     this.shadowRoot.getElementById("objName").value = o.title;
     this._resize?.disconnect();
     this._resize?.observe(this.shadowRoot.getElementById("chartBox"));
@@ -433,12 +478,57 @@ class CrescendoPanel extends HTMLElement {
       : `<button class="btn" data-act="delete-ask">${esc(t("Delete object", "Objekt löschen"))}</button>`;
   }
 
+  // The sidebar entry can go; the page stays reachable through an object's Configure button and the card editor.
+  _renderSidebarOption() {
+    const el = this.shadowRoot.getElementById("sideOpt");
+    if (!el) return;
+    const t = this._t;
+    if (!this._sidebarShown) {
+      el.innerHTML = `<p class="note">${esc(t("Crescendo is not in the sidebar. You reach this page through Configure on an object under Devices & services, and through the card editor.", "Crescendo steht nicht in der Seitenleiste. Du erreichst diese Seite über „Konfigurieren“ bei einem Objekt unter „Geräte & Dienste“ und über den Karten-Editor."))}</p>
+        <button class="btn" data-act="sidebar-add">${esc(t("Add to the sidebar", "In die Seitenleiste aufnehmen"))}</button>`;
+    } else if (this._sidebarAsk) {
+      el.innerHTML = `<p class="note">${esc(t("Remove Crescendo from the sidebar? The page stays reachable through Configure on an object under Devices & services, and through the card editor.", "Crescendo aus der Seitenleiste nehmen? Die Seite bleibt erreichbar über „Konfigurieren“ bei einem Objekt unter „Geräte & Dienste“ und über den Karten-Editor."))}</p>
+        <div class="row"><button class="btn" data-act="sidebar-yes">${esc(t("Remove", "Entfernen"))}</button><button class="btn" data-act="sidebar-no">${esc(t("Keep", "Behalten"))}</button></div>`;
+    } else {
+      el.innerHTML = `<button class="btn quiet" data-act="sidebar-ask">${esc(t("Remove from the sidebar", "Aus der Seitenleiste nehmen"))}</button>`;
+    }
+  }
+
   _renderObjects() {
-    const list = this.shadowRoot.getElementById("objList");
-    if (list)
-      list.innerHTML = this._objects
-        .map((o, i) => `<button data-act="pick-obj" data-i="${i}"${i === this._i ? ' aria-current="true"' : ""}>${esc(o.title)}</button>`)
-        .join("");
+    const pick = this.shadowRoot.getElementById("objPick");
+    if (!pick) return;
+    const t = this._t;
+    pick.innerHTML =
+      this._objects.map((o, i) => `<option value="${i}"${i === this._i && !this._newing ? " selected" : ""}>${esc(o.title)}</option>`).join("") +
+      `<option value="new"${this._newing ? " selected" : ""}>＋ ${esc(t("New object", "Neues Objekt"))}</option>`;
+    const box = this.shadowRoot.getElementById("newBox");
+    if (box) box.hidden = !this._newing;
+  }
+
+  _pickObject(i) {
+    clearTimeout(this._saveTimer);
+    this._i = i;
+    this._sel = { stop: null, lamp: null };
+    this._undo = [];
+    this._confirmDelete = false;
+    this._renderEdit();
+  }
+
+  // The jump bar marks the section in view.
+  _watchSections() {
+    this._sections?.disconnect();
+    const links = [...this.shadowRoot.querySelectorAll("#jump a")];
+    if (!links.length || typeof IntersectionObserver === "undefined") return;
+    const seen = new Map();
+    this._sections = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) seen.set(en.target.id, en.isIntersecting ? en.intersectionRatio : 0);
+        const best = [...seen.entries()].sort((a, b) => b[1] - a[1])[0];
+        if (best && best[1] > 0) links.forEach((a) => a.classList.toggle("on", a.dataset.to === best[0]));
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    this.shadowRoot.querySelectorAll(".sec[id]").forEach((el) => this._sections.observe(el));
   }
 
   _stop() {
@@ -480,14 +570,16 @@ class CrescendoPanel extends HTMLElement {
     r.getElementById("stopNote").textContent = chart
       ? t("Drag a point up or down to change the brightness. The number below a line moves the stop. Tap a point to set its color.", "Ziehe einen Punkt nach oben oder unten, um die Helligkeit zu ändern. Die Zahl unter einer Linie verschiebt die Stufe. Tippe einen Punkt an, um die Farbe einzustellen.")
       : t("Every light has a fixed value at every stop. In between it blends smoothly.", "Jede Leuchte hat in jeder Stufe einen festen Wert. Dazwischen wird fließend überblendet.");
-    r.getElementById("advNote").hidden = !this._adv;
     r.getElementById("editPos").style.setProperty("--grad", roomGradient(o, undefined, undefined, this._dark));
+    r.getElementById("lanes").hidden = !chart;
     if (chart) this._renderChart();
     else this._renderMatrix();
+    this._renderLanes();
     this._renderRows();
+    this._renderDevices();
     const both = o.lights.filter((l) => l.mode === "rgbcct").map((l) => friendly(this._hass, l.entity_id));
     r.getElementById("modeNotice").innerHTML = both.length
-      ? `<div class="notice"><b>${esc(t("Color + white", "Farbe + Weiß"))}: ${esc(both.join(", "))}</b><span>${esc(t("Changing between color and white can flicker badly. If that bothers you, set one of them in the advanced settings. Another object with the same lights can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann die Leuchte unschön flackern. Falls das stört, lege in den erweiterten Einstellungen eins davon fest. Ein weiteres Objekt mit denselben Leuchten kannst du anders einstellen."))}</span></div>`
+      ? `<div class="notice"><b>${esc(t("Color + white", "Farbe + Weiß"))}: ${esc(both.join(", "))}</b><span>${esc(t("Changing between color and white can flicker badly. If that bothers you, set one of them for the light above. Another object with the same lights can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann die Leuchte unschön flackern. Falls das stört, lege oben bei der Leuchte eins davon fest. Ein weiteres Objekt mit denselben Leuchten kannst du anders einstellen."))}</span></div>`
       : "";
     this._renderAddSelect();
   }
@@ -496,8 +588,10 @@ class CrescendoPanel extends HTMLElement {
     const t = this._t,
       hass = this._hass,
       o = this._o.options;
-    const sel = this.shadowRoot.getElementById("addSel");
-    const keep = sel.value;
+    const sel = this.shadowRoot.getElementById("addSel"),
+      dev = this.shadowRoot.getElementById("addDevSel");
+    const keep = sel.value,
+      keepDev = dev.value;
     const ids = Object.keys(hass.states).sort((a, b) => friendly(hass, a).localeCompare(friendly(hass, b)));
     const lights = ids.filter((id) => id.startsWith("light.") && !hass.states[id].attributes.crescendo && !o.lights.some((l) => l.entity_id === id));
     const label = (id) => `${friendly(hass, id)}`;
@@ -513,8 +607,10 @@ class CrescendoPanel extends HTMLElement {
       }
       if (DEVICE_ACTIONS[domain]) devices += `<option value="d:threshold:${esc(id)}">${esc(label(id))}: ${esc(t("action at a threshold", "Aktion an einer Schwelle"))}</option>`;
     }
-    sel.innerHTML = `<optgroup label="${esc(t("Lights", "Leuchten"))}">${lights.map((id) => `<option value="l:${esc(id)}">${esc(label(id))}</option>`).join("")}</optgroup><optgroup label="${esc(t("Devices", "Geräte"))}">${devices}</optgroup>`;
+    sel.innerHTML = lights.map((id) => `<option value="l:${esc(id)}">${esc(label(id))}</option>`).join("");
+    dev.innerHTML = devices;
     if (keep) sel.value = keep;
+    if (keepDev) dev.value = keepDev;
   }
 
   get _lang() {
@@ -578,6 +674,7 @@ class CrescendoPanel extends HTMLElement {
     const pos = this._livePos();
     box.innerHTML = `<svg width="${w}" height="${CHART_H}" viewBox="0 0 ${w} ${CHART_H}" role="img" aria-label="${esc(this._t("Brightness of each light over the scale. The table shows the same values.", "Helligkeit jeder Leuchte über die Skala. Die Tabelle zeigt dieselben Werte."))}">
       ${grid}${stops}${lines}<line class="c-cross" id="chartCross" x1="0" x2="0" y1="${PT}" y2="${CHART_H - PB}" visibility="hidden"/><line class="c-ph" id="chartPh" x1="${X(pos)}" x2="${X(pos)}" y1="${PT}" y2="${CHART_H - PB}"/>${dots}</svg><div class="chart-tip" id="chartTip" hidden></div>`;
+    this._placeInspector();
   }
 
   _rampUnit(d) {
@@ -650,42 +747,59 @@ class CrescendoPanel extends HTMLElement {
     return list;
   }
 
-  _lampAdv(u) {
-    const t = this._t,
-      l = u.light;
-    const label = {
+  _modeLabels() {
+    const t = this._t;
+    return {
       onoff: t("On/off only", "Nur an/aus"),
-      dim: t("Single-color dimming", "Einfarbig dimmen"),
-      cct: t("White (CCT)", "Weiß (CCT)"),
-      rgb: t("Color (RGB)", "Farbe (RGB)"),
-      rgbcct: t("Color + white (RGB+CCT)", "Farbe + Weiß (RGB+CCT)"),
+      dim: t("Dimming only", "Nur dimmen"),
+      cct: t("White tones", "Weißtöne"),
+      rgb: t("Colors", "Farben"),
+      rgbcct: t("Colors and white tones", "Farben und Weißtöne"),
     };
+  }
+
+  // A light's row: what it shows, in view; how it fades and follows a slider, under "More".
+  _lampRow(u) {
+    const t = this._t,
+      l = u.light,
+      label = this._modeLabels();
     const avail = this._modesFor(l.entity_id);
     const modes = (avail.includes(l.mode) ? avail : [...avail, l.mode]).map((m) => `<option value="${m}"${l.mode === m ? " selected" : ""}>${esc(label[m])}</option>`).join("");
     const key = esc(u.ids.join(","));
     const steps = l.fade === "ontime" ? `<label>${esc(t("Steps per second", "Schritte pro Sekunde"))} <input class="field num" type="number" id="fs-${esc(l.entity_id)}" data-steps="${key}" min="1" max="8" value="${l.steps || 4}"></label>` : "";
-    return `<div class="ladv"><label>${esc(t("Color", "Farbe"))} <select class="field" id="mode-${esc(l.entity_id)}" data-mode="${key}">${modes}</select></label>
+    return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname"><span>${esc(u.name)}</span></div>
+      <select class="field" id="mode-${esc(l.entity_id)}" data-mode="${key}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select>
+      <button class="x" data-act="rm-lamp" data-ids="${key}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button>
+      <details class="lmore" data-more="${key}"${this._openMore.has(u.ids.join(",")) ? " open" : ""}><summary>${esc(t("More", "Mehr"))}</summary><div class="ladv">
       <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${key}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
-      <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${key}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Glide", "Gleiten"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct", "Direkt"))}</option></select></label></div>`;
+      <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${key}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
+      <span class="note">${esc(t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt."))}</span>
+      </div></details></div>`;
   }
 
   _renderRows() {
     const box = this.shadowRoot.getElementById("rows"),
-      t = this._t,
+      t = this._t;
+    const lamps = this._units().map((u) => this._lampRow(u)).join("");
+    box.innerHTML = lamps || `<p class="note">${esc(t("No light yet. Add the first one below.", "Noch keine Leuchte. Füge unten die erste hinzu."))}</p>`;
+  }
+
+  _renderLanes() {
+    const box = this.shadowRoot.getElementById("lanes"),
       o = this._o.options;
-    if (this._edView === "table") {
-      box.innerHTML = o.devices.map((d) => this._deviceRow(d)).join("");
-      box.hidden = !o.devices.length;
-      return;
-    }
-    box.hidden = false;
-    const lamps = this._units()
+    box.innerHTML = this._units()
       .map(
-        (u) => `<div class="lrow"><div class="lname"><i class="key" style="background:${seriesVar(u.slot)}"></i><span>${esc(u.name)}</span><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>
-        <div class="llane" style="background-image:${laneGradient(o, u.light, undefined, this._dark)}"></div>${this._adv ? this._lampAdv(u) : ""}</div>`,
+        (u) => `<div class="lrow"><div class="lname"><i class="key" style="background:${seriesVar(u.slot)}"></i><span>${esc(u.name)}</span></div>
+        <div class="llane" style="background-image:${laneGradient(o, u.light, undefined, this._dark)}"></div></div>`,
       )
       .join("");
-    box.innerHTML = (lamps || `<p class="note">${esc(t("No light yet. Add the first one below.", "Noch keine Leuchte. Füge unten die erste hinzu."))}</p>`) + o.devices.map((d) => this._deviceRow(d)).join("");
+  }
+
+  _renderDevices() {
+    const box = this.shadowRoot.getElementById("devRows"),
+      t = this._t,
+      o = this._o.options;
+    box.innerHTML = o.devices.map((d) => this._deviceRow(d)).join("") || `<p class="note">${esc(t("No device yet.", "Noch kein Gerät."))}</p>`;
   }
 
   _renderMatrix() {
@@ -717,7 +831,7 @@ class CrescendoPanel extends HTMLElement {
     };
     const rows = us
       .map(
-        (u) => `<tr><th scope="row"><div class="lname" style="padding:0"><span>${esc(u.name)}</span><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></th>${o.stops.map((s) => `<td>${cell(u, s)}</td>`).join("")}</tr>${this._adv ? `<tr><th scope="row"></th><td colspan="${o.stops.length}">${this._lampAdv(u)}</td></tr>` : ""}`,
+        (u) => `<tr><th scope="row"><div class="lname" style="padding:0"><span>${esc(u.name)}</span><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></th>${o.stops.map((s) => `<td>${cell(u, s)}</td>`).join("")}</tr>`,
       )
       .join("");
     const devRows = o.devices
@@ -733,19 +847,19 @@ class CrescendoPanel extends HTMLElement {
     if (!box) return;
     const st = this._stop(),
       u = this._selUnit();
-    if (!st || !u) {
-      box.innerHTML = `<h3>${esc(t("Adjust", "Einstellen"))}</h3><p class="note">${esc(t("Choose a point in the chart or a cell in the table. Here you then set brightness and color.", "Wähle einen Punkt im Diagramm oder eine Zelle in der Tabelle, dann stellst du hier Helligkeit und Farbe ein."))}</p>`;
-      return;
-    }
+    box.hidden = !st || !u;
+    if (!st || !u) return;
+    const close = `<button class="x" data-act="close-ins" aria-label="${esc(t("Close", "Schließen"))}">×</button>`;
     const light = u.light,
       val = st.values[light.entity_id] || { brightness: 0 };
     const a = this._hass.states[light.entity_id]?.attributes || {};
     // Lights report odd limits such as 2702 K; Home Assistant clamps what it sends anyway.
     const kmin = Math.round((a.min_color_temp_kelvin || 2000) / 50) * 50,
       kmax = Math.floor((a.max_color_temp_kelvin || 6500) / 50) * 50;
-    let html = `<h3>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small></h3>`;
+    let html = `<h3>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
     if (st.position === 0) {
       box.innerHTML = `${html}<p class="note">${esc(t("At stop 0 all lights are always off.", "Bei Stufe 0 sind immer alle Leuchten aus."))}</p>`;
+      this._placeInspector();
       return;
     }
     if (light.mode === "onoff") {
@@ -766,6 +880,32 @@ class CrescendoPanel extends HTMLElement {
     }
     html += `<button class="btn" data-act="copy-all">${esc(t("Apply to all lights of this stop", "Für alle Leuchten dieser Stufe übernehmen"))}</button>`;
     box.innerHTML = html;
+    this._placeInspector();
+  }
+
+  // In the chart the inspector opens beside the selected point; in the table it stands below the table.
+  _placeInspector() {
+    const r = this.shadowRoot;
+    const box = r.getElementById("inspector"),
+      lights = r.getElementById("lights"),
+      chart = r.getElementById("chartBox");
+    if (!box || box.hidden || !lights) return;
+    const dot = chart && !chart.hidden ? chart.querySelector(".c-dot.sel") : null;
+    if (!dot || lights.clientWidth <= 860 - 0 && r.querySelector(".shell").clientWidth <= 860) {
+      box.classList.remove("pop");
+      box.style.left = box.style.top = "";
+      return;
+    }
+    box.classList.add("pop");
+    const lr = lights.getBoundingClientRect(),
+      dr = dot.getBoundingClientRect();
+    const bw = box.offsetWidth,
+      bh = box.offsetHeight;
+    let left = dr.right - lr.left + 12;
+    if (left + bw > lr.width - 4) left = Math.max(4, dr.left - lr.left - bw - 12);
+    const top = clamp(dr.top - lr.top - 20, 0, Math.max(0, lr.height - bh));
+    box.style.left = `${left}px`;
+    box.style.top = `${top}px`;
   }
 
   _renderButtons() {
@@ -1084,6 +1224,25 @@ data:
         this._view = a.dataset.v;
         this._render();
         break;
+      case "sidebar-ask":
+      case "sidebar-no":
+        this._sidebarAsk = act === "sidebar-ask";
+        this._renderSidebarOption();
+        break;
+      case "sidebar-yes":
+      case "sidebar-add": {
+        const show = act === "sidebar-add";
+        this._sidebarAsk = false;
+        try {
+          await hass.callWS({ type: "cloudless_crescendo/sidebar/set", show });
+          this._sidebarShown = show;
+          this._toast(show ? t("Crescendo is back in the sidebar.", "Crescendo steht wieder in der Seitenleiste.") : t("Crescendo is out of the sidebar.", "Crescendo ist aus der Seitenleiste genommen."));
+        } catch (err) {
+          this._toast(String(err?.message || err));
+        }
+        this._renderSidebarOption();
+        break;
+      }
       case "new-obj": {
         const name = this.shadowRoot.getElementById("newObjName").value.trim();
         if (!name) {
@@ -1091,16 +1250,24 @@ data:
           return;
         }
         const res = await hass.callWS({ type: "cloudless_crescendo/object/create", title: name, lights: [] });
+        this._newing = false;
         await this._load(res.entry_id);
         break;
       }
-      case "pick-obj":
-        clearTimeout(this._saveTimer);
-        this._i = +a.dataset.i;
+      case "new-cancel":
+        this._newing = false;
+        this._renderObjects();
+        break;
+      case "jump": {
+        e.preventDefault();
+        this.shadowRoot.getElementById(a.dataset.to)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        break;
+      }
+      case "close-ins":
         this._sel = { stop: null, lamp: null };
-        this._undo = [];
-        this._confirmDelete = false;
-        this._renderEdit();
+        this._renderTools();
+        this._renderStops();
+        this._renderInspector();
         break;
       case "delete-ask":
         this._confirmDelete = true;
@@ -1236,14 +1403,17 @@ data:
           o.devices = o.devices.filter((d) => d.id !== a.dataset.id);
         });
         break;
+      case "add-dev": {
+        const v = this.shadowRoot.getElementById("addDevSel").value;
+        if (!v) return;
+        const [, kind, id] = v.split(":");
+        this._addDevice(kind, id);
+        break;
+      }
       case "add-item": {
         const v = this.shadowRoot.getElementById("addSel").value;
         if (!v) return;
-        const [kind, x, y] = v.split(":");
-        if (kind === "d") {
-          this._addDevice(x, y);
-          return;
-        }
+        const x = v.slice(2);
         const modes = this._modesFor(x);
         const mode = modes.includes("cct") ? "cct" : modes[modes.length - 1];
         this._change(() => {
@@ -1346,9 +1516,16 @@ data:
         this._scrubPos = undefined;
       }, 1500);
     } else if (t.id === "preview") this._preview = t.checked;
-    else if (t.id === "edAdv") {
-      this._adv = t.checked;
-      this._renderStops();
+    else if (t.id === "objPick") {
+      if (t.value === "new") {
+        this._newing = true;
+        this._renderObjects();
+        this.shadowRoot.getElementById("newObjName")?.focus();
+      } else {
+        this._newing = false;
+        this._pickObject(+t.value);
+        this._renderObjects();
+      }
     } else if (t.id === "edGroup") {
       this._group = t.checked;
       this._renderStops();
