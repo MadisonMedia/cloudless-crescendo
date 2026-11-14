@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0b5
+
+Reload the browser or app once after updating so the page loads anew.
+
+### Changed
+
+- **A point's white tone and color are set on gradient bars**, like in the card: brightness, white tone with the light's own range, color and saturation. A tap on a bar chooses between white tone and color; the arrow keys move a bar's mark too. A dot beside the name shows the result.
+- **Devices are found by search.** Under Devices a search field and kind chips lead to the entity, each result showing its kind, room, current state and value, and offering **Course** and **Threshold** directly. Devices already in the object are marked.
+- The sidebar option says what it does: **Remove this settings page from the sidebar**, with the ways back named before and after.
+
 ## 0.2.0b4
 
 Restart Home Assistant after updating, then reload the browser or app once so the card and the page load anew.
