@@ -115,6 +115,8 @@ setTimeout(async () => {
   const view = params.get("view") || "edit";
   if (view === "cards") panel.hidden = true;
   if (view === "panel") host.hidden = true;
+  if (view === "pointc") { host.hidden = true; const s50 = panel._o.options.stops.find((s) => s.position === 50); panel._selectPoint(s50._sid, "light.boden"); }
+  if (view === "devices") { host.hidden = true; for (const id of ["sec-lights", "sec-stops", "sec-buttons"]) panel.shadowRoot.getElementById(id).hidden = true; }
   if (view === "point") { host.hidden = true; const ph = q('[data-pthit][data-lamp="light.spiegel"]'); const pb = ph.getBoundingClientRect(); capture(ph); point(ph, "pointerdown", pb.left + pb.width / 2, pb.top + pb.height / 2); point(ph, "pointerup", pb.left + pb.width / 2, pb.top + pb.height / 2); }
   if (view === "table") { host.hidden = true; q('[data-act="view-table"]').click(); q('[data-act="sel-cell"]:not(.locked)').click(); }
   if (view === "diag") { host.hidden = true; q('[data-v="diag"]').click(); await wait(300); q('[data-act="test-ask"]').click(); await wait(100); }
@@ -660,7 +662,19 @@ setTimeout(async () => {
     q('[data-act="new-cancel"]').click();
     report("page: jump bar with the five sections", q("#jump").querySelectorAll("a").length === 5 && ["sec-lights", "sec-stops", "sec-buttons", "sec-devices", "sec-behavior"].every((id) => !!q(`#${id}`)));
     report("page: every light shows what it shows, without an advanced switch", panel.shadowRoot.querySelectorAll('#rows select[data-mode]').length === panel._units().length && !q("#edAdv"));
-    report("page: lanes under the chart, devices in their own section", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#devRows .lrow").length === 3 && !!q("#addDevSel"));
+    report("page: lanes under the chart, devices in their own section", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#devRows .lrow").length === 3 && !!q("#devSearch"));
+    // Devices are found by search and by kind; each result offers a course and a threshold.
+    const devSearch = q("#devSearch");
+    devSearch.value = "lautsp";
+    devSearch.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    report("devices: the search narrows the list and offers course and threshold", panel.shadowRoot.querySelectorAll("#devList .pickrow").length === 1 && !!q('#devList [data-act="add-dev"][data-kind="ramp"]') && !!q('#devList [data-act="add-dev"][data-kind="threshold"]') && q("#devList .pickmain small").textContent.includes("25 %"), q("#devList .pickmain")?.textContent);
+    devSearch.value = "";
+    devSearch.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    q('[data-act="dev-kind"][data-domain="cover"]').click();
+    const coverRows = [...panel.shadowRoot.querySelectorAll("#devList .pickrow code")].map((c) => c.textContent);
+    report("devices: a kind chip keeps only that kind", coverRows.length === 1 && coverRows[0] === "cover.bad" && q('#devList .tag') !== null, coverRows.join());
+    q('[data-act="dev-kind"][data-domain=""]').click();
+    report("devices: all kinds again", panel.shadowRoot.querySelectorAll("#devList .pickrow").length >= 3);
     report("page: the live bar holds position, preview and test run", !!q(".livebar #editPos") && !!q(".livebar #preview") && !!q('.livebar [data-act="run-up"]'));
     const pointHit = q("[data-pthit]");
     const phb = pointHit.getBoundingClientRect();
@@ -669,7 +683,31 @@ setTimeout(async () => {
     point(pointHit, "pointerup", phb.left + phb.width / 2, phb.top + phb.height / 2);
     await wait(40);
     const ins = q("#inspector");
-    report("page: a tapped point opens its settings beside it", !ins.hidden && ins.classList.contains("pop") && ins.style.left !== "" && !!q("#insB"), `${ins.classList} ${ins.style.left}`);
+    report("page: a tapped point opens its settings beside it", !ins.hidden && ins.classList.contains("pop") && ins.style.left !== "" && !!q('[data-pbar="bri"]'), `${ins.classList} ${ins.style.left}`);
+    // The point's white tone and color are set on gradient bars, one tap choosing between them.
+    const s50 = panel._o.options.stops.find((s) => s.position === 50);
+    panel._selectPoint(s50._sid, "light.boden");
+    const wbar = q('[data-pbar="white"]'), wb = wbar.getBoundingClientRect();
+    capture(wbar);
+    point(wbar, "pointerdown", wb.right - 0.5, wb.top + 5);
+    point(wbar, "pointerup", wb.right - 0.5, wb.top + 5);
+    await wait(40);
+    const v50 = () => s50.values["light.boden"];
+    report("page: the white-tone bar sets the kelvin up to the light's limit", v50().kelvin === 6500 && !v50().color && !q('[data-pbar="white"] .pknob').hidden && q('[data-pout="white"]').textContent === "6500 K", JSON.stringify(v50()));
+    const hbar = q('[data-pbar="hue"]'), hb = hbar.getBoundingClientRect();
+    capture(hbar);
+    point(hbar, "pointerdown", hb.left + hb.width / 3, hb.top + 5);
+    point(hbar, "pointerup", hb.left + hb.width / 3, hb.top + 5);
+    await wait(40);
+    report("page: a tap on the color bar switches the light to that color", Array.isArray(v50().color) && v50().color[1] === 255 && v50().color[0] < 10 && v50().kelvin === undefined && q('[data-pbar="white"]').classList.contains("idle") && q('[data-pbar="white"] .pknob').hidden, JSON.stringify(v50()));
+    const sbar = q('[data-pbar="sat"]'), sb = sbar.getBoundingClientRect();
+    capture(sbar);
+    point(sbar, "pointerdown", sb.left + sb.width / 2, sb.top + 5);
+    point(sbar, "pointerup", sb.left + sb.width / 2, sb.top + 5);
+    await wait(40);
+    report("page: the saturation bar keeps the hue", v50().color[1] === 255 && v50().color[0] > 100 && q('[data-pout="hue"]').textContent === "120°", JSON.stringify(v50()));
+    q('[data-pbar="white"]').dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true, composed: true }));
+    report("page: a key on the white-tone bar returns to a white tone", v50().kelvin === 6500 && !v50().color, JSON.stringify(v50()));
     q('[data-act="close-ins"]').click();
     report("page: the point's settings can be closed", q("#inspector").hidden);
     q('[data-v="diag"]').click();

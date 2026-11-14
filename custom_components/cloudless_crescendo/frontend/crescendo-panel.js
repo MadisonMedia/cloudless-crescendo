@@ -7,10 +7,11 @@ const {
   clamp,
   EASE_MAX_SECONDS,
   comma,
+  css,
   ease,
   esc,
   friendly,
-  hexRgb,
+  hueRgb,
   isDark,
   kRgb,
   lampAt,
@@ -23,7 +24,7 @@ const {
   lightColor,
   lumOf,
   rampColor,
-  rgbHex,
+  rgbHue,
   rgbOf,
   roomGradient,
   roomLight,
@@ -163,9 +164,31 @@ input.grad::-moz-range-thumb { width: 7px; height: 24px; border-radius: 3px; bac
 .inspector h3 small { font-size: 12.5px; font-weight: 400; color: var(--muted); margin-left: 6px; }
 .ctl { display: grid; gap: 4px; font-size: 13.5px; min-width: 0; }
 .ctl-top { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); }
-.ctl input[type="range"] { width: 100%; accent-color: var(--accent); }
 .ctl output { color: var(--ink); font-variant-numeric: tabular-nums; }
-.color { width: 44px; height: 32px; min-height: 0; padding: 2px; }
+.pbar { position: relative; height: 30px; border-radius: 9px; cursor: pointer; touch-action: none; background-color: var(--well); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
+.pbar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pbar.idle { opacity: .5; }
+.pknob { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 1px rgba(17,21,42,.4), 0 1px 5px rgba(0,0,0,.35); pointer-events: none; }
+.pends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.swatch { width: 18px; height: 18px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.pick { display: grid; gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.picklist { display: grid; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.pickrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--line); }
+.pickrow:first-child { border-top: 0; }
+.pickrow ha-icon { color: var(--muted); --mdc-icon-size: 22px; }
+.pickmain { display: grid; gap: 1px; min-width: 0; font-size: 13.5px; }
+.pickmain b { font-weight: 600; overflow-wrap: anywhere; }
+.pickmain small { font-size: 12px; color: var(--muted); }
+.pickmain code { font-size: 11px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.pickacts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pickacts .btn { padding: 4px 10px; min-height: 30px; font-size: 12.5px; }
+.pickmore { padding: 8px 10px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); }
+.pickmore:first-child { border-top: 0; }
+.tag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--ink); margin-left: 6px; vertical-align: middle; font-weight: 500; }
+@media (max-width: 600px) { .pickrow { grid-template-columns: 26px minmax(0, 1fr); } .pickacts { grid-column: 1 / -1; justify-content: flex-start; } }
 .tbl th { font-size: 12.5px; font-weight: 500; color: var(--muted); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .tbl tr:last-child td { border-bottom: 0; }
@@ -221,6 +244,33 @@ const RAMP_LABEL = {
   fan: ["Speed", "Geschwindigkeit", "%"],
   light: ["Brightness", "Helligkeit", "%"],
 };
+const DOMAIN_ICON = {
+  media_player: "mdi:speaker",
+  climate: "mdi:thermostat",
+  cover: "mdi:window-shutter",
+  fan: "mdi:fan",
+  light: "mdi:lightbulb-outline",
+  switch: "mdi:toggle-switch-outline",
+  input_boolean: "mdi:toggle-switch-outline",
+  number: "mdi:ray-vertex",
+  input_number: "mdi:ray-vertex",
+  script: "mdi:script-text-outline",
+  scene: "mdi:palette-outline",
+};
+const DOMAIN_LABEL = {
+  media_player: ["Speaker", "Lautsprecher"],
+  climate: ["Thermostat", "Thermostat"],
+  cover: ["Blind", "Rollo"],
+  fan: ["Fan", "Lüfter"],
+  light: ["Light", "Leuchte"],
+  switch: ["Switch", "Schalter"],
+  input_boolean: ["Toggle helper", "Schalter (Helfer)"],
+  number: ["Number", "Zahl"],
+  input_number: ["Number helper", "Zahl (Helfer)"],
+  script: ["Script", "Skript"],
+  scene: ["Scene", "Szene"],
+};
+const STATE_DE = { on: "an", off: "aus", playing: "spielt", paused: "pausiert", idle: "bereit", standby: "Standby", open: "offen", closed: "geschlossen", opening: "öffnet", closing: "schließt", heat: "heizt", cool: "kühlt", auto: "automatisch", heat_cool: "heizt/kühlt", dry: "entfeuchtet", fan_only: "nur Lüfter", unavailable: "nicht erreichbar", unknown: "unbekannt" };
 // The name as outlines, each letter a step heavier. Fonts on a system rarely offer that many weights.
 const LOGO = '<svg viewBox="0 -720 4828 740" role="img" aria-label="Crescendo"><path fill="currentColor" d="M389 12Q290 12 214 -34Q137 -81 94 -162Q50 -244 50 -350Q50 -456 93 -538Q136 -619 212 -666Q288 -712 386 -712Q445 -712 502 -690Q558 -669 604 -630Q650 -592 675 -542L622 -509Q601 -552 564 -584Q526 -617 480 -636Q434 -654 386 -654Q307 -654 246 -615Q184 -576 149 -508Q114 -439 114 -350Q114 -260 149 -191Q184 -122 246 -83Q309 -44 389 -44Q438 -44 484 -64Q530 -85 568 -121Q605 -157 626 -203L679 -170Q653 -117 608 -76Q562 -34 505 -11Q448 12 389 12Z M780 0V-500H855V-411Q885 -458 933 -480Q980 -502 1032 -502V-432Q988 -432 947 -417Q907 -403 881 -369Q855 -334 855 -276V0Z M1321 12Q1248 12 1192 -22Q1136 -55 1104 -114Q1072 -173 1072 -250Q1072 -327 1104 -386Q1136 -445 1192 -478Q1248 -512 1321 -512Q1390 -512 1441 -478Q1493 -443 1522 -380Q1551 -317 1551 -232H1161Q1166 -154 1212 -111Q1258 -67 1326 -67Q1378 -67 1413 -91Q1448 -115 1467 -154L1543 -117Q1523 -79 1492 -49Q1460 -20 1417 -4Q1374 12 1321 12ZM1168 -304H1456Q1453 -345 1434 -375Q1416 -404 1386 -420Q1356 -435 1319 -435Q1283 -435 1250 -420Q1216 -404 1194 -375Q1172 -345 1168 -304Z M1814 12Q1762 12 1721 -4Q1679 -19 1650 -47Q1621 -74 1607 -109L1693 -146Q1709 -116 1740 -96Q1771 -76 1809 -76Q1852 -76 1878 -92Q1905 -107 1905 -135Q1905 -161 1885 -177Q1865 -192 1827 -201L1779 -214Q1710 -232 1670 -271Q1631 -309 1631 -358Q1631 -431 1679 -472Q1727 -512 1818 -512Q1863 -512 1901 -499Q1939 -485 1966 -461Q1992 -437 2004 -405L1920 -367Q1909 -396 1880 -410Q1851 -424 1814 -424Q1775 -424 1753 -408Q1731 -391 1731 -361Q1731 -344 1750 -330Q1769 -315 1805 -306L1860 -292Q1909 -280 1941 -256Q1973 -231 1989 -200Q2004 -169 2004 -136Q2004 -91 1980 -58Q1955 -24 1912 -6Q1869 12 1814 12Z M2322 12Q2245 12 2186 -22Q2127 -55 2094 -114Q2060 -173 2060 -250Q2060 -327 2093 -386Q2127 -445 2185 -478Q2244 -512 2320 -512Q2394 -512 2454 -476Q2514 -441 2543 -375L2439 -335Q2423 -368 2390 -388Q2357 -408 2315 -408Q2274 -408 2242 -388Q2210 -367 2192 -332Q2174 -296 2174 -250Q2174 -204 2192 -168Q2211 -133 2243 -113Q2276 -92 2317 -92Q2359 -92 2392 -114Q2425 -135 2441 -172L2545 -132Q2516 -64 2457 -26Q2397 12 2322 12Z M2844 12Q2770 12 2713 -22Q2656 -55 2623 -114Q2591 -173 2591 -250Q2591 -327 2624 -386Q2658 -445 2716 -478Q2774 -512 2850 -512Q2916 -512 2971 -478Q3026 -443 3059 -377Q3092 -311 3092 -217H2723Q2728 -164 2767 -133Q2806 -102 2857 -102Q2899 -102 2926 -120Q2953 -138 2967 -167L3081 -122Q3060 -81 3027 -50Q2993 -20 2948 -4Q2902 12 2844 12ZM2730 -312H2955Q2952 -344 2934 -364Q2917 -384 2893 -394Q2870 -404 2846 -404Q2823 -404 2798 -395Q2772 -385 2753 -365Q2734 -345 2730 -312Z M3157 0V-500H3293L3299 -434Q3323 -472 3360 -492Q3397 -512 3443 -512Q3503 -512 3544 -488Q3586 -464 3607 -413Q3628 -363 3628 -284V0H3484V-256Q3484 -301 3473 -327Q3463 -353 3444 -365Q3425 -376 3400 -377Q3352 -378 3326 -349Q3301 -320 3301 -263V0Z M3914 12Q3843 12 3793 -19Q3742 -51 3715 -110Q3688 -169 3688 -250Q3688 -332 3715 -391Q3742 -449 3793 -481Q3843 -512 3914 -512Q3960 -512 3995 -494Q4030 -477 4053 -443V-700H4215V0H4061L4057 -61Q4034 -26 3998 -7Q3961 12 3914 12ZM3956 -137Q3983 -137 4004 -150Q4025 -162 4038 -185Q4051 -208 4053 -236V-264Q4051 -292 4038 -315Q4025 -337 4004 -349Q3982 -362 3955 -362Q3927 -362 3905 -348Q3882 -334 3869 -308Q3857 -283 3857 -250Q3857 -217 3870 -192Q3883 -166 3906 -152Q3928 -137 3956 -137Z M4548 12Q4468 12 4407 -22Q4345 -55 4310 -114Q4275 -173 4275 -250Q4275 -327 4309 -386Q4344 -445 4405 -478Q4467 -512 4546 -512Q4626 -512 4687 -478Q4749 -445 4784 -386Q4818 -327 4818 -250Q4818 -173 4784 -114Q4749 -55 4688 -22Q4627 12 4548 12ZM4548 -154Q4573 -154 4592 -166Q4611 -179 4622 -200Q4633 -222 4633 -250Q4633 -278 4622 -300Q4611 -321 4591 -334Q4572 -346 4546 -346Q4521 -346 4502 -334Q4482 -321 4471 -300Q4460 -278 4460 -250Q4460 -222 4471 -200Q4482 -179 4502 -166Q4522 -154 4548 -154Z"/></svg>';
 const MENU_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>';
@@ -288,7 +338,12 @@ class CrescendoPanel extends HTMLElement {
     r.addEventListener("pointercancel", () => {
       this._chartDrag = null;
       this._devDrag = null;
+      if (this._insDrag) {
+        this._insDrag = null;
+        this._renderInspector();
+      }
     });
+    r.addEventListener("keydown", (e) => this._onKey(e));
     r.addEventListener("pointerleave", () => this._hideTip(), true);
     // A light's "More" stays open across re-renders.
     r.addEventListener(
@@ -429,7 +484,11 @@ class CrescendoPanel extends HTMLElement {
         <div class="sec" id="sec-devices"><h2>${esc(t("Devices", "Geräte"))}</h2>
           <p class="note">${esc(t("A speaker, a thermostat or a blind can follow the scale: with a course between two stops, or with an action at a threshold. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Lautsprecher, Thermostat oder Rollo können der Skala folgen: mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten."))}</p>
           <div class="lrows" id="devRows"></div>
-          <div class="row"><select class="field" id="addDevSel" aria-label="${esc(t("Choose a device", "Gerät auswählen"))}"></select><button class="btn" data-act="add-dev">${esc(t("Add", "Hinzufügen"))}</button></div>
+          <div class="pick" id="devPick">
+            <input class="field" type="search" id="devSearch" autocomplete="off" placeholder="${esc(t("Search by name, room or kind", "Nach Name, Raum oder Art suchen"))}" aria-label="${esc(t("Search a device", "Gerät suchen"))}">
+            <div class="chips" id="devKinds" role="group" aria-label="${esc(t("Kind of device", "Art des Geräts"))}"></div>
+            <div class="picklist" id="devList"></div>
+          </div>
         </div>
         <div class="sec" id="sec-behavior"><h2>${esc(t("Behavior", "Verhalten"))}</h2>
           <div class="stack">
@@ -440,7 +499,7 @@ class CrescendoPanel extends HTMLElement {
           <div class="ctl"><div class="sub">${esc(t("Speed", "Tempo"))}</div><div class="row"><label for="fadeDef">${esc(t("0 to 100 % takes (seconds)", "0 auf 100 % dauert (Sekunden)"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"></div>
             <p class="note">${esc(t("Each fade takes its share: from 80 to 100 % a fifth. Applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands without a duration. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Jede Überblendung dauert ihren Anteil: von 80 auf 100 % ein Fünftel. Gilt für Buttons, Ein- und Ausschalten, Tippen auf den Regler einer Karte sowie Kacheln und Sprachbefehle ohne Dauer. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}</p></div>
           <div class="ctl"><div class="sub">${esc(t("In automations", "In Automationen"))}</div><p class="note">${esc(t("The object is a normal light. Its brightness is the position on the scale. The lights always run in the set sequence, backward when dimming down.", "Das Objekt ist ein normales Licht. Seine Helligkeit ist die Position auf der Skala. Die Leuchten laufen immer in der eingestellten Reihenfolge, rückwärts beim Runterdimmen."))}</p><pre id="yaml"></pre></div>
-        <div class="ctl"><div class="sub">${esc(t("Sidebar", "Seitenleiste"))}</div><div id="sideOpt"></div></div>
+        <div class="ctl"><div class="sub">${esc(t("Entry in the sidebar", "Eintrag in der Seitenleiste"))}</div><div id="sideOpt"></div></div>
         </div></div>
       </div>
       <div class="livebar">
@@ -484,13 +543,14 @@ class CrescendoPanel extends HTMLElement {
     if (!el) return;
     const t = this._t;
     if (!this._sidebarShown) {
-      el.innerHTML = `<p class="note">${esc(t("Crescendo is not in the sidebar. You reach this page through Configure on an object under Devices & services, and through the card editor.", "Crescendo steht nicht in der Seitenleiste. Du erreichst diese Seite über „Konfigurieren“ bei einem Objekt unter „Geräte & Dienste“ und über den Karten-Editor."))}</p>
-        <button class="btn" data-act="sidebar-add">${esc(t("Add to the sidebar", "In die Seitenleiste aufnehmen"))}</button>`;
+      el.innerHTML = `<p class="note">${esc(t("This settings page is not in the sidebar. You reach it through Configure on an object under Settings → Devices & services, and through the card editor.", "Diese Einstellungsseite steht nicht in der Seitenleiste. Du erreichst sie über „Konfigurieren“ beim Objekt unter Einstellungen → Geräte & Dienste und über den Karten-Editor."))}</p>
+        <button class="btn" data-act="sidebar-add">${esc(t("Put this settings page back in the sidebar", "Diese Einstellungsseite wieder in die Seitenleiste aufnehmen"))}</button>`;
     } else if (this._sidebarAsk) {
-      el.innerHTML = `<p class="note">${esc(t("Remove Crescendo from the sidebar? The page stays reachable through Configure on an object under Devices & services, and through the card editor.", "Crescendo aus der Seitenleiste nehmen? Die Seite bleibt erreichbar über „Konfigurieren“ bei einem Objekt unter „Geräte & Dienste“ und über den Karten-Editor."))}</p>
+      el.innerHTML = `<p class="note">${esc(t("Remove the entry “Crescendo” from the sidebar? This settings page stays reachable through Configure on an object under Settings → Devices & services, and through the card editor. You can put it back here at any time.", "Den Eintrag „Crescendo“ aus der Seitenleiste entfernen? Diese Einstellungsseite bleibt erreichbar über „Konfigurieren“ beim Objekt unter Einstellungen → Geräte & Dienste und über den Karten-Editor. Du kannst sie hier jederzeit wieder aufnehmen."))}</p>
         <div class="row"><button class="btn" data-act="sidebar-yes">${esc(t("Remove", "Entfernen"))}</button><button class="btn" data-act="sidebar-no">${esc(t("Keep", "Behalten"))}</button></div>`;
     } else {
-      el.innerHTML = `<button class="btn quiet" data-act="sidebar-ask">${esc(t("Remove from the sidebar", "Aus der Seitenleiste nehmen"))}</button>`;
+      el.innerHTML = `<p class="note">${esc(t("Crescendo has its own entry in the sidebar of Home Assistant. If you do not need it, you can remove it; this page stays reachable through Configure on an object and through the card editor.", "Crescendo hat einen eigenen Eintrag in der Seitenleiste von Home Assistant. Wenn du ihn nicht brauchst, kannst du ihn entfernen; diese Seite bleibt über „Konfigurieren“ beim Objekt und über den Karten-Editor erreichbar."))}</p>
+        <button class="btn quiet" data-act="sidebar-ask">${esc(t("Remove this settings page from the sidebar", "Diese Einstellungsseite aus der Seitenleiste entfernen"))}</button>`;
     }
   }
 
@@ -585,32 +645,114 @@ class CrescendoPanel extends HTMLElement {
   }
 
   _renderAddSelect() {
-    const t = this._t,
-      hass = this._hass,
+    const hass = this._hass,
       o = this._o.options;
-    const sel = this.shadowRoot.getElementById("addSel"),
-      dev = this.shadowRoot.getElementById("addDevSel");
-    const keep = sel.value,
-      keepDev = dev.value;
+    const sel = this.shadowRoot.getElementById("addSel");
+    const keep = sel.value;
     const ids = Object.keys(hass.states).sort((a, b) => friendly(hass, a).localeCompare(friendly(hass, b)));
     const lights = ids.filter((id) => id.startsWith("light.") && !hass.states[id].attributes.crescendo && !o.lights.some((l) => l.entity_id === id));
-    const label = (id) => `${friendly(hass, id)}`;
-    let devices = "";
-    for (const id of ids) {
-      const domain = id.split(".")[0];
-      if (domain === "light" && !hass.states[id].attributes.crescendo) continue;
-      if (hass.states[id].attributes.crescendo) continue;
-      if (RAMP_DOMAINS.includes(domain)) {
-        const r = RAMP_LABEL[domain];
-        const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("Value", "Wert");
-        devices += `<option value="d:ramp:${esc(id)}">${esc(label(id))}: ${esc(t("course", "Verlauf"))} (${esc(what)})</option>`;
-      }
-      if (DEVICE_ACTIONS[domain]) devices += `<option value="d:threshold:${esc(id)}">${esc(label(id))}: ${esc(t("action at a threshold", "Aktion an einer Schwelle"))}</option>`;
-    }
-    sel.innerHTML = lights.map((id) => `<option value="l:${esc(id)}">${esc(label(id))}</option>`).join("");
-    dev.innerHTML = devices;
+    sel.innerHTML = lights.map((id) => `<option value="l:${esc(id)}">${esc(friendly(hass, id))}</option>`).join("");
     if (keep) sel.value = keep;
-    if (keepDev) dev.value = keepDev;
+    this._renderDevPick();
+  }
+
+  _domainLabel(domain) {
+    const l = DOMAIN_LABEL[domain];
+    return l ? (this._lang === "de" ? l[1] : l[0]) : domain;
+  }
+
+  _areaOf(entityId) {
+    const h = this._hass,
+      e = h.entities?.[entityId];
+    const areaId = e?.area_id || (e?.device_id && h.devices?.[e.device_id]?.area_id);
+    return (areaId && h.areas?.[areaId]?.name) || "";
+  }
+
+  // Every entity that can follow the scale, with the words a search may hit: name, id, room and kind.
+  _deviceCandidates() {
+    const hass = this._hass;
+    const out = [];
+    for (const id of Object.keys(hass.states)) {
+      const s = hass.states[id],
+        domain = id.split(".")[0];
+      // The object's own lights belong under Lights; other lights may follow like any device.
+      if (s.attributes?.crescendo || this._o.options.lights.some((l) => l.entity_id === id)) continue;
+      const ramp = RAMP_DOMAINS.includes(domain),
+        threshold = !!DEVICE_ACTIONS[domain];
+      if (!ramp && !threshold) continue;
+      const name = friendly(hass, id),
+        area = this._areaOf(id),
+        kind = this._domainLabel(domain);
+      out.push({ id, domain, name, area, kind, ramp, threshold, text: `${name} ${id} ${area} ${kind}`.toLowerCase() });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // What the device is doing right now, in a few words.
+  _stateText(c) {
+    const hass = this._hass,
+      t = this._t,
+      s = hass.states[c.id],
+      a = s.attributes || {},
+      lang = this._lang;
+    let state = "";
+    try {
+      state = typeof hass.formatEntityState === "function" && s.entity_id ? hass.formatEntityState(s) : "";
+    } catch (err) {
+      state = "";
+    }
+    if (!state) state = lang === "de" ? STATE_DE[s.state] || s.state : s.state.replace(/_/g, " ");
+    let now = "";
+    if (c.domain === "media_player" && a.volume_level != null) now = `${t("Volume", "Lautstärke")} ${Math.round(a.volume_level * 100)} %`;
+    else if (c.domain === "climate" && a.temperature != null) now = `${t("Target", "Soll")} ${comma(lang, a.temperature)} ${hass.config?.unit_system?.temperature || "°C"}`;
+    else if (c.domain === "cover" && a.current_position != null) now = `${t("Position", "Position")} ${a.current_position} %`;
+    else if (c.domain === "fan" && a.percentage != null) now = `${t("Speed", "Geschwindigkeit")} ${a.percentage} %`;
+    else if (c.domain === "light" && s.state === "on" && a.brightness != null) now = `${Math.round((a.brightness / 255) * 100)} %`;
+    else if ((c.domain === "number" || c.domain === "input_number") && !isNaN(+s.state)) {
+      now = `${comma(lang, s.state)} ${a.unit_of_measurement || ""}`.trim();
+      state = "";
+    }
+    return [state, now].filter(Boolean).join(", ");
+  }
+
+  _pickRow(c) {
+    const t = this._t,
+      s = this._hass.states[c.id],
+      o = this._o.options;
+    const facts = [c.kind, c.area, this._stateText(c)].filter(Boolean).join(" · ");
+    const tags = o.devices
+      .filter((d) => d.entity_id === c.id)
+      .map((d) => `<span class="tag">${esc(d.kind === "ramp" ? t("course added", "Verlauf dabei") : t("threshold added", "Schwelle dabei"))}</span>`)
+      .join("");
+    const r = RAMP_LABEL[c.domain];
+    const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("value", "Wert");
+    const btn = (kind, label, title) => `<button class="btn" data-act="add-dev" data-kind="${kind}" data-id="${esc(c.id)}" title="${esc(title)}">${esc(label)}</button>`;
+    const acts =
+      (c.ramp ? btn("ramp", t("Course", "Verlauf"), t(`${what} runs between two stops`, `${what} läuft zwischen zwei Stufen`)) : "") +
+      (c.threshold ? btn("threshold", t("Threshold", "Schwelle"), t("An action when a stop is crossed", "Eine Aktion beim Überschreiten einer Stufe")) : "");
+    return `<div class="pickrow"><ha-icon icon="${esc(s.attributes?.icon || DOMAIN_ICON[c.domain] || "mdi:devices")}"></ha-icon><div class="pickmain"><b>${esc(c.name)}${tags}</b><small>${esc(facts)}</small><code>${esc(c.id)}</code></div><div class="pickacts">${acts}</div></div>`;
+  }
+
+  // Devices come up by name, room or kind; each shows what it is now and what a course would move.
+  _renderDevPick() {
+    const t = this._t,
+      r = this.shadowRoot;
+    const list = r.getElementById("devList"),
+      chips = r.getElementById("devKinds"),
+      search = r.getElementById("devSearch");
+    if (!list) return;
+    if (search.value !== (this._devQuery || "")) search.value = this._devQuery || "";
+    const all = this._deviceCandidates();
+    const present = new Set(all.map((c) => c.domain));
+    if (this._devKind && !present.has(this._devKind)) this._devKind = "";
+    const kinds = [["", t("All", "Alle")], ...Object.keys(DOMAIN_LABEL).filter((d) => present.has(d)).map((d) => [d, this._domainLabel(d)])];
+    chips.innerHTML = kinds.map(([d, l]) => `<button class="chip" data-act="dev-kind" data-domain="${d}" aria-pressed="${(this._devKind || "") === d}">${esc(l)}</button>`).join("");
+    const words = (this._devQuery || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const hits = all.filter((c) => (!this._devKind || c.domain === this._devKind) && words.every((w) => c.text.includes(w)));
+    const MAX = 12;
+    const rows = hits.slice(0, MAX).map((c) => this._pickRow(c)).join("");
+    const more = hits.length > MAX ? `<div class="pickmore">${esc(t(`${hits.length - MAX} more. Narrow the search.`, `${hits.length - MAX} weitere. Grenze die Suche ein.`))}</div>` : "";
+    list.innerHTML = rows ? rows + more : `<div class="pickmore">${esc(all.length ? t("Nothing found.", "Nichts gefunden.") : t("No device to choose from.", "Kein Gerät zur Auswahl."))}</div>`;
   }
 
   get _lang() {
@@ -841,46 +983,149 @@ class CrescendoPanel extends HTMLElement {
     this.shadowRoot.getElementById("matrix").innerHTML = `<thead><tr><th>${esc(t("Stop", "Stufe"))}</th>${head}</tr></thead><tbody><tr><th scope="row">${esc(t("Room", "Raum"))}</th>${room}</tr>${rows || `<tr><th scope="row">${esc(t("No light yet", "Noch keine Leuchte"))}</th><td colspan="${o.stops.length}"><span class="note">${esc(t("Add the first one below.", "Füge unten die erste hinzu."))}</span></td></tr>`}${devRows}</tbody>`;
   }
 
+  _kelvinRange(light) {
+    const a = this._hass.states[light.entity_id]?.attributes || {};
+    // Lights report odd limits such as 2702 K; Home Assistant clamps what it sends anyway.
+    return [Math.round((a.min_color_temp_kelvin || 2000) / 50) * 50, Math.floor((a.max_color_temp_kelvin || 6500) / 50) * 50];
+  }
+
+  // Hue and saturation of the chosen color, kept while dragging so a gray does not lose its hue.
+  _insPick(light, val) {
+    const rgb = val.color || rgbOf(light, val);
+    const key = `${this._sel.stop}|${this._sel.lamp}`;
+    if (this._pickState?.key === key && this._pickState.rgb.join() === rgb.join()) return this._pickState;
+    const top = Math.max(...rgb);
+    // A light still on a white tone starts fully saturated, like the card's picker.
+    this._pickState = { key, rgb: [...rgb], hue: rgbHue(rgb), sat: !val.color ? 1 : top ? (top - Math.min(...rgb)) / top : 0 };
+    return this._pickState;
+  }
+
+  // The bars of the selected point: what each shows, its gradient and where its mark stands.
+  _insModel(st, u) {
+    const t = this._t,
+      light = u.light,
+      val = st.values[light.entity_id] || { brightness: 0 };
+    const shine = rgbOf(light, val);
+    const grad = (n, f) => `linear-gradient(90deg,${Array.from({ length: n + 1 }, (_, i) => `rgb(${css(f(i / n))}) ${((i / n) * 100).toFixed(1)}%`).join(",")})`;
+    const bars = [];
+    if (light.mode !== "onoff") bars.push({ kind: "bri", label: t("Brightness", "Helligkeit"), value: `${Math.round(val.brightness)} %`, image: `linear-gradient(90deg, var(--well), ${lightA(shine, 1)})`, place: val.brightness / 100 });
+    const white = light.mode !== "rgb" && !val.color;
+    if (light.mode === "cct" || light.mode === "rgbcct") {
+      const [kmin, kmax] = this._kelvinRange(light);
+      const k = clamp(val.kelvin ?? 3000, kmin, kmax);
+      bars.push({ kind: "white", label: t("White tone", "Weißton"), value: white ? `${k} K` : "–", image: grad(6, (x) => kRgb(kmin + (kmax - kmin) * x)), place: white ? (k - kmin) / (kmax - kmin || 1) : null, idle: !white, ends: [`${kmin} K`, `${kmax} K`] });
+    }
+    if (light.mode === "rgb" || light.mode === "rgbcct") {
+      const pick = this._insPick(light, val);
+      bars.push({ kind: "hue", label: t("Color", "Farbe"), value: white ? "–" : `${Math.round(pick.hue)}°`, image: grad(12, (x) => hueRgb((x * 360) % 360)), place: white ? null : pick.hue / 360, idle: white });
+      bars.push({ kind: "sat", label: t("Saturation", "Sättigung"), value: white ? "–" : `${Math.round(pick.sat * 100)} %`, image: `linear-gradient(90deg, #ffffff, rgb(${css(hueRgb(pick.hue % 360))}))`, place: white ? null : pick.sat, idle: white });
+    }
+    return { val, shine: val.brightness > 0 ? lightA(shine, 1) : "var(--well)", bars };
+  }
+
   _renderInspector() {
     const box = this.shadowRoot.getElementById("inspector"),
       t = this._t;
-    if (!box) return;
+    if (!box || this._insDrag) return;
     const st = this._stop(),
       u = this._selUnit();
     box.hidden = !st || !u;
     if (!st || !u) return;
     const close = `<button class="x" data-act="close-ins" aria-label="${esc(t("Close", "Schließen"))}">×</button>`;
-    const light = u.light,
-      val = st.values[light.entity_id] || { brightness: 0 };
-    const a = this._hass.states[light.entity_id]?.attributes || {};
-    // Lights report odd limits such as 2702 K; Home Assistant clamps what it sends anyway.
-    const kmin = Math.round((a.min_color_temp_kelvin || 2000) / 50) * 50,
-      kmax = Math.floor((a.max_color_temp_kelvin || 6500) / 50) * 50;
-    let html = `<h3>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
+    const light = u.light;
+    const m = this._insModel(st, u);
+    let html = `<h3><i class="swatch" style="background:${m.shine}"></i>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
     if (st.position === 0) {
       box.innerHTML = `${html}<p class="note">${esc(t("At stop 0 all lights are always off.", "Bei Stufe 0 sind immer alle Leuchten aus."))}</p>`;
       this._placeInspector();
       return;
     }
     if (light.mode === "onoff") {
-      html += `<label class="opt"><input type="checkbox" id="insOn"${val.brightness > 0 ? " checked" : ""}> ${esc(t("Light on at this stop", "Leuchte an in dieser Stufe"))}</label>`;
-    } else {
-      html += `<div class="ctl"><div class="ctl-top"><label for="insB">${esc(t("Brightness", "Helligkeit"))}</label><output id="insBOut">${Math.round(val.brightness)} %</output></div><input type="range" id="insB" min="0" max="100" step="1" value="${val.brightness}"></div>`;
+      html += `<label class="opt"><input type="checkbox" id="insOn"${m.val.brightness > 0 ? " checked" : ""}> ${esc(t("Light on at this stop", "Leuchte an in dieser Stufe"))}</label>`;
     }
-    if (light.mode === "rgbcct") {
-      html += `<div class="seg" role="group"><button data-act="kind" data-kind="white" aria-pressed="${!val.color}">${esc(t("White", "Weiß"))}</button><button data-act="kind" data-kind="color" aria-pressed="${!!val.color}">${esc(t("Color", "Farbe"))}</button></div>`;
+    for (const b of m.bars) {
+      html += `<div class="ctl"><div class="ctl-top"><span>${esc(b.label)}</span><output data-pout="${b.kind}">${esc(b.value)}</output></div>
+        <div class="pbar${b.idle ? " idle" : ""}" data-pbar="${b.kind}" role="slider" tabindex="0" aria-label="${esc(b.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${b.place === null ? 0 : Math.round(b.place * 100)}" style="background-image:${b.image}"><i class="pknob"${b.place === null ? " hidden" : ` style="left:${(b.place * 100).toFixed(1)}%"`}></i></div>
+        ${b.ends ? `<div class="pends"><span>${esc(b.ends[0])}</span><span>${esc(b.ends[1])}</span></div>` : ""}</div>`;
     }
-    if (light.mode === "cct" || (light.mode === "rgbcct" && !val.color)) {
-      const k = clamp(val.kelvin ?? 3000, kmin, kmax);
-      html += `<div class="ctl"><div class="ctl-top"><label for="insK">${esc(t("Color temperature", "Farbtemperatur"))}</label><output id="insKOut">${k} K</output></div><input type="range" id="insK" min="${kmin}" max="${kmax}" step="50" value="${k}"><p class="note">${esc(t(`This light can do ${kmin} to ${kmax} K.`, `Diese Leuchte kann ${kmin} bis ${kmax} K.`))}</p></div>`;
-    }
-    if (light.mode === "rgb" || (light.mode === "rgbcct" && val.color)) {
-      const hex = val.color ? rgbHex(val.color) : rgbHex(kRgb(val.kelvin ?? 3000));
-      html += `<div class="row"><label for="insC">${esc(t("Color", "Farbe"))}</label><input class="field color" type="color" id="insC" value="${hex}"></div>`;
-    }
+    if (light.mode === "rgbcct") html += `<p class="note">${esc(t("A tap on a bar chooses: the light shows a white tone or a color.", "Ein Tipp auf einen Balken wählt: Die Leuchte zeigt einen Weißton oder eine Farbe."))}</p>`;
     html += `<button class="btn" data-act="copy-all">${esc(t("Apply to all lights of this stop", "Für alle Leuchten dieser Stufe übernehmen"))}</button>`;
     box.innerHTML = html;
     this._placeInspector();
+  }
+
+  // While a bar is dragged the inspector is painted in place, so the dragged bar stays.
+  _paintInspector() {
+    const box = this.shadowRoot.getElementById("inspector"),
+      st = this._stop(),
+      u = this._selUnit();
+    if (!box || !st || !u) return;
+    const m = this._insModel(st, u);
+    box.querySelector(".swatch").style.background = m.shine;
+    for (const b of m.bars) {
+      const bar = box.querySelector(`[data-pbar="${b.kind}"]`),
+        out = box.querySelector(`[data-pout="${b.kind}"]`);
+      if (!bar) continue;
+      out.textContent = b.value;
+      bar.classList.toggle("idle", !!b.idle);
+      bar.style.backgroundImage = b.image;
+      bar.setAttribute("aria-valuenow", b.place === null ? 0 : Math.round(b.place * 100));
+      const knob = bar.querySelector(".pknob");
+      knob.hidden = b.place === null;
+      if (b.place !== null) knob.style.left = `${(b.place * 100).toFixed(1)}%`;
+    }
+  }
+
+  // Moves the selected point's value along a bar: 0 to 1 across its width.
+  _applyIns(kind, place) {
+    const st = this._stop(),
+      u = this._selUnit();
+    if (!st || !u) return;
+    const light = u.light;
+    const [kmin, kmax] = this._kelvinRange(light);
+    const pick = kind === "hue" || kind === "sat" ? this._insPick(light, st.values[light.entity_id] || { brightness: 0 }) : null;
+    if (pick) {
+      if (kind === "hue") pick.hue = (place * 360) % 360;
+      else pick.sat = place;
+      pick.rgb = hueRgb(pick.hue % 360).map((c) => Math.round(c + (255 - c) * (1 - pick.sat)));
+    }
+    for (const id of u.ids) {
+      const v = st.values[id] || { brightness: 0 };
+      if (kind === "bri") st.values[id] = { ...v, brightness: Math.round(place * 100) };
+      else if (kind === "white") st.values[id] = { brightness: v.brightness, kelvin: Math.round((kmin + (kmax - kmin) * place) / 50) * 50 };
+      else st.values[id] = { brightness: v.brightness, color: [...pick.rgb] };
+    }
+  }
+
+  _moveIns(e) {
+    const d = this._insDrag;
+    if (!d) return;
+    this._applyIns(d.kind, clamp((e.clientX - d.r.left) / (d.r.width || 1), 0, 1));
+    this._renderStops();
+    this._paintInspector();
+    this._save();
+    this._previewDraft();
+  }
+
+  // Arrow keys move a bar's mark in small steps; a white tone by 50 K.
+  _onKey(e) {
+    const bar = e.target?.closest?.("[data-pbar]");
+    if (!bar || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const st = this._stop(),
+      u = this._selUnit();
+    if (!st || !u) return;
+    const kind = bar.dataset.pbar;
+    const b = this._insModel(st, u).bars.find((x) => x.kind === kind);
+    const [kmin, kmax] = this._kelvinRange(u.light);
+    const step = kind === "white" ? 50 / (kmax - kmin || 1) : 0.02;
+    let place = b.place ?? (kind === "white" ? 0.5 : kind === "sat" ? 1 : 0);
+    if (e.key === "ArrowLeft") place -= step;
+    else if (e.key === "ArrowRight") place += step;
+    else place = e.key === "Home" ? 0 : 1;
+    e.preventDefault();
+    this._change(() => this._applyIns(kind, clamp(place, 0, 1)), `ins${kind}${st._sid}${u.ids[0]}`);
+    this._renderInspector();
+    this.shadowRoot.querySelector(`[data-pbar="${kind}"]`)?.focus();
   }
 
   // In the chart the inspector opens beside the selected point; in the table it stands below the table.
@@ -1403,13 +1648,14 @@ data:
           o.devices = o.devices.filter((d) => d.id !== a.dataset.id);
         });
         break;
-      case "add-dev": {
-        const v = this.shadowRoot.getElementById("addDevSel").value;
-        if (!v) return;
-        const [, kind, id] = v.split(":");
-        this._addDevice(kind, id);
+      case "add-dev":
+        this._addDevice(a.dataset.kind, a.dataset.id);
+        this._toast(this._t(`${friendly(hass, a.dataset.id)} added. Set it up above.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Stelle es oben ein.`));
         break;
-      }
+      case "dev-kind":
+        this._devKind = a.dataset.domain;
+        this._renderDevPick();
+        break;
       case "add-item": {
         const v = this.shadowRoot.getElementById("addSel").value;
         if (!v) return;
@@ -1422,18 +1668,6 @@ data:
           const top = o.stops[o.stops.length - 1];
           top.values[x] = mode === "cct" || mode === "rgbcct" ? { brightness: 100, kelvin: 3000 } : { brightness: 100 };
         });
-        break;
-      }
-      case "kind": {
-        const st = this._stop(),
-          u = this._selUnit();
-        this._change(() => {
-          for (const id of u.ids) {
-            const v = st.values[id];
-            st.values[id] = a.dataset.kind === "color" ? { brightness: v.brightness, color: v.color || kRgb(v.kelvin ?? 3000) } : { brightness: v.brightness, kelvin: v.kelvin ?? 3000 };
-          }
-        });
-        this._renderInspector();
         break;
       }
       case "copy-all": {
@@ -1482,20 +1716,9 @@ data:
       this._o.title = t.value;
       this._renderObjects();
       this._save();
-    } else if (t.id === "insB") {
-      const st = this._stop(),
-        u = this._selUnit();
-      this._change(() => u.ids.forEach((id) => (st.values[id] = { ...st.values[id], brightness: +t.value })), `b${st._sid}${u.ids[0]}`);
-      this.shadowRoot.getElementById("insBOut").textContent = `${t.value} %`;
-    } else if (t.id === "insK") {
-      const st = this._stop(),
-        u = this._selUnit();
-      this._change(() => u.ids.forEach((id) => (st.values[id] = { brightness: st.values[id].brightness, kelvin: +t.value })), `k${st._sid}${u.ids[0]}`);
-      this.shadowRoot.getElementById("insKOut").textContent = `${t.value} K`;
-    } else if (t.id === "insC") {
-      const st = this._stop(),
-        u = this._selUnit();
-      this._change(() => u.ids.forEach((id) => (st.values[id] = { brightness: st.values[id].brightness, color: hexRgb(t.value) })), `c${st._sid}${u.ids[0]}`);
+    } else if (t.id === "devSearch") {
+      this._devQuery = t.value;
+      this._renderDevPick();
     } else if (t.id === "editPos") {
       this._scrubPos = +t.value;
       this.shadowRoot.getElementById("editPosOut").textContent = `${t.value} %`;
@@ -1618,6 +1841,17 @@ data:
   }
 
   _onDown(e) {
+    const pbar = e.target.closest?.("[data-pbar]");
+    if (pbar) {
+      e.preventDefault();
+      this._undo.push(JSON.stringify({ title: this._o.title, options: this._o.options }));
+      this.shadowRoot.getElementById("undoBtn").disabled = false;
+      this._lastKey = null;
+      this._insDrag = { kind: pbar.dataset.pbar, r: pbar.getBoundingClientRect() };
+      pbar.setPointerCapture(e.pointerId);
+      this._moveIns(e);
+      return;
+    }
     const lane = e.target.closest?.("[data-devlane]");
     if (lane) {
       const d = this._o.options.devices.find((x) => x.id === lane.dataset.devlane);
@@ -1650,6 +1884,10 @@ data:
   }
 
   _onMove(e) {
+    if (this._insDrag) {
+      this._moveIns(e);
+      return;
+    }
     if (this._devDrag) {
       this._moveDev(e);
       return;
@@ -1718,6 +1956,12 @@ data:
   }
 
   _onUp() {
+    if (this._insDrag) {
+      this._insDrag = null;
+      this._renderInspector();
+      this._save();
+      return;
+    }
     if (this._devDrag) {
       this._devDrag = null;
       this._save();

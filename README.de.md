@@ -39,7 +39,7 @@ Benötigt Home Assistant 2026.2 oder neuer.
 
 [![Home Assistant öffnen und die Einrichtung von Crescendo starten.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=cloudless_crescendo)
 
-Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cloudless Crescendo**, gib einen Namen ein und wähle die Leuchten. Danach erscheint **Crescendo** in der Seitenleiste. Die Seite erreichst du auch über **Konfigurieren** beim Objekt und aus dem Karten-Editor; den Eintrag in der Seitenleiste kannst du dort unter **Verhalten** entfernen.
+Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cloudless Crescendo**, gib einen Namen ein und wähle die Leuchten. Danach erscheint **Crescendo** in der Seitenleiste. Die Seite erreichst du auch über **Konfigurieren** beim Objekt und aus dem Karten-Editor; unter **Verhalten** kannst du den Eintrag mit **Diese Einstellungsseite aus der Seitenleiste entfernen** loswerden und später wieder aufnehmen.
 
 ## Ein Objekt einrichten
 
@@ -47,9 +47,9 @@ Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cl
 
 1. Wähle oben das Objekt, oder **Neues Objekt**, und gib ihm einen Namen.
 2. Unter **Leuchten** fügst du seine Leuchten hinzu und wählst je Leuchte, was sie zeigt: Weißtöne, Farben oder beides. Unter **Mehr** stehen Überblendung und Slider-Verhalten.
-3. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an: Seine Einstellungen öffnen sich direkt daneben. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
+3. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an: Seine Einstellungen öffnen sich direkt daneben, mit Balken für Helligkeit, Weißton, Farbe und Sättigung. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
 4. Lege **Standard-Buttons** an. Neue Karten übernehmen sie als Vorlage.
-5. Unter **Geräte** lässt du Lautsprecher, Thermostat oder Rollo der Skala folgen, unter **Verhalten** stellst du Tempo, Einschalten und Slider ein.
+5. Unter **Geräte** suchst du Lautsprecher, Thermostat oder Rollo nach Name, Raum oder Art und lässt sie mit **Verlauf** oder **Schwelle** der Skala folgen. Unter **Verhalten** stellst du Tempo, Einschalten und Slider ein.
 
 Die Leiste am unteren Rand zeigt die Position, schaltet die Vorschau an den Leuchten und startet Probeläufe.
 

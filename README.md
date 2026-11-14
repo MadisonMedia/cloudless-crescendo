@@ -39,7 +39,7 @@ Requires Home Assistant 2026.2 or newer.
 
 [![Open your Home Assistant instance and start setting up Crescendo.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=cloudless_crescendo)
 
-Go to **Settings → Devices & services → Add integration → Cloudless Crescendo**, enter a name and choose the lights. **Crescendo** then appears in the sidebar. The page is also reachable through **Configure** on the object and from the card editor; the sidebar entry can be removed there under **Behavior**.
+Go to **Settings → Devices & services → Add integration → Cloudless Crescendo**, enter a name and choose the lights. **Crescendo** then appears in the sidebar. The page is also reachable through **Configure** on the object and from the card editor; under **Behavior**, **Remove this settings page from the sidebar** takes the entry away, and it can be put back later.
 
 ## Set up an object
 
@@ -47,9 +47,9 @@ Open **Crescendo** in the sidebar.
 
 1. Choose the object at the top, or **New object**, and name it.
 2. Under **Lights**, add its lights and choose for each what it shows: white tones, colors or both. **More** holds the fade and slider behavior.
-3. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
+3. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it, with bars for brightness, white tone, color and saturation. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
 4. Add **Standard buttons**. New cards take them as a template.
-5. Under **Devices**, let a speaker, a thermostat or a blind follow the scale; under **Behavior**, set the speed, switching on and the slider.
+5. Under **Devices**, search a speaker, a thermostat or a blind by name, room or kind and let it follow the scale with a **Course** or a **Threshold**. Under **Behavior**, set the speed, switching on and the slider.
 
 The bar at the bottom shows the position, switches the preview on the lights and starts test runs.
 
