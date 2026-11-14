@@ -110,6 +110,45 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .lpanel .lwarn { flex-basis: 100%; margin: 0; }
 .wdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-left: 5px; vertical-align: 1px; }
 .inspector.wide { max-width: 560px; }
+.exp { display: grid; gap: 10px; padding: 6px 0 12px; min-width: 0; }
+.exp .wrapx { border: 0; }
+.mx.mxrow { width: auto; }
+.mx.mxrow th:first-child, .mx.mxrow td:first-child { position: static; min-width: 0; max-width: none; border-right: 0; padding: 4px; background: transparent; text-align: center; font-weight: 600; }
+.lanes > .exp { padding-left: var(--gut); }
+@container (max-width: 640px) { .lanes > .exp { padding-left: 0; } }
+.mx.mxrow th { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; padding: 2px 4px; }
+.exptr > td { padding: 2px 4px 12px !important; }
+.expin { position: sticky; left: 0; max-width: min(760px, 100%); }
+.anim { animation: crOpen .24s ease-out; transform-origin: top; }
+@keyframes crOpen { from { opacity: 0; transform: translateY(-6px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .anim { animation: none; } }
+.dhead .x { margin-left: auto; }
+.dcell small { white-space: nowrap; }
+.devdot { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); }
+.devlane { cursor: default; }
+.c-devpt { fill: var(--surface); stroke: var(--ink); stroke-width: 2; opacity: .7; }
+.media { display: grid; gap: 8px; padding-top: 4px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.media b { color: var(--ink); font-weight: 600; }
+.mb { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: center; font-size: 12.5px; }
+.crumb { border: 0; background: transparent; color: var(--accent); padding: 2px 4px; border-radius: 6px; font-size: 12.5px; }
+.crumb:hover { background: var(--accent-soft); }
+.mblist { display: grid; gap: 2px; max-height: 320px; overflow: auto; }
+.mbrow { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px; border-radius: 8px; }
+.mbrow:hover { background: var(--line); }
+.mbrow img, .mbicon { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: var(--well); }
+.mbt { display: grid; min-width: 0; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+.mbt small { color: var(--muted); font-size: 11.5px; }
+.mbrow .btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
+.mbown summary { cursor: pointer; font-size: 12.5px; }
+.ledit { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 12px 24px; align-items: start; }
+.ldetail { display: grid; gap: 12px; min-width: 0; }
+.dhead { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.pnum { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.pnum input.num { width: 72px; min-height: 28px; padding: 2px 6px; font-size: 13px; color: var(--ink); }
+.ptrow.sel { background: var(--accent-soft); }
+.lanes .lrow.sel .lanename { color: var(--accent); }
+@container (max-width: 640px) { .ledit { grid-template-columns: minmax(0, 1fr); } }
 .inspector h3 ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
 .pt { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .pt-head { display: flex; align-items: center; gap: 8px; color: var(--ink); }
@@ -389,6 +428,7 @@ const PT = 10,
   CHART_H = 300;
 let sidCounter = 1;
 const clone = (x) => JSON.parse(JSON.stringify(x));
+const EMPTY_CELL = () => ({ value: null, mode: null, up: null, down: null, data: null, label: null });
 const newId = () => Math.random().toString(16).slice(2, 10);
 
 function withIds(options) {
@@ -427,6 +467,11 @@ class CrescendoPanel extends HTMLElement {
     this._preview = true;
     this._edView = "chart";
     this._noGroup = new Set();
+    this._barsOpen = false;
+    this._dopen = null;
+    this._dstop = null;
+    this._browse = null;
+    this._anim = null;
     this._infos = new Set();
     this._addOpen = false;
     this._openMore = new Set();
@@ -594,7 +639,6 @@ class CrescendoPanel extends HTMLElement {
             <div class="wrapx" id="tableWrap" hidden><table class="mx" id="matrix"></table></div>
             <div class="lanes" id="lanes"></div>
             <div class="lanes" id="devRows" hidden></div>
-            <div class="inspector" id="inspector" hidden></div>
           </div>
         </div>
         <div class="sec" id="sec-buttons"><div class="hrow"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>${this._ib("buttons")}</div>
@@ -620,6 +664,7 @@ class CrescendoPanel extends HTMLElement {
     </section>`;
     this._renderSidebarOption();
     if (!o) return;
+    if (this._ensureDeviceStops()) this._save();
     this._watchSections();
     this.shadowRoot.getElementById("objName").value = o.title;
     this._resize?.disconnect();
@@ -681,6 +726,10 @@ class CrescendoPanel extends HTMLElement {
     this._import = null;
     this._addOpen = false;
     this._tplOpen = false;
+    this._barsOpen = false;
+    this._dopen = null;
+    this._dstop = null;
+    this._browse = null;
     this._renderEdit();
   }
 
@@ -939,11 +988,14 @@ class CrescendoPanel extends HTMLElement {
     r.getElementById("stopNote").textContent = chart
       ? t("Drag a point up or down to change the brightness. The number below a line moves the stop. Tap a point to set its color.", "Ziehe einen Punkt nach oben oder unten, um die Helligkeit zu ändern. Die Zahl unter einer Linie verschiebt die Stufe. Tippe einen Punkt an, um die Farbe einzustellen.")
       : t("Every light has a fixed value at every stop. In between it blends smoothly.", "Jede Leuchte hat in jeder Stufe einen festen Wert. Dazwischen wird fließend überblendet.");
-    if (o.devices.length) r.getElementById("stopNote").textContent += ` ${t("Below stand the devices: drag a bar to move where one starts and ends. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Darunter stehen die Geräte: Ziehe einen Balken, um zu verschieben, wo eines beginnt und endet. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.")}`;
+    r.getElementById("stopNote").textContent += ` ${t("A tap on a name opens its row of stops right below; a tap on a stop opens its settings under the row. Devices hang on the stops just like the lights.", "Ein Tipp auf einen Namen öffnet seine Zeile mit den Stufen direkt darunter; ein Tipp auf eine Stufe öffnet ihre Einstellungen unter der Zeile. Geräte hängen wie die Leuchten an den Stufen.")}`;
     r.getElementById("editPos").style.setProperty("--grad", roomGradient(o, undefined, undefined, this._dark));
     r.getElementById("lanes").hidden = !chart;
-    if (chart) this._renderChart();
-    else this._renderMatrix();
+    // Only the visible view holds an open row, so its fields are the ones found.
+    if (chart) {
+      r.getElementById("matrix").innerHTML = "";
+      this._renderChart();
+    } else this._renderMatrix();
     this._renderLanes();
     this._renderRows();
     this._renderDevices();
@@ -1118,7 +1170,7 @@ class CrescendoPanel extends HTMLElement {
         o.stops
           .map((s) => {
             const v = lampAt(o, u.light, s.position).v;
-            const sel = this._sel.stop === s._sid && u.ids.includes(this._sel.lamp);
+            const sel = this._barsOpen && this._sel.stop === s._sid && u.ids.includes(this._sel.lamp);
             return `<circle class="c-dot${sel ? " sel" : ""}" cx="${X(s.position)}" cy="${Y(v)}" r="${sel ? 6 : 4.5}" style="fill:${seriesVar(u.slot)}"/>${s.position === 0 ? "" : `<circle class="c-hit" data-pthit="${s._sid}" data-lamp="${esc(u.ids[0])}" cx="${X(s.position)}" cy="${Y(v)}" r="13"/>`}`;
           })
           .join(""),
@@ -1130,7 +1182,11 @@ class CrescendoPanel extends HTMLElement {
       .map((g) =>
         g.points
           .filter((d) => d.kind === "ramp")
-          .map((d) => `<line class="c-dev" x1="${X(d.from)}" x2="${X(d.to)}" y1="${Y(clamp(d.min, 0, 100))}" y2="${Y(clamp(d.max, 0, 100))}" stroke-dasharray="${g.dash}"><title>${esc(friendly(this._hass, g.entity))}: ${esc(this._pointText(d))}</title></line>`)
+          .map((d) =>
+            d.from === d.to
+              ? `<circle class="c-devpt" cx="${X(d.from)}" cy="${Y(clamp(d.min, 0, 100))}" r="3.5"><title>${esc(friendly(this._hass, g.entity))}: ${esc(this._pointText(d))}</title></circle>`
+              : `<line class="c-dev" x1="${X(d.from)}" x2="${X(d.to)}" y1="${Y(clamp(d.min, 0, 100))}" y2="${Y(clamp(d.max, 0, 100))}" stroke-dasharray="${g.dash}"><title>${esc(friendly(this._hass, g.entity))}: ${esc(this._pointText(d))}</title></line>`,
+          )
           .join(""),
       )
       .join("");
@@ -1207,6 +1263,7 @@ class CrescendoPanel extends HTMLElement {
     if (d.kind === "ramp") {
       const u = this._rampUnit(d);
       const dir = d.direction === "up" ? t(", only when dimming up", ", nur beim Hochdimmen") : d.direction === "down" ? t(", only when dimming down", ", nur beim Runterdimmen") : "";
+      if (d.from === d.to) return `${t("Stop", "Stufe")} ${d.from}: ${u.label} ${this._fmtRamp(d, d.min)}${dir}`;
       return `${t("Stop", "Stufe")} ${d.from}–${d.to}: ${u.label} ${this._fmtRamp(d, d.min)} → ${this._fmtRamp(d, d.max)}${dir}`;
     }
     const up = d.action ? `▲ ${this._actionName(d.action)}` : "",
@@ -1220,18 +1277,19 @@ class CrescendoPanel extends HTMLElement {
     return hit ? this._fmtRamp(hit, this._rampVal(hit, p)) : null;
   }
 
-  // Under the stops: a device's lane with its ranges and switch points, its name opening its points.
+  // Under the stops: a device's lane with its values and switch points; its name opens its row of stops.
   _deviceRow(g) {
-    const t = this._t,
-      e = esc(g.entity);
+    const e = esc(g.entity),
+      open = this._dopen === g.entity;
     const marks = g.points
-      .map((d) =>
-        d.kind === "ramp"
-          ? `<div class="devramp${d.max < d.min ? " fall" : ""}" id="dvr-${esc(d.id)}" style="left:${d.from}%;width:${Math.max(0, d.to - d.from)}%" title="${esc(this._pointText(d))}">${d.direction === "up" ? '<span class="dir">↑</span>' : d.direction === "down" ? '<span class="dir">↓</span>' : ""}</div>`
-          : `<div class="devmark" id="dvm-${esc(d.id)}" style="left:${d.at}%" title="${esc(this._pointText(d))}"></div>`,
-      )
+      .map((d) => {
+        const title = esc(this._pointText(d));
+        if (d.kind !== "ramp") return `<div class="devmark" style="left:${d.at}%" title="${title}"></div>`;
+        if (d.from === d.to) return `<div class="devdot" style="left:${d.from}%" title="${title}"></div>`;
+        return `<div class="devramp${d.max < d.min ? " fall" : ""}" style="left:${d.from}%;width:${Math.max(0, d.to - d.from)}%" title="${title}">${d.direction === "up" ? '<span class="dir">↑</span>' : d.direction === "down" ? '<span class="dir">↓</span>' : ""}</div>`;
+      })
       .join("");
-    return `<div class="lrow devrow"><div class="lname"><button class="lanename" data-act="win-dev" data-entity="${e}">${this._dashKey(g)}<ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><span>${esc(friendly(this._hass, g.entity))}</span></button><span class="devval" data-devval="${e}"></span></div><div class="llane devlane" data-devlane="${e}" title="${esc(t("Dragging moves the nearest end or switch point", "Ziehen verschiebt das nächste Ende oder den nächsten Schaltpunkt"))}">${marks}</div></div>`;
+    return `<div class="lrow devrow${open ? " sel" : ""}"><div class="lname"><button class="lanename" data-act="win-dev" data-entity="${e}" aria-expanded="${open}">${this._dashKey(g)}<ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><span>${esc(friendly(this._hass, g.entity))}</span></button><span class="devval" data-devval="${e}"></span></div><div class="llane devlane">${marks}</div></div>`;
   }
 
   // In the list of lights and devices: what the device is, how many points it has, and the way to them.
@@ -1239,41 +1297,13 @@ class CrescendoPanel extends HTMLElement {
     const t = this._t,
       e = esc(g.entity),
       domain = g.entity.split(".")[0];
-    const ramps = g.points.filter((d) => d.kind === "ramp").length,
-      marks = g.points.length - ramps;
+    const cells = [...this._devModel(g.entity).values()];
+    const valued = cells.filter((c) => c.value !== null).length,
+      marks = cells.filter((c) => c.up || c.down).length;
     const parts = [this._domainLabel(domain)];
-    if (ramps) parts.push(ramps === 1 ? t("1 range", "1 Bereich") : t(`${ramps} ranges`, `${ramps} Bereiche`));
+    if (valued) parts.push(valued === 1 ? t("a value at 1 stop", "Wert an 1 Stufe") : t(`values at ${valued} stops`, `Werte an ${valued} Stufen`));
     if (marks) parts.push(marks === 1 ? t("1 switch point", "1 Schaltpunkt") : t(`${marks} switch points`, `${marks} Schaltpunkte`));
-    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, g.entity))}<small class="members">${esc(parts.join(" · "))}</small></span></div><div class="ctrls"><button class="morebtn" data-act="win-dev" data-entity="${e}" data-jump="1">${esc(t("Points", "Punkte"))} ▸</button><button class="x" data-act="rm-devall" data-entity="${e}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
-  }
-
-  // One point in the device's window.
-  _ptFields(d) {
-    const t = this._t,
-      id = esc(d.id);
-    const num = (f, v, label, attrs = 'min="0" max="100"') => `<input class="field num" type="number" id="d${f}-${id}" data-dev="${id}" data-f="${f}" ${attrs} value="${v}" aria-label="${esc(label)}">`;
-    const head = (title) => `<div class="pt-head"><b>${esc(title)}</b><button class="x" data-act="rm-dev" data-id="${id}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>`;
-    if (d.kind === "ramp") {
-      const u = this._rampUnit(d);
-      const dir = d.direction || "both";
-      const opt = (v, l) => `<option value="${v}"${dir === v ? " selected" : ""}>${esc(l)}</option>`;
-      return `<div class="pt">${head(t("Range", "Bereich"))}
-        <div class="row"><label>${esc(t("Stop", "Stufe"))} ${num("from", d.from, t("Start", "Beginn"))}</label><label>${esc(t("to", "bis"))} ${num("to", d.to, t("End", "Ende"))}</label></div>
-        <div class="row"><label>${esc(u.label)} ${num("min", d.min, t("Start value", "Anfangswert"), `step="${u.step}"`)}</label><label>${esc(t("to", "bis"))} ${num("max", d.max, t("End value", "Endwert"), `step="${u.step}"`)} ${esc(u.unit)}</label></div>
-        <label>${esc(t("Acts", "Wirkt"))} <select class="field" id="ddir-${id}" data-dev="${id}" data-f="direction">${opt("both", t("when dimming up and down", "beim Hoch- und Runterdimmen"))}${opt("up", t("only when dimming up", "nur beim Hochdimmen"))}${opt("down", t("only when dimming down", "nur beim Runterdimmen"))}</select></label></div>`;
-    }
-    const actions = DEVICE_ACTIONS[d.entity_id.split(".")[0]] || ["turn_on", "turn_off"];
-    const opts = (val, list) =>
-      `<option value="">${esc(t("Do nothing", "Nichts tun"))}</option>` + list.map((a) => `<option value="${a}"${val === a ? " selected" : ""}>${esc(this._actionName(a))}</option>`).join("");
-    const media =
-      d.action === "play_media"
-        ? `<div class="row"><label>${esc(t("Title or playlist", "Titel oder Playlist"))} <input class="field" id="dcid-${id}" data-dev="${id}" data-f="media_content_id" value="${esc(d.data?.media_content_id || "")}"></label>
-           <label>${esc(t("Type", "Art"))} <input class="field" id="dctype-${id}" data-dev="${id}" data-f="media_content_type" value="${esc(d.data?.media_content_type || "music")}"></label></div>`
-        : "";
-    return `<div class="pt">${head(t("Switch point", "Schaltpunkt"))}
-      <div class="row"><label>${esc(t("At stop", "Bei Stufe"))} ${num("at", d.at, t("Switch point", "Schaltpunkt"))}</label></div>
-      <label>▲ ${esc(t("Crossing up", "Beim Überschreiten"))} <select class="field" id="dact-${id}" data-dev="${id}" data-f="action">${opts(d.action || "", actions)}</select></label>
-      <label>▼ ${esc(t("Crossing down", "Beim Unterschreiten"))} <select class="field" id="dbck-${id}" data-dev="${id}" data-f="back">${opts(d.back || "", actions.filter((a) => a !== "play_media"))}</select></label>${media}</div>`;
+    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, g.entity))}<small class="members">${esc(parts.join(" · "))}</small></span></div><div class="ctrls"><button class="morebtn" data-act="win-dev" data-entity="${e}" data-jump="1">${esc(t("Stops", "Stufen"))} ▸</button><button class="x" data-act="rm-devall" data-entity="${e}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
   }
 
   _actionName(a) {
@@ -1340,10 +1370,10 @@ class CrescendoPanel extends HTMLElement {
       const note = flicker
         ? `<p class="lwarn">${esc(t("Changing between color and white can make this light flicker. If that bothers you, choose Colors or White tones. Another object with the same light can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann diese Leuchte flackern. Falls das stört, wähle „Farben“ oder „Weißtöne“. Ein weiteres Objekt mit derselben Leuchte kann anders eingestellt sein."))}</p>`
         : "";
-      panel = `<div class="lpanel">${note}${g ? group : ""}
+      panel = `<div class="lpanel">${g ? group : ""}
         <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${k}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
         <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${k}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
-        ${g ? "" : group}${this._ib(`fade-${key}`)}</div>${this._it(`fade-${key}`, t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider. A group shows as one light, here and in the cards, and takes the settings of the light or group it joins.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der Leuchte oder Gruppe, zu der sie kommt."))}`;
+        ${g ? "" : group}${this._ib(`fade-${key}`)}${note}</div>${this._it(`fade-${key}`, t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider. A group shows as one light, here and in the cards, and takes the settings of the light or group it joins.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der Leuchte oder Gruppe, zu der sie kommt."))}`;
     }
     const dot = flicker ? `<span class="wdot" title="${esc(t("Can flicker, see More", "Kann flackern, siehe Mehr"))}"></span>` : "";
     return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname"><span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
@@ -1468,31 +1498,325 @@ class CrescendoPanel extends HTMLElement {
     });
   }
 
+  _afterAnim() {
+    setTimeout(() => (this._anim = null), 0);
+  }
+
+  // The lights' lanes; the open light gets its row of stops right under its lane, and the chosen stop's bars under that.
   _renderLanes() {
     const box = this.shadowRoot.getElementById("lanes"),
       o = this._o.options;
+    const open = this._edView === "chart" && this._sel.lamp ? this._selUnit() : null;
     box.innerHTML = this._units()
-      .map(
-        (u) => `<div class="lrow"><div class="lname"><button class="lanename" data-act="win-light" data-ids="${esc(u.ids.join(","))}"><i class="key" style="background:${seriesVar(u.slot)}"></i><span>${esc(u.name)}</span></button></div>
-        <div class="llane" style="background-image:${laneGradient(o, u.light, undefined, this._dark)}"></div></div>`,
-      )
+      .map((u) => {
+        const key = esc(u.ids.join(","));
+        const isOpen = !!open && open.ids.join(",") === u.ids.join(",");
+        const row = `<div class="lrow${isOpen ? " sel" : ""}" data-ids="${key}"><div class="lname"><button class="lanename" data-act="win-light" data-ids="${key}" aria-expanded="${isOpen}"><i class="key" style="background:${seriesVar(u.slot)}"></i><span>${esc(u.name)}</span></button></div>
+        <div class="llane" data-lane="${key}" style="background-image:${laneGradient(o, u.light, undefined, this._dark)}"></div></div>`;
+        return isOpen ? `${row}<div class="exp${this._anim === "row" ? " anim" : ""}">${this._lightExpHtml(u)}</div>` : row;
+      })
       .join("");
   }
 
+  // While a bar is dragged, the lanes only change their colors.
+  _paintLanes() {
+    const o = this._o.options;
+    for (const u of this._units()) {
+      const lane = this.shadowRoot.querySelector(`#lanes [data-lane="${u.ids.join(",")}"]`);
+      if (lane) lane.style.backgroundImage = laneGradient(o, u.light, undefined, this._dark);
+    }
+  }
+
+  _lightExpHtml(u) {
+    const o = this._o.options,
+      st = this._stop();
+    const head = o.stops.map((s) => `<th>${s.position}</th>`).join("");
+    const cells = o.stops.map((s) => `<td>${this._lightCell(u, s)}</td>`).join("");
+    const bars = this._barsOpen && st ? `<div class="inspector${this._anim ? " anim" : ""}" id="inspector">${this._lightEditorHtml(u, st)}</div>` : "";
+    return `<div class="wrapx"><table class="mx mxrow"><thead><tr>${head}</tr></thead><tbody><tr>${cells}</tr></tbody></table></div>${bars}`;
+  }
+
+  // A light at a stop, as in the table: brightness and what it shows, in its color.
+  _lightCell(u, s) {
+    const t = this._t,
+      light = u.light,
+      val = s.values[light.entity_id] || { brightness: 0 };
+    const sel = this._barsOpen && this._sel.stop === s._sid && u.ids.includes(this._sel.lamp) ? " sel" : "";
+    const attrs = `data-act="sel-cell" data-cell="${s._sid}|${esc(light.entity_id)}" data-stop="${s._sid}" data-lamp="${esc(light.entity_id)}" aria-label="${esc(u.name)}, ${esc(t("stop", "Stufe"))} ${s.position}"`;
+    if (!val.brightness) return `<button class="cell off${s.position === 0 ? " locked" : ""}${sel}" ${attrs}>${esc(t("off", "aus"))}</button>`;
+    const base = rgbOf(light, val);
+    const alpha = 0.2 + 0.8 * Math.pow(val.brightness / 100, 0.7);
+    const fg = this._dark || alpha > 0.6 ? (lumOf(lightColor(base)) > 0.5 ? "#171d2d" : "#ffffff") : "var(--ink)";
+    let sub = "";
+    if (light.mode === "cct" || (light.mode === "rgbcct" && !val.color)) sub = `${val.kelvin ?? 3000} K`;
+    else if (light.mode === "rgb" || light.mode === "rgbcct") sub = t("Color", "Farbe");
+    const main = light.mode === "onoff" ? t("on", "an") : `${Math.round(val.brightness)} %`;
+    return `<button class="cell${sel}" style="background:${rampColor(base, alpha, this._dark)};color:${fg}" ${attrs}>${main}${sub ? `<small>${sub}</small>` : ""}</button>`;
+  }
+
+  // The chosen stop's bars, each with a field for an exact value.
+  _lightEditorHtml(u, st) {
+    const t = this._t,
+      light = u.light;
+    const m = this._insModel(st, u);
+    const close = `<button class="x done" data-act="close-ins" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
+    let html = `<div class="dhead"><i class="swatch" style="background:${m.shine}"></i><b>${esc(u.name)} · ${esc(t("Stop", "Stufe"))} ${st.position}</b>${close}</div>`;
+    if (st.position === 0) return `${html}<p class="note">${esc(t("At stop 0 all lights are always off.", "Bei Stufe 0 sind immer alle Leuchten aus."))}</p>`;
+    if (light.mode === "onoff") html += `<label class="opt"><input type="checkbox" id="insOn"${m.val.brightness > 0 ? " checked" : ""}> ${esc(t("Light on at this stop", "Leuchte an in dieser Stufe"))}</label>`;
+    for (const b of m.bars) {
+      html += `<div class="ctl"><div class="ctl-top"><label for="pn-${b.kind}">${esc(b.label)}</label><span class="pnum"><input class="field num" type="number" id="pn-${b.kind}" data-pnum="${b.kind}" min="${b.min}" max="${b.max}" step="${b.step}" value="${b.num}" placeholder="–"><span>${esc(b.unit)}</span></span></div>
+        <div class="pbar${b.idle ? " idle" : ""}" data-pbar="${b.kind}" role="slider" tabindex="0" aria-label="${esc(b.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${b.place === null ? 0 : Math.round(b.place * 100)}" style="background-image:${b.image}"><i class="pknob"${b.place === null ? " hidden" : ` style="left:${(b.place * 100).toFixed(1)}%"`}></i></div>
+        ${b.ends ? `<div class="pends"><span>${esc(b.ends[0])}</span><span>${esc(b.ends[1])}</span></div>` : ""}</div>`;
+    }
+    if (light.mode === "rgbcct") html += `<p class="note">${esc(t("A tap on a bar or a value in its field chooses: the light shows a white tone or a color.", "Ein Tipp auf einen Balken oder ein Wert in seinem Feld wählt: Die Leuchte zeigt einen Weißton oder eine Farbe."))}</p>`;
+    return `${html}<div><button class="btn" data-act="copy-all">${esc(t("Apply to all lights of this stop", "Für alle Leuchten dieser Stufe übernehmen"))}</button></div>`;
+  }
+
+  // The devices' lanes; the open device gets its row of stops under its lane, and the chosen stop's settings under that.
   _renderDevices() {
-    const box = this.shadowRoot.getElementById("devRows"),
-      t = this._t,
-      o = this._o.options;
-    box.hidden = !o.devices.length;
-    box.innerHTML = this._devGroups()
-      .map((g) => this._deviceRow(g))
+    const box = this.shadowRoot.getElementById("devRows");
+    const groups = this._devGroups();
+    if (this._dopen && !groups.some((g) => g.entity === this._dopen)) {
+      this._dopen = null;
+      this._dstop = null;
+    }
+    box.hidden = !groups.length || this._edView !== "chart";
+    box.innerHTML = groups
+      .map((g) => {
+        const row = this._deviceRow(g);
+        return this._edView === "chart" && this._dopen === g.entity ? `${row}<div class="exp${this._anim === "row" ? " anim" : ""}">${this._devExpHtml(g)}</div>` : row;
+      })
       .join("");
+  }
+
+  _devExpHtml(g) {
+    const o = this._o.options,
+      t = this._t,
+      cells = this._devModel(g.entity);
+    const head = o.stops.map((s) => `<th>${s.position}</th>`).join("");
+    const row = o.stops.map((s) => `<td>${this._devCell(g, s, cells.get(s._sid))}</td>`).join("");
+    const st = this._dstop ? o.stops.find((s) => s._sid === this._dstop) : null;
+    const editor = st ? `<div class="inspector${this._anim ? " anim" : ""}" id="devEditor">${this._devEditorHtml(g, st, cells)}</div>` : "";
+    return `<div class="wrapx"><table class="mx mxrow"><thead><tr>${head}</tr></thead><tbody><tr>${row}</tr></tbody></table></div>${editor}<div class="row"><span class="opt">${esc(t("Tap a stop to set the device there.", "Tippe eine Stufe an, um das Gerät dort einzustellen."))}</span>${this._ib("devwin")}</div>${this._it(
+      "devwin",
+      t(
+        "A value at a stop is reached there; between two stops with values the device follows the scale, in the direction you choose. A jump across them ends at the last value. A switch point acts when the scale crosses its stop, on a slider when you let go; Do nothing leaves one side out. Need a point between two stops? Add a stop there; the lights keep their curve.",
+        "Ein Wert an einer Stufe wird dort erreicht; zwischen zwei Stufen mit Wert läuft das Gerät mit der Skala mit, in der Richtung, die du wählst. Ein Sprung darüber endet beim letzten Wert. Ein Schaltpunkt löst aus, wenn die Skala seine Stufe überquert, beim Slider erst beim Loslassen; „Nichts tun“ lässt eine Seite aus. Du brauchst einen Punkt zwischen zwei Stufen? Füge dort eine Stufe hinzu; die Leuchten behalten ihre Kurve.",
+      ),
+    )}`;
+  }
+
+  // A device at a stop: its value, ▲ and ▼ for actions, an arrow when it follows only one way.
+  _devCell(g, s, c) {
+    const t = this._t;
+    const sel = this._dopen === g.entity && this._dstop === s._sid ? " sel" : "";
+    const has = !!c && c.value !== null;
+    const marks = c ? `${c.up ? "▲" : ""}${c.down ? "▼" : ""}` : "";
+    const dir = has && c.mode === "up" ? "↗" : has && c.mode === "down" ? "↘" : has && c.mode === "off" ? "∣" : "";
+    const title = c ? [has ? this._fmtRamp({ entity_id: g.entity }, c.value) : "", c.up ? `▲ ${this._actionName(c.up)}` : "", c.down ? `▼ ${this._actionName(c.down)}` : ""].filter(Boolean).join(" · ") : "";
+    const small = [marks, dir].filter(Boolean).join(" ");
+    return `<button class="cell dcell${has || marks ? "" : " off"}${sel}" data-act="sel-dcell" data-entity="${esc(g.entity)}" data-stop="${s._sid}" aria-label="${esc(friendly(this._hass, g.entity))}, ${esc(t("stop", "Stufe"))} ${s.position}"${title ? ` title="${esc(title)}"` : ""}>${has ? esc(this._fmtRamp({ entity_id: g.entity }, c.value)) : "–"}${small ? `<small>${small}</small>` : ""}</button>`;
+  }
+
+  // A device's settings at one stop: its value and how it follows to the next value, and its actions.
+  _devEditorHtml(g, st, cells) {
+    const t = this._t,
+      entity = g.entity,
+      domain = entity.split(".")[0],
+      sid = st._sid;
+    const c = cells.get(sid) || EMPTY_CELL();
+    const key = esc(`${entity}|${sid}`);
+    const u = this._rampUnit({ entity_id: entity });
+    const has = c.value !== null;
+    const next = this._o.options.stops.find((s) => s.position > st.position && cells.get(s._sid)?.value != null);
+    const close = `<button class="x done" data-act="close-dcell" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
+    let html = `<div class="dhead"><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><b>${esc(friendly(this._hass, entity))} · ${esc(t("Stop", "Stufe"))} ${st.position}</b>${close}</div>`;
+    if (RAMP_DOMAINS.includes(domain)) {
+      html += `<div class="row"><label class="opt" for="dv-${sid}">${esc(u.label)}</label><span class="pnum"><input class="field num" type="number" id="dv-${sid}" data-dcell="${key}" data-f="value" step="${u.step}" value="${has ? c.value : ""}" placeholder="–"><span>${esc(u.unit)}</span></span>${has ? `<button class="btn quiet" data-act="dcell-clear" data-key="${key}">${esc(t("No value here", "Kein Wert hier"))}</button>` : ""}</div>`;
+      if (has) {
+        const opts = next
+          ? [["both", t("follows when dimming up and down", "läuft beim Hoch- und Runterdimmen mit")], ["up", t("follows only when dimming up", "läuft nur beim Hochdimmen mit")], ["down", t("follows only when dimming down", "läuft nur beim Runterdimmen mit")], ["off", t("does not follow", "läuft nicht mit")]]
+          : [["both", t("set when dimming up and down", "beim Hoch- und Runterdimmen setzen")], ["up", t("set only when dimming up", "nur beim Hochdimmen setzen")], ["down", t("set only when dimming down", "nur beim Runterdimmen setzen")]];
+        const mode = !next && c.mode === "off" ? "both" : c.mode || "both";
+        html += `<label class="opt">${esc(next ? t(`Up to stop ${next.position}`, `Bis Stufe ${next.position}`) : t("The value", "Der Wert"))} <select class="field" id="dm-${sid}" data-dcell="${key}" data-f="mode">${opts.map(([v, l]) => `<option value="${v}"${mode === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+      }
+    }
+    const actions = DEVICE_ACTIONS[domain];
+    if (actions) {
+      const sel = (f, val, list) =>
+        `<select class="field" id="d${f}-${sid}" data-dcell="${key}" data-f="${f}"><option value="">${esc(t("Do nothing", "Nichts tun"))}</option>${list.map((a) => `<option value="${a}"${val === a ? " selected" : ""}>${esc(this._actionName(a))}</option>`).join("")}</select>`;
+      html += `<label class="opt">▲ ${esc(t("Crossing up", "Beim Überschreiten"))} ${sel("up", c.up, actions)}</label><label class="opt">▼ ${esc(t("Crossing down", "Beim Unterschreiten"))} ${sel("down", c.down, actions.filter((a) => a !== "play_media"))}</label>`;
+      if (c.up === "play_media") html += this._mediaHtml(`${entity}|${sid}`, c);
+    }
+    return html;
+  }
+
+  // What to play: chosen from what the player offers, or typed in by hand.
+  _mediaHtml(key, c) {
+    const t = this._t,
+      k = esc(key);
+    const chosen = c.label || c.data?.media_content_id || "";
+    const b = this._browse && this._browse.key === key ? this._browse : null;
+    return `<div class="media"><div class="row"><span>${esc(t("Plays", "Spielt"))}: <b>${chosen ? esc(chosen) : esc(t("nothing chosen yet", "noch nichts gewählt"))}</b></span><button class="btn" data-act="mb-open" data-key="${k}">${esc(t("Choose …", "Auswählen …"))}</button></div>
+      ${b ? this._browserHtml(b) : ""}
+      <details class="mbown"><summary>${esc(t("Enter it yourself", "Selbst eingeben"))}</summary><div class="row"><label class="opt">${esc(t("Content ID", "Inhalts-ID"))} <input class="field" id="dcid-${k}" data-dcell="${k}" data-f="media_content_id" value="${esc(c.data?.media_content_id || "")}"></label><label class="opt">${esc(t("Type", "Art"))} <input class="field" id="dctype-${k}" data-dcell="${k}" data-f="media_content_type" value="${esc(c.data?.media_content_type || "music")}"></label></div></details></div>`;
+  }
+
+  _browserHtml(b) {
+    const t = this._t;
+    if (b.loading) return `<div class="mb"><p class="note">${esc(t("Loading …", "Lädt …"))}</p></div>`;
+    if (b.error) return `<div class="mb"><p class="note">${esc(b.error)}</p><div><button class="btn" data-act="mb-close">${esc(t("Close", "Schließen"))}</button></div></div>`;
+    const crumbs = b.stack.map((x, i) => (i === b.stack.length - 1 ? `<b>${esc(x.title)}</b>` : `<button class="crumb" data-act="mb-back" data-i="${i}">${esc(x.title)}</button>`)).join(" › ");
+    const items = (b.node?.children || [])
+      .map(
+        (x, i) => `<div class="mbrow">${x.thumbnail ? `<img src="${esc(x.thumbnail)}" alt="" loading="lazy">` : '<span class="mbicon"></span>'}<span class="mbt">${esc(x.title)}<small>${esc(x.media_class || "")}</small></span>${x.can_expand ? `<button class="btn" data-act="mb-go" data-i="${i}">${esc(t("Open", "Öffnen"))} ›</button>` : "<span></span>"}${x.can_play ? `<button class="btn primary" data-act="mb-pick" data-i="${i}">${esc(t("Choose", "Wählen"))}</button>` : "<span></span>"}</div>`,
+      )
+      .join("");
+    return `<div class="mb"><div class="row space"><div class="crumbs">${crumbs}</div><button class="x" data-act="mb-close" aria-label="${esc(t("Close", "Schließen"))}">×</button></div><div class="mblist">${items || `<p class="note">${esc(t("Nothing here.", "Hier ist nichts."))}</p>`}</div></div>`;
+  }
+
+  // Asks Home Assistant what the player offers at a place in its library.
+  async _browseTo(key, item) {
+    const entity = key.split("|")[0];
+    const stack = this._browse?.key === key ? this._browse.stack : [];
+    this._browse = { key, stack, node: null, loading: true };
+    this._renderInspector();
+    try {
+      const msg = { type: "media_player/browse_media", entity_id: entity };
+      if (item) {
+        msg.media_content_id = item.media_content_id;
+        msg.media_content_type = item.media_content_type;
+      }
+      const node = await this._hass.callWS(msg);
+      if (this._browse?.key !== key) return;
+      this._browse = { key, stack: [...stack, { title: node.title || item?.title || this._t("Media", "Medien"), media_content_id: node.media_content_id, media_content_type: node.media_content_type, root: !item }], node, loading: false };
+    } catch (err) {
+      this._browse = { key, stack, node: null, loading: false, error: this._t(`This player offers nothing to browse: ${err?.message || err}`, `Dieser Player bietet nichts zum Durchsuchen an: ${err?.message || err}`) };
+    }
+    this._renderInspector();
+  }
+
+  // -- devices on the stops ---------------------------------------------------------------------
+
+  // A device's settings per stop: its value there, how it follows to the next stop with a value, and what it does
+  // when the scale crosses the stop. Stored as ranges and switch points, so the server works as before.
+  _devModel(entity) {
+    const o = this._o.options;
+    const sidAt = new Map(o.stops.map((s) => [s.position, s._sid]));
+    const cells = new Map();
+    const at = (p) => {
+      const sid = sidAt.get(p);
+      if (!sid) return null;
+      if (!cells.has(sid)) cells.set(sid, EMPTY_CELL());
+      return cells.get(sid);
+    };
+    const leaving = new Set();
+    for (const d of o.devices) {
+      if (d.entity_id !== entity) continue;
+      if (d.kind === "ramp") {
+        const a = at(d.from),
+          b = at(d.to);
+        if (a) a.value = d.min;
+        if (d.from !== d.to) {
+          leaving.add(d.from);
+          if (a) a.mode = d.direction || "both";
+          if (b && b.value === null) b.value = d.max;
+        } else if (a && !a.mode) a.mode = d.direction || "both";
+      } else {
+        const c = at(d.at);
+        if (c) Object.assign(c, { up: d.action || null, down: d.back || null, data: d.data || null, label: d.label || null });
+      }
+    }
+    // Two stops with values but no range between them: the device does not follow there.
+    const valued = o.stops.filter((s) => cells.get(s._sid)?.value != null);
+    valued.forEach((s, i) => {
+      if (valued[i + 1] && !leaving.has(s.position)) cells.get(s._sid).mode = "off";
+    });
+    return cells;
+  }
+
+  _devWrite(entity, cells) {
+    const o = this._o.options;
+    const old = o.devices.filter((d) => d.entity_id === entity);
+    const ids = new Map(old.map((d) => [d.kind === "ramp" ? `r${d.from}-${d.to}` : `t${d.at}`, d.id]));
+    const stops = o.stops.filter((s) => cells.has(s._sid));
+    const valued = stops.filter((s) => cells.get(s._sid).value != null);
+    const out = [],
+      covered = new Set();
+    const ramp = (from, to, min, max, direction) => out.push({ id: ids.get(`r${from}-${to}`) || newId(), entity_id: entity, kind: "ramp", from, to, min, max, direction });
+    valued.forEach((s, i) => {
+      const c = cells.get(s._sid),
+        next = valued[i + 1];
+      if (!next || c.mode === "off") return;
+      ramp(s.position, next.position, c.value, cells.get(next._sid).value, c.mode || "both");
+      covered.add(s.position);
+      covered.add(next.position);
+    });
+    for (const s of valued) {
+      if (covered.has(s.position)) continue;
+      const c = cells.get(s._sid);
+      ramp(s.position, s.position, c.value, c.value, c.mode && c.mode !== "off" ? c.mode : "both");
+    }
+    for (const s of stops) {
+      const c = cells.get(s._sid);
+      if (!c.up && !c.down) continue;
+      const d = { id: ids.get(`t${s.position}`) || newId(), entity_id: entity, kind: "threshold", at: s.position, action: c.up, back: c.down };
+      if (c.data) d.data = c.data;
+      if (c.label) d.label = c.label;
+      out.push(d);
+    }
+    // The device keeps its place in the list.
+    const first = o.devices.findIndex((d) => d.entity_id === entity);
+    const rest = o.devices.filter((d) => d.entity_id !== entity);
+    rest.splice(first < 0 ? rest.length : first, 0, ...out);
+    o.devices = rest;
+  }
+
+  // Changes one stop of a device and writes the device back; a device without settings leaves the list.
+  _setCell(key, fn) {
+    const [entity, sid] = key.split("|");
+    const cells = this._devModel(entity);
+    const c = cells.get(sid) || EMPTY_CELL();
+    fn(c);
+    cells.set(sid, c);
+    this._change(() => this._devWrite(entity, cells));
+    if (!this._o.options.devices.some((d) => d.entity_id === entity)) {
+      this._dopen = null;
+      this._dstop = null;
+      this._toast(this._t(`${friendly(this._hass, entity)} has no settings left and is removed.`, `${friendly(this._hass, entity)} hat keine Einstellungen mehr und ist entfernt.`));
+    }
+    this._renderInspector();
+  }
+
+  // Stops that move or go take the devices' settings along, by stop rather than by position.
+  _withDevices(fn) {
+    const models = this._devGroups().map((g) => [g.entity, this._devModel(g.entity)]);
+    fn();
+    for (const [entity, cells] of models) this._devWrite(entity, cells);
+  }
+
+  // Settings from before devices hung on the stops get stops of their own; the lights keep their curve there.
+  _ensureDeviceStops() {
+    const o = this._o.options;
+    const have = new Set(o.stops.map((s) => s.position));
+    let added = 0;
+    for (const d of o.devices)
+      for (const p of d.kind === "ramp" ? [d.from, d.to] : [d.at]) {
+        if (have.has(p)) continue;
+        have.add(p);
+        o.stops.push({ _sid: `s${sidCounter++}`, position: p, values: this._valuesAt(p) });
+        o.stops.sort((a, b) => a.position - b.position);
+        added++;
+      }
+    return added;
   }
 
   _renderMatrix() {
     const o = this._o.options,
       t = this._t,
       us = this._units();
+    const span = o.stops.length + 1;
+    const below = (html) => `<tr class="exptr"><td colspan="${span}"><div class="expin${this._anim ? " anim" : ""}">${html}</div></td></tr>`;
     const head = o.stops.map((s) => `<th><button class="stophead${this._sel.stop === s._sid ? " sel" : ""}" data-act="sel-stop" data-stop="${s._sid}">${s.position}</button></th>`).join("");
     const room = o.stops
       .map((s) => {
@@ -1501,33 +1825,20 @@ class CrescendoPanel extends HTMLElement {
         return `<td><div class="roomcell" style="background-image:linear-gradient(${paint},${paint})"></div></td>`;
       })
       .join("");
-    const cell = (u, s) => {
-      const light = u.light,
-        val = s.values[light.entity_id] || { brightness: 0 };
-      const sel = this._sel.stop === s._sid && u.ids.includes(this._sel.lamp) ? " sel" : "";
-      const attrs = `data-act="sel-cell" data-stop="${s._sid}" data-lamp="${esc(light.entity_id)}" aria-label="${esc(u.name)}, ${esc(t("stop", "Stufe"))} ${s.position}"`;
-      if (!val.brightness) return `<button class="cell off${s.position === 0 ? " locked" : ""}${sel}" ${attrs}>${esc(t("off", "aus"))}</button>`;
-      const base = rgbOf(light, val);
-      const alpha = 0.2 + 0.8 * Math.pow(val.brightness / 100, 0.7);
-      const fg = this._dark || alpha > 0.6 ? (lumOf(lightColor(base)) > 0.5 ? "#171d2d" : "#ffffff") : "var(--ink)";
-      let sub = "";
-      if (light.mode === "cct" || (light.mode === "rgbcct" && !val.color)) sub = `${val.kelvin ?? 3000} K`;
-      else if (light.mode === "rgb" || light.mode === "rgbcct") sub = t("Color", "Farbe");
-      const main = light.mode === "onoff" ? t("on", "an") : `${Math.round(val.brightness)} %`;
-      return `<button class="cell${sel}" style="background:${rampColor(base, alpha, this._dark)};color:${fg}" ${attrs}>${main}${sub ? `<small>${sub}</small>` : ""}</button>`;
-    };
+    const st = this._stop();
     const rows = us
-      .map(
-        (u) => `<tr><th scope="row"><div class="lname" style="padding:0"><button class="lanename" data-act="win-light" data-ids="${esc(u.ids.join(","))}">${esc(u.name)}</button><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></th>${o.stops.map((s) => `<td>${cell(u, s)}</td>`).join("")}</tr>`,
-      )
+      .map((u) => {
+        const row = `<tr><th scope="row"><div class="lname" style="padding:0"><button class="lanename" data-act="win-light" data-ids="${esc(u.ids.join(","))}">${esc(u.name)}</button><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></th>${o.stops.map((s) => `<td>${this._lightCell(u, s)}</td>`).join("")}</tr>`;
+        const open = this._barsOpen && st && u.ids.includes(this._sel.lamp);
+        return open ? row + below(`<div class="inspector" id="inspector">${this._lightEditorHtml(u, st)}</div>`) : row;
+      })
       .join("");
     const devRows = this._devGroups()
       .map((g) => {
-        const marks = g.points
-          .filter((d) => d.kind === "threshold")
-          .map((d) => this._pointText(d))
-          .join("; ");
-        return `<tr><th scope="row"><button class="lanename" data-act="win-dev" data-entity="${esc(g.entity)}">${esc(friendly(this._hass, g.entity))}</button>${marks ? `<small class="mxmarks">${esc(marks)}</small>` : ""}</th>${o.stops.map((s) => `<td class="num-cell" style="text-align:center;font-size:12.5px">${esc(this._devValueAt(g, s.position) ?? "–")}</td>`).join("")}</tr>`;
+        const cells = this._devModel(g.entity);
+        const row = `<tr><th scope="row"><button class="lanename" data-act="win-dev" data-entity="${esc(g.entity)}">${esc(friendly(this._hass, g.entity))}</button></th>${o.stops.map((s) => `<td>${this._devCell(g, s, cells.get(s._sid))}</td>`).join("")}</tr>`;
+        const dst = this._dopen === g.entity && this._dstop ? o.stops.find((s) => s._sid === this._dstop) : null;
+        return dst ? row + below(`<div class="inspector" id="devEditor">${this._devEditorHtml(g, dst, cells)}</div>`) : row;
       })
       .join("");
     this.shadowRoot.getElementById("matrix").innerHTML = `<thead><tr><th>${esc(t("Stop", "Stufe"))}</th>${head}</tr></thead><tbody><tr><th scope="row">${esc(t("Room", "Raum"))}</th>${room}</tr>${rows || `<tr><th scope="row">${esc(t("No light yet", "Noch keine Leuchte"))}</th><td colspan="${o.stops.length}"><span class="note">${esc(t("Add the first one below.", "Füge unten die erste hinzu."))}</span></td></tr>`}${devRows}</tbody>`;
@@ -1558,102 +1869,28 @@ class CrescendoPanel extends HTMLElement {
     const shine = rgbOf(light, val);
     const grad = (n, f) => `linear-gradient(90deg,${Array.from({ length: n + 1 }, (_, i) => `rgb(${css(f(i / n))}) ${((i / n) * 100).toFixed(1)}%`).join(",")})`;
     const bars = [];
-    if (light.mode !== "onoff") bars.push({ kind: "bri", label: t("Brightness", "Helligkeit"), value: `${Math.round(val.brightness)} %`, image: `linear-gradient(90deg, var(--well), ${lightA(shine, 1)})`, place: val.brightness / 100 });
+    if (light.mode !== "onoff") bars.push({ kind: "bri", label: t("Brightness", "Helligkeit"), num: Math.round(val.brightness), unit: "%", min: 0, max: 100, step: 1, value: `${Math.round(val.brightness)} %`, image: `linear-gradient(90deg, var(--well), ${lightA(shine, 1)})`, place: val.brightness / 100 });
     const white = light.mode !== "rgb" && !val.color;
     if (light.mode === "cct" || light.mode === "rgbcct") {
       const [kmin, kmax] = this._kelvinRange(light);
       const k = clamp(val.kelvin ?? 3000, kmin, kmax);
-      bars.push({ kind: "white", label: t("White tone", "Weißton"), value: white ? `${k} K` : "–", image: grad(6, (x) => kRgb(kmin + (kmax - kmin) * x)), place: white ? (k - kmin) / (kmax - kmin || 1) : null, idle: !white, ends: [`${kmin} K`, `${kmax} K`] });
+      bars.push({ kind: "white", label: t("White tone", "Weißton"), num: white ? k : "", unit: "K", min: kmin, max: kmax, step: 50, value: white ? `${k} K` : "–", image: grad(6, (x) => kRgb(kmin + (kmax - kmin) * x)), place: white ? (k - kmin) / (kmax - kmin || 1) : null, idle: !white, ends: [`${kmin} K`, `${kmax} K`] });
     }
     if (light.mode === "rgb" || light.mode === "rgbcct") {
       const pick = this._insPick(light, val);
-      bars.push({ kind: "hue", label: t("Color", "Farbe"), value: white ? "–" : `${Math.round(pick.hue)}°`, image: grad(12, (x) => hueRgb((x * 360) % 360)), place: white ? null : pick.hue / 360, idle: white });
-      bars.push({ kind: "sat", label: t("Saturation", "Sättigung"), value: white ? "–" : `${Math.round(pick.sat * 100)} %`, image: `linear-gradient(90deg, #ffffff, rgb(${css(hueRgb(pick.hue % 360))}))`, place: white ? null : pick.sat, idle: white });
+      bars.push({ kind: "hue", label: t("Color", "Farbe"), num: white ? "" : Math.round(pick.hue) % 360, unit: "°", min: 0, max: 359, step: 1, value: white ? "–" : `${Math.round(pick.hue)}°`, image: grad(12, (x) => hueRgb((x * 360) % 360)), place: white ? null : pick.hue / 360, idle: white });
+      bars.push({ kind: "sat", label: t("Saturation", "Sättigung"), num: white ? "" : Math.round(pick.sat * 100), unit: "%", min: 0, max: 100, step: 1, value: white ? "–" : `${Math.round(pick.sat * 100)} %`, image: `linear-gradient(90deg, #ffffff, rgb(${css(hueRgb(pick.hue % 360))}))`, place: white ? null : pick.sat, idle: white });
     }
     return { val, shine: val.brightness > 0 ? lightA(shine, 1) : "var(--well)", bars };
   }
 
-  // A light's window lists its stops; a device's window holds its ranges and switch points.
-  _renderWin() {
-    const box = this.shadowRoot.getElementById("inspector"),
-      t = this._t,
-      w = this._win,
-      o = this._o.options;
-    const close = `<button class="x done" data-act="close-ins" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
-    box.classList.toggle("wide", w.kind === "device");
-    if (w.kind === "light") {
-      const u = this._units().find((x) => x.ids.join(",") === w.ids);
-      if (!u) {
-        this._win = null;
-        box.hidden = true;
-        return;
-      }
-      const light = u.light;
-      const rows = o.stops
-        .filter((s) => s.position > 0)
-        .map((s) => {
-          const v = s.values[light.entity_id] || { brightness: 0 };
-          const on = v.brightness > 0;
-          const main = !on ? t("off", "aus") : light.mode === "onoff" ? t("on", "an") : `${Math.round(v.brightness)} %`;
-          const sub = !on ? "" : v.color ? t("Color", "Farbe") : light.mode === "cct" || light.mode === "rgbcct" ? `${v.kelvin ?? 3000} K` : "";
-          return `<button class="ptrow" data-act="win-point" data-stop="${s._sid}" data-lamp="${esc(light.entity_id)}"><span>${esc(t("Stop", "Stufe"))} ${s.position}</span><i class="swatch" style="background:${on ? lightA(rgbOf(light, v), 1) : "var(--well)"}"></i><b>${esc(main)}</b><small>${esc(sub)}</small></button>`;
-        })
-        .join("");
-      box.innerHTML = `<h3><i class="key" style="background:${seriesVar(u.slot)}"></i>${esc(u.name)}<small>${esc(t("All stops", "Alle Stufen"))}</small>${close}</h3><div class="ptlist">${rows}</div><p class="note">${esc(t("Tap a stop to set it.", "Tippe eine Stufe an, um sie einzustellen."))}</p>`;
-    } else {
-      const g = this._devGroups().find((x) => x.entity === w.entity);
-      if (!g) {
-        this._win = null;
-        box.hidden = true;
-        return;
-      }
-      const domain = g.entity.split(".")[0],
-        e = esc(g.entity);
-      const add = (kind, label) => `<button class="btn" data-act="add-pt" data-kind="${kind}" data-entity="${e}">+ ${esc(label)}</button>`;
-      box.innerHTML = `<h3><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon>${esc(friendly(this._hass, g.entity))}<small>${esc(this._domainLabel(domain))}</small>${close}</h3>
-        ${g.points.map((d) => this._ptFields(d)).join("")}
-        <div class="row">${RAMP_DOMAINS.includes(domain) ? add("ramp", t("Range", "Bereich")) : ""}${DEVICE_ACTIONS[domain] ? add("threshold", t("Switch point", "Schaltpunkt")) : ""}${this._ib("devwin")}</div>
-        ${this._it("devwin", t("A range changes the value while the scale runs through it; a jump over it ends at its end value. A switch point acts when the scale crosses it, on a slider when you let go; Do nothing leaves one side out. Several ranges and switch points can work together, for example play from 50, louder from 60 to 80, pause below 40.", "Ein Bereich ändert den Wert, während die Skala durch ihn läuft; wer ihn überspringt, landet auf seinem Endwert. Ein Schaltpunkt löst aus, wenn die Skala ihn überquert, beim Slider erst beim Loslassen; „Nichts tun“ lässt eine Seite aus. Mehrere Bereiche und Schaltpunkte arbeiten zusammen, zum Beispiel ab 50 abspielen, von 60 bis 80 lauter, unter 40 pausieren."))}`;
-    }
-    box.hidden = false;
-    this._placeInspector();
-  }
-
+  // Whatever is open lives inside the lanes or the table; painting them anew shows it.
   _renderInspector() {
-    const box = this.shadowRoot.getElementById("inspector"),
-      t = this._t;
-    if (!box || this._insDrag) return;
-    if (this._win && !this._sel.lamp) {
-      this._renderWin();
-      return;
-    }
-    box.classList.remove("wide");
-    const st = this._stop(),
-      u = this._selUnit();
-    box.hidden = !st || !u;
-    if (!st || !u) return;
-    const close = `<button class="x done" data-act="close-ins" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
-    const light = u.light;
-    const m = this._insModel(st, u);
-    const back = this._win?.kind === "light" ? `<button class="x" data-act="win-back" aria-label="${esc(t("Back to all stops", "Zurück zu allen Stufen"))}" title="${esc(t("All stops", "Alle Stufen"))}">‹</button>` : "";
-    let html = `<h3>${back}<i class="swatch" style="background:${m.shine}"></i>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
-    if (st.position === 0) {
-      box.innerHTML = `${html}<p class="note">${esc(t("At stop 0 all lights are always off.", "Bei Stufe 0 sind immer alle Leuchten aus."))}</p>`;
-      this._placeInspector();
-      return;
-    }
-    if (light.mode === "onoff") {
-      html += `<label class="opt"><input type="checkbox" id="insOn"${m.val.brightness > 0 ? " checked" : ""}> ${esc(t("Light on at this stop", "Leuchte an in dieser Stufe"))}</label>`;
-    }
-    for (const b of m.bars) {
-      html += `<div class="ctl"><div class="ctl-top"><span>${esc(b.label)}</span><output data-pout="${b.kind}">${esc(b.value)}</output></div>
-        <div class="pbar${b.idle ? " idle" : ""}" data-pbar="${b.kind}" role="slider" tabindex="0" aria-label="${esc(b.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${b.place === null ? 0 : Math.round(b.place * 100)}" style="background-image:${b.image}"><i class="pknob"${b.place === null ? " hidden" : ` style="left:${(b.place * 100).toFixed(1)}%"`}></i></div>
-        ${b.ends ? `<div class="pends"><span>${esc(b.ends[0])}</span><span>${esc(b.ends[1])}</span></div>` : ""}</div>`;
-    }
-    if (light.mode === "rgbcct") html += `<p class="note">${esc(t("A tap on a bar chooses: the light shows a white tone or a color.", "Ein Tipp auf einen Balken wählt: Die Leuchte zeigt einen Weißton oder eine Farbe."))}</p>`;
-    html += `<button class="btn" data-act="copy-all">${esc(t("Apply to all lights of this stop", "Für alle Leuchten dieser Stufe übernehmen"))}</button>`;
-    box.innerHTML = html;
-    this._placeInspector();
+    if (this._insDrag) return;
+    if (this._edView === "chart") {
+      this._renderLanes();
+      this._renderDevices();
+    } else this._renderMatrix();
   }
 
   // While a bar is dragged the inspector is painted in place, so the dragged bar stays.
@@ -1663,12 +1900,14 @@ class CrescendoPanel extends HTMLElement {
       u = this._selUnit();
     if (!box || !st || !u) return;
     const m = this._insModel(st, u);
-    box.querySelector(".swatch").style.background = m.shine;
+    const head = box.querySelector(".dhead .swatch");
+    if (head) head.style.background = m.shine;
+    this.shadowRoot.querySelectorAll(`[data-cell="${st._sid}|${u.light.entity_id}"]`).forEach((el) => (el.outerHTML = this._lightCell(u, st)));
     for (const b of m.bars) {
       const bar = box.querySelector(`[data-pbar="${b.kind}"]`),
-        out = box.querySelector(`[data-pout="${b.kind}"]`);
+        num = box.querySelector(`[data-pnum="${b.kind}"]`);
       if (!bar) continue;
-      out.textContent = b.value;
+      if (num && this.shadowRoot.activeElement !== num) num.value = b.num;
       bar.classList.toggle("idle", !!b.idle);
       bar.style.backgroundImage = b.image;
       bar.setAttribute("aria-valuenow", b.place === null ? 0 : Math.round(b.place * 100));
@@ -1679,16 +1918,13 @@ class CrescendoPanel extends HTMLElement {
   }
 
   // Changes apply as they are made, so closing only puts the settings away. The stop stays chosen for its tools.
+  // Folds the open settings; the row of stops stays open and the stop stays chosen for its tools.
   _closeInspector() {
-    this._win = null;
-    this._sel = { stop: this._sel.stop, lamp: null };
+    this._barsOpen = false;
+    this._dstop = null;
+    this._browse = null;
+    if (this._edView === "chart") this._renderChart();
     this._renderInspector();
-    const r = this.shadowRoot;
-    r.querySelectorAll(".c-dot.sel").forEach((el) => {
-      el.classList.remove("sel");
-      el.setAttribute("r", "4.5");
-    });
-    r.querySelectorAll(".cell.sel").forEach((el) => el.classList.remove("sel"));
   }
 
   // Moves the selected point's value along a bar: 0 to 1 across its width.
@@ -1716,7 +1952,8 @@ class CrescendoPanel extends HTMLElement {
     const d = this._insDrag;
     if (!d) return;
     this._applyIns(d.kind, clamp((e.clientX - d.r.left) / (d.r.width || 1), 0, 1));
-    this._renderStops();
+    if (this._edView === "chart") this._renderChart();
+    this._paintLanes();
     this._paintInspector();
     this._save();
     this._previewDraft();
@@ -1724,7 +1961,7 @@ class CrescendoPanel extends HTMLElement {
 
   // Arrow keys move a bar's mark in small steps; a white tone by 50 K.
   _onKey(e) {
-    if (e.key === "Escape" && this.shadowRoot.getElementById("inspector")?.hidden === false) {
+    if (e.key === "Escape" && (this._barsOpen || this._dstop)) {
       this._closeInspector();
       return;
     }
@@ -1748,41 +1985,12 @@ class CrescendoPanel extends HTMLElement {
   }
 
   // In the chart the inspector opens beside the selected point; in the table it stands below the table.
+  // Everything opens in place now; nothing floats above the chart.
   _placeInspector() {
-    const r = this.shadowRoot;
-    const box = r.getElementById("inspector"),
-      lights = r.getElementById("lights"),
-      chart = r.getElementById("chartBox");
-    if (!box || box.hidden || !lights) return;
-    // A device's window is a form and opens in place under the lanes; a light's list opens below its name.
-    const win = this._win && !this._sel.lamp;
-    if (win && this._win.kind === "device") {
-      box.classList.remove("pop");
-      box.style.left = box.style.top = "";
-      return;
-    }
-    const key = win ? (this._win.kind === "light" ? `[data-act="win-light"][data-ids="${this._win.ids}"]` : `[data-act="win-dev"][data-entity="${this._win.entity}"]`) : "";
-    const dot = win ? [...lights.querySelectorAll(key)].find((el) => el.offsetParent) : chart && !chart.hidden ? chart.querySelector(".c-dot.sel") : null;
-    if (!dot || r.querySelector(".shell").clientWidth <= 860) {
-      box.classList.remove("pop");
-      box.style.left = box.style.top = "";
-      return;
-    }
-    box.classList.add("pop");
-    const lr = lights.getBoundingClientRect(),
-      dr = dot.getBoundingClientRect();
-    const bw = box.offsetWidth,
-      bh = box.offsetHeight;
-    if (win) {
-      box.style.left = `${clamp(this._chartGut, 4, Math.max(4, lr.width - bw - 4))}px`;
-      box.style.top = `${dr.bottom - lr.top + 6}px`;
-      return;
-    }
-    let left = dr.right - lr.left + 12;
-    if (left + bw > lr.width - 4) left = Math.max(4, dr.left - lr.left - bw - 12);
-    const top = clamp(dr.top - lr.top - 20, 0, Math.max(0, lr.height - bh));
-    box.style.left = `${left}px`;
-    box.style.top = `${top}px`;
+    const box = this.shadowRoot.getElementById("inspector");
+    if (!box) return;
+    box.classList.remove("pop");
+    box.style.left = box.style.top = "";
   }
 
   _renderButtons() {
@@ -2059,16 +2267,23 @@ data:
     return Object.fromEntries(o.lights.map((l) => [l.entity_id, interpVal(a.values[l.entity_id] || { brightness: 0 }, b.values[l.entity_id] || { brightness: 0 }, tt)]));
   }
 
-  _selectPoint(stop, lamp, fromWin = false) {
-    if (!fromWin) this._win = null;
+  _selectPoint(stop, lamp) {
+    if (!(this._sel.lamp && this._selUnit()?.ids.includes(lamp))) {
+      this._anim = "row";
+      this._afterAnim();
+    }
     this._sel = { stop, lamp };
+    this._barsOpen = true;
+    this._dopen = null;
+    this._dstop = null;
+    this._browse = null;
     this._lastKey = null;
     this._renderTools();
     this._renderStops();
     this._renderInspector();
     const st = this._stop();
     if (st) this._jumpTo(st.position);
-    if (this.shadowRoot.querySelector(".shell").clientWidth <= 860) this.shadowRoot.getElementById("inspector")?.scrollIntoView({ block: "nearest" });
+    this.shadowRoot.getElementById("inspector")?.scrollIntoView?.({ block: "nearest" });
   }
 
   _addDevice(kind, entityId) {
@@ -2080,19 +2295,21 @@ data:
     const domain = entityId.split(".")[0],
       a = this._hass.states[entityId]?.attributes || {};
     const d = { id: newId(), entity_id: entityId, kind };
+    const up = this._o.options.stops.map((s) => s.position).filter((p) => p > 0);
     if (kind === "ramp") {
-      d.from = 20;
+      d.from = up[0] ?? 100;
       d.to = 100;
       d.direction = "both";
       if (domain === "media_player") Object.assign(d, { min: 0, max: 40 });
       else if (domain === "climate") {
         const now = +a.temperature || 20;
-        Object.assign(d, { from: 40, min: now - 1, max: now + 2 });
+        Object.assign(d, { min: now - 1, max: now + 2 });
       } else if (domain === "number" || domain === "input_number") Object.assign(d, { min: +a.min || 0, max: +a.max || 100 });
       else Object.assign(d, { min: 0, max: 100 });
     } else {
       const actions = DEVICE_ACTIONS[domain] || ["turn_on", "turn_off"];
-      Object.assign(d, { at: 50, action: actions[0], back: this._opposite(entityId, actions[0]) });
+      const at = up.reduce((best, p) => (Math.abs(p - 50) < Math.abs(best - 50) ? p : best), up[0] ?? 100);
+      Object.assign(d, { at, action: actions[0], back: this._opposite(entityId, actions[0]) });
     }
     return d;
   }
@@ -2206,9 +2423,19 @@ data:
         this._renderInspector();
         this._jumpTo(this._stop().position);
         break;
-      case "sel-cell":
+      case "sel-cell": {
+        const same = this._barsOpen && this._sel.stop === a.dataset.stop && this._selUnit()?.ids.includes(a.dataset.lamp);
+        if (same) {
+          this._closeInspector();
+          break;
+        }
+        if (!this._barsOpen) {
+          this._anim = this._anim || "bars";
+          this._afterAnim();
+        }
         this._selectPoint(a.dataset.stop, a.dataset.lamp);
         break;
+      }
       case "add-stop": {
         const pos = this._freePosition();
         if (pos === null) {
@@ -2264,11 +2491,13 @@ data:
       }
       case "del-stop": {
         const st = this._stop();
-        this._change(() => {
-          o.stops = o.stops.filter((x) => x !== st);
-          this._o.options.stops = o.stops;
-          this._sel = { stop: null, lamp: null };
-        });
+        this._change(() =>
+          this._withDevices(() => {
+            o.stops = o.stops.filter((x) => x !== st);
+            this._o.options.stops = o.stops;
+            this._sel = { stop: null, lamp: null };
+          }),
+        );
         this._renderTools();
         this._renderInspector();
         break;
@@ -2284,46 +2513,124 @@ data:
         this._renderInspector();
         break;
       }
-      case "rm-dev":
-        this._change(() => {
-          o.devices = o.devices.filter((d) => d.id !== a.dataset.id);
-        });
-        this._renderInspector();
-        break;
       case "rm-devall":
         this._change(() => {
           o.devices = o.devices.filter((d) => d.entity_id !== a.dataset.entity);
         });
-        if (this._win?.entity === a.dataset.entity) this._win = null;
+        if (this._dopen === a.dataset.entity) this._dopen = this._dstop = null;
         this._renderInspector();
         break;
       case "add-dev":
         this._addDevice(a.dataset.kind, a.dataset.id);
-        this._win = { kind: "device", entity: a.dataset.id };
-        this._sel = { stop: this._sel.stop, lamp: null };
+        this._dopen = a.dataset.id;
+        this._dstop = null;
         this._renderInspector();
-        this._toast(t(`${friendly(hass, a.dataset.id)} added. Its points stand under Stops.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Seine Punkte stehen unter „Stufen“.`));
+        this._toast(t(`${friendly(hass, a.dataset.id)} added. Under Stops its row shows where it does what.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Unter „Stufen“ zeigt seine Zeile, wo es was tut.`));
         break;
-      case "add-pt": {
-        const d = this._newDevice(a.dataset.kind, a.dataset.entity);
-        this._change(() => o.devices.push(d));
+      case "win-dev": {
+        const entity = a.dataset.entity;
+        if (this._dopen === entity && !a.dataset.jump) {
+          this._dopen = null;
+          this._dstop = null;
+          this._browse = null;
+        } else {
+          if (this._dopen !== entity) {
+            this._anim = "row";
+            this._afterAnim();
+          }
+          this._dopen = entity;
+          this._sel = { stop: this._sel.stop, lamp: null };
+          this._barsOpen = false;
+          // The table has no row to open, so a stop opens right away there.
+          if (this._edView === "table") {
+            const cells = this._devModel(entity);
+            this._dstop = (o.stops.find((s) => cells.has(s._sid)) || o.stops.find((s) => s.position > 0))?._sid || null;
+          }
+        }
+        this._renderStops();
+        if (a.dataset.jump) setTimeout(() => this.shadowRoot.querySelector(`#lights [data-act="win-dev"][data-entity="${entity}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+        break;
+      }
+      case "win-light": {
+        const ids = a.dataset.ids;
+        const open = this._sel.lamp && (this._edView === "chart" || this._barsOpen) && this._selUnit()?.ids.join(",") === ids;
+        if (open) {
+          this._sel = { stop: this._sel.stop, lamp: null };
+          this._barsOpen = false;
+          this._renderStops();
+          break;
+        }
+        this._dopen = null;
+        this._dstop = null;
+        this._browse = null;
+        if (this._edView === "table") {
+          const pos = this._livePos();
+          const near = o.stops.filter((s) => s.position > 0).reduce((best, s) => (!best || Math.abs(s.position - pos) < Math.abs(best.position - pos) ? s : best), null);
+          if (near) this._selectPoint(near._sid, ids.split(",")[0]);
+          break;
+        }
+        this._sel = { stop: this._sel.stop, lamp: ids.split(",")[0] };
+        this._barsOpen = false;
+        this._anim = "row";
+        this._afterAnim();
+        this._renderStops();
+        break;
+      }
+      case "sel-dcell": {
+        const same = this._dopen === a.dataset.entity && this._dstop === a.dataset.stop;
+        if (!same && !this._dstop) {
+          this._anim = "bars";
+          this._afterAnim();
+        }
+        this._dopen = a.dataset.entity;
+        this._dstop = same ? null : a.dataset.stop;
+        this._browse = null;
+        this._sel = { stop: this._sel.stop, lamp: null };
+        this._barsOpen = false;
+        if (this._edView === "chart") this._renderChart();
         this._renderInspector();
         break;
       }
-      case "win-dev":
-      case "win-light":
-        this._win = act === "win-dev" ? { kind: "device", entity: a.dataset.entity } : { kind: "light", ids: a.dataset.ids };
-        this._sel = { stop: this._sel.stop, lamp: null };
-        this._renderStops();
+      case "close-dcell":
+        this._dstop = null;
+        this._browse = null;
         this._renderInspector();
-        if (a.dataset.jump) this.shadowRoot.getElementById("devRows")?.scrollIntoView({ behavior: "smooth", block: "center" });
         break;
-      case "win-point":
-        this._selectPoint(a.dataset.stop, a.dataset.lamp, true);
+      case "dcell-clear":
+        this._setCell(a.dataset.key, (c) => {
+          c.value = null;
+        });
         break;
-      case "win-back":
-        this._sel = { stop: this._sel.stop, lamp: null };
-        this._renderStops();
+      case "mb-open":
+        await this._browseTo(a.dataset.key, null);
+        break;
+      case "mb-go": {
+        const item = this._browse?.node?.children?.[+a.dataset.i];
+        if (item) await this._browseTo(this._browse.key, item);
+        break;
+      }
+      case "mb-back": {
+        const b = this._browse,
+          i = +a.dataset.i,
+          target = b?.stack[i];
+        if (!target) return;
+        b.stack = b.stack.slice(0, i);
+        await this._browseTo(b.key, target.root ? null : target);
+        break;
+      }
+      case "mb-pick": {
+        const b = this._browse,
+          item = b?.node?.children?.[+a.dataset.i];
+        if (!item) return;
+        this._browse = null;
+        this._setCell(b.key, (c) => {
+          c.data = { media_content_id: item.media_content_id, media_content_type: item.media_content_type };
+          c.label = item.title;
+        });
+        break;
+      }
+      case "mb-close":
+        this._browse = null;
         this._renderInspector();
         break;
       case "dev-kind":
@@ -2409,6 +2716,7 @@ data:
         this._change(() => {
           o.stops = tpl.stops.map((s) => ({ ...s, _sid: `s${sidCounter++}` }));
           if (withButtons) o.buttons = tpl.buttons;
+          this._ensureDeviceStops();
         });
         this._sel = { stop: null, lamp: null };
         this._tplOpen = false;
@@ -2431,6 +2739,7 @@ data:
         this._import = null;
         this._change(() => {
           this._o.options = withIds(clean);
+          this._ensureDeviceStops();
         });
         this._sel = { stop: null, lamp: null };
         this._renderEdit();
@@ -2577,6 +2886,37 @@ data:
       this._i = +t.value;
       this._test = {};
       this._renderDiagView();
+    } else if (t.dataset.dcell) {
+      const entity = t.dataset.dcell.split("|")[0],
+        f = t.dataset.f;
+      this._setCell(t.dataset.dcell, (c) => {
+        if (f === "value") c.value = t.value === "" ? null : +t.value;
+        else if (f === "mode") c.mode = t.value;
+        else if (f === "up") {
+          // A way back that was the opposite of the old action follows the new one.
+          const follows = (c.down || null) === this._opposite(entity, c.up);
+          c.up = t.value || null;
+          if (follows && c.up) c.down = this._opposite(entity, c.up);
+          if (c.up !== "play_media") {
+            c.data = null;
+            c.label = null;
+          }
+        } else if (f === "down") c.down = t.value || null;
+        else if (f === "media_content_id" || f === "media_content_type") {
+          c.data = { media_content_type: "music", ...c.data, [f]: t.value };
+          c.label = null;
+        }
+      });
+    } else if (t.dataset.pnum) {
+      const st = this._stop(),
+        u = this._selUnit();
+      if (!st || !u || t.value === "") return;
+      const kind = t.dataset.pnum,
+        n = +t.value;
+      const [kmin, kmax] = this._kelvinRange(u.light);
+      const place = kind === "white" ? (clamp(n, kmin, kmax) - kmin) / (kmax - kmin || 1) : kind === "hue" ? (((n % 360) + 360) % 360) / 360 : clamp(n, 0, 100) / 100;
+      this._change(() => this._applyIns(kind, place));
+      this._renderInspector();
     } else if (t.id === "insOn") {
       const st = this._stop(),
         u = this._selUnit();
@@ -2589,10 +2929,12 @@ data:
         t.value = st.position;
         return;
       }
-      this._change(() => {
-        st.position = pos;
-        o.stops.sort((a, b) => a.position - b.position);
-      });
+      this._change(() =>
+        this._withDevices(() => {
+          st.position = pos;
+          o.stops.sort((a, b) => a.position - b.position);
+        }),
+      );
       this._renderInspector();
     } else if (t.dataset.mode) {
       const ids = t.dataset.mode.split(",");
@@ -2668,9 +3010,6 @@ data:
   }
 
   _onDown(e) {
-    // A press outside a point's settings puts them away, unless it chooses another point or a tool of the stop.
-    const ins = this.shadowRoot.getElementById("inspector");
-    if (ins && !ins.hidden && !e.composedPath().includes(ins) && !e.target.closest?.('[data-pthit], .cell, #stopTools, [data-act^="win-"], [data-devlane]')) this._closeInspector();
     const pbar = e.target.closest?.("[data-pbar]");
     if (pbar) {
       e.preventDefault();
@@ -2764,7 +3103,7 @@ data:
       const pos = Math.round(clamp(this._xToPos(p.x), o.stops[i - 1].position + 1, o.stops[i + 1].position - 1));
       if (pos === st.position) return;
       this._sel = { stop: st._sid, lamp: this._sel.lamp };
-      this._change(() => (st.position = pos), `sp${st._sid}`);
+      this._change(() => this._withDevices(() => (st.position = pos)), `sp${st._sid}`);
       this._renderTools();
     }
   }
@@ -2792,6 +3131,7 @@ data:
   _onUp() {
     if (this._insDrag) {
       this._insDrag = null;
+      this._renderStops();
       this._renderInspector();
       this._save();
       return;

@@ -112,6 +112,7 @@ THRESHOLD_SCHEMA = vol.Schema(
         vol.Optional("action", default=None): vol.Any(None, str),
         vol.Optional("back"): vol.Any(None, str),
         vol.Optional("data"): dict,
+        vol.Optional("label"): vol.All(str, vol.Length(max=200)),
     }
 )
 

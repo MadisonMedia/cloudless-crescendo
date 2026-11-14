@@ -404,6 +404,14 @@ def test_two_ranges_of_one_device_take_turns() -> None:
     assert abs(down[-1].value - ramp_value(low, 30)) < 1e-6
 
 
+def test_a_value_at_a_single_stop_is_set_when_crossed() -> None:
+    point = {"id": "p", "entity_id": "media_player.bad", "kind": "ramp", "from": 50, "to": 50, "min": 30, "max": 30}
+    assert threshold_steps([point], 20, 40, 1) == []
+    crossed = threshold_steps([point], 20, 80, 1)
+    assert [s.value for s in crossed] == [30]
+    assert threshold_steps([point], 20, 80, 1, sent={"p": 30}) == []
+
+
 def test_a_threshold_may_act_only_one_way() -> None:
     pause = {"entity_id": "media_player.bad", "kind": "threshold", "at": 40, "action": None, "back": "media_pause"}
     assert threshold_steps([pause], 20, 60, 1) == []

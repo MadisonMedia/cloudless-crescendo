@@ -28,8 +28,8 @@ const options = {
     { position: 100, values: { "light.boden": { brightness: 100, kelvin: 4000 }, "light.spiegel": { brightness: 100, kelvin: 4000 }, "light.links": { brightness: 80, kelvin: 4000 }, "light.rechts": { brightness: 80, kelvin: 4000 } } },
   ],
   devices: [
-    { id: "d1", entity_id: "media_player.bad", kind: "ramp", from: 20, to: 100, min: 0, max: 40 },
-    { id: "d2", entity_id: "climate.bad", kind: "ramp", from: 40, to: 100, min: 19, max: 22 },
+    { id: "d1", entity_id: "media_player.bad", kind: "ramp", from: 25, to: 100, min: 0, max: 40 },
+    { id: "d2", entity_id: "climate.bad", kind: "ramp", from: 50, to: 100, min: 19, max: 22 },
     { id: "d3", entity_id: "cover.bad", kind: "threshold", at: 50, action: "open_cover", back: null },
   ],
   buttons: [
@@ -66,6 +66,10 @@ const hass = {
     if (m.type === "cloudless_crescendo/object") return { entry_id: "e1", title: "Bad", entity_id: "light.bad", options };
     if (m.type === "cloudless_crescendo/object/save") return { options: m.options };
     if (m.type === "cloudless_crescendo/object/create") return { entry_id: "e2" };
+    if (m.type === "media_player/browse_media") {
+      if (m.media_content_id === "pl") return { title: "Playlists", media_content_id: "pl", media_content_type: "playlists", can_expand: true, children: [{ title: "Lofi Beats", media_class: "playlist", media_content_id: "spotify:playlist:1", media_content_type: "playlist", can_play: true, can_expand: true }] };
+      return { title: "Medien", media_content_id: "", media_content_type: "", can_expand: true, children: [{ title: "Playlists", media_class: "directory", media_content_id: "pl", media_content_type: "playlists", can_expand: true }, { title: "Radio Bad", media_class: "channel", media_content_id: "radio:1", media_content_type: "music", can_play: true }] };
+    }
     if (m.type === "cloudless_crescendo/diagnostics") return { lights: options.lights.map((l, i) => ({ entity_id: l.entity_id, network: "matter", state: "on", answers: 20 + i, failures: i === 1 ? 2 : 0, repeats: 0, average_ms: 80 + i * 9, last_ms: 90, last_error: null, following: true, rate: 3 })) };
     if (m.type === "cloudless_crescendo/sidebar") return { shown: window.__sidebar ?? true };
     if (m.type === "cloudless_crescendo/sidebar/set") { window.__sidebar = m.show; return { shown: m.show }; }
@@ -124,8 +128,9 @@ setTimeout(async () => {
   const only = (keep) => { host.hidden = true; for (const id of ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"]) panel.shadowRoot.getElementById(id).hidden = id !== keep; };
   if (view === "lights") { only("sec-lights"); panel._o.options.groups = []; panel._renderStops(); }
   if (view === "grouping") { only("sec-lights"); q('[data-act="more"][data-key="light.spiegel"]').click(); q('[data-act="more"][data-key="light.links,light.rechts"]').click(); q('[data-act="more"][data-key="light.boden"]').click(); }
-  if (view === "devwin") { only("sec-stops"); q('#devRows [data-act="win-dev"][data-entity="media_player.bad"]').click(); q('[data-act="add-pt"][data-kind="threshold"]').click(); }
-  if (view === "lightwin") { only("sec-stops"); q('#lanes [data-act="win-light"][data-ids="light.spiegel"]').click(); }
+  if (view === "devwin") { only("sec-stops"); q('#devRows [data-act="win-dev"][data-entity="media_player.bad"]').click(); const s50 = panel._o.options.stops.find((s) => s.position === 50); q(`#devRows [data-act="sel-dcell"][data-stop="${s50._sid}"]`).click(); const up = q(`#dup-${s50._sid}`); up.value = "play_media"; up.dispatchEvent(new Event("change", { bubbles: true })); q('[data-act="mb-open"]').click(); await wait(50); }
+  if (view === "lightwin") { only("sec-stops"); q('#lanes [data-act="win-light"][data-ids="light.spiegel"]').click(); const s50 = panel._o.options.stops.find((s) => s.position === 50); q(`#lanes [data-act="sel-cell"][data-stop="${s50._sid}"]`).click(); }
+  if (view === "tablecell") { only("sec-stops"); q('[data-act="view-table"]').click(); const s50 = panel._o.options.stops.find((s) => s.position === 50); q(`#matrix [data-act="sel-cell"][data-stop="${s50._sid}"][data-lamp="light.spiegel"]`).click(); }
   if (view === "adding") { only("sec-lights"); q('[data-act="add-open"]').click(); }
   if (view === "stops") { only("sec-stops"); q('[data-act="tpl-toggle"]').click(); }
   if (view === "buttons") only("sec-buttons");
@@ -692,7 +697,7 @@ setTimeout(async () => {
     report("page: jump bar with four sections, devices with the lights", q("#jump").querySelectorAll("a").length === 4 && ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"].every((id) => !!q(`#${id}`)) && !q("#sec-devices"));
     report("page: every light shows what it shows, without an advanced switch", panel.shadowRoot.querySelectorAll('#rows select[data-mode]').length === panel._units().length && !q("#edAdv"));
     report("page: devices listed with the lights and laned under the stops", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#sec-stops #devRows .lrow").length === 3 && panel.shadowRoot.querySelectorAll("#rows .dev").length === 3 && !!q("#devSearch"));
-    report("page: the table shows thresholds too", (q('[data-act="view-table"]').click(), [...panel.shadowRoot.querySelectorAll("#matrix tbody tr")].some((r) => r.textContent.includes("Rollo Bad") && r.textContent.includes("Öffnen"))));
+    report("page: the table shows thresholds too", (q('[data-act="view-table"]').click(), [...panel.shadowRoot.querySelectorAll("#matrix tbody tr")].some((r) => r.textContent.includes("Rollo Bad") && r.textContent.includes("▲"))));
     q('[data-act="view-chart"]').click();
     // Devices are found by search and by kind; each result offers a course and a threshold.
     const devSearch = q("#devSearch");
@@ -708,44 +713,86 @@ setTimeout(async () => {
     report("devices: a kind chip keeps only that kind", coverRows.length === 1 && coverRows[0] === "cover.bad" && q('#devList .tag') !== null, coverRows.join());
     q('[data-act="dev-kind"][data-domain=""]').click();
     report("devices: all kinds again", panel.shadowRoot.querySelectorAll("#devList .pickrow").length >= 3);
-    // A device's points: its window opens from its lane, a new switch point switches back below it.
+    // Devices hang on the stops: a device's row opens under its lane, a stop's cell opens its settings under the row.
     report("chart: a device in percent is a dashed line, a switch point a mark", panel.shadowRoot.querySelectorAll("#chartBox .c-dev").length === 1 && panel.shadowRoot.querySelectorAll("#chartBox .c-mark").length === 1 && !!q("#chartBox .c-dev").getAttribute("stroke-dasharray"));
+    const stopOf = (p) => panel._o.options.stops.find((s) => s.position === p)._sid;
+    const speaker = () => panel._o.options.devices.filter((d) => d.entity_id === "media_player.bad");
     q('#devRows [data-act="win-dev"][data-entity="media_player.bad"]').click();
-    report("devices: the window lists the device's points", !q("#inspector").hidden && panel.shadowRoot.querySelectorAll("#inspector .pt").length === 1 && !!q('#inspector [data-act="add-pt"][data-kind="threshold"]') && !!q('#inspector [data-f="direction"]'));
-    q('#inspector [data-act="add-pt"][data-kind="threshold"]').click();
-    const newDev = panel._o.options.devices.at(-1);
-    report("devices: a new threshold switches back below it", newDev.kind === "threshold" && newDev.action === "media_play" && newDev.back === "media_pause", JSON.stringify(newDev));
-    const actSel = q(`#dact-${newDev.id}`);
-    actSel.value = "turn_on";
-    actSel.dispatchEvent(new Event("change", { bubbles: true }));
-    report("devices: the way back follows a new action", panel._o.options.devices.at(-1).back === "turn_off", JSON.stringify(panel._o.options.devices.at(-1)));
-    const upSel = q(`#dact-${newDev.id}`);
-    upSel.value = "";
-    upSel.dispatchEvent(new Event("change", { bubbles: true }));
-    report("devices: a switch point may act only one way", panel._o.options.devices.at(-1).action === null && panel._o.options.devices.at(-1).back === "turn_off" && panel.shadowRoot.querySelectorAll("#inspector .pt").length === 2);
-    const dirSel = q(`#ddir-d1`);
-    dirSel.value = "up";
-    dirSel.dispatchEvent(new Event("change", { bubbles: true }));
-    report("devices: a range acts in a chosen direction, shown on its lane", panel._o.options.devices[0].direction === "up" && q("#dvr-d1 .dir")?.textContent === "↑");
-    q('#inspector [data-act="add-pt"][data-kind="ramp"]').click();
-    report("devices: a second range for the same device", panel._o.options.devices.filter((d) => d.entity_id === "media_player.bad" && d.kind === "ramp").length === 2 && panel.shadowRoot.querySelectorAll("#devRows .lrow").length === 3 && panel.shadowRoot.querySelectorAll('#devRows [data-devlane="media_player.bad"] .devramp').length === 2);
-    report("devices: the list names the device's points", [...panel.shadowRoot.querySelectorAll("#rows .dev .members")].some((m) => m.textContent.includes("2 Bereiche") && m.textContent.includes("1 Schaltpunkt")));
-    for (let i = 0; i < 5; i++) q('[data-act="undo"]').click();
+    const devExp = q("#devRows .exp");
+    report("devices: a device's row of stops opens right under its lane", !!devExp && devExp.previousElementSibling.querySelector('[data-entity="media_player.bad"]') !== null && devExp.querySelectorAll(".dcell").length === panel._o.options.stops.length && devExp.querySelectorAll(".dcell:not(.off)").length === 2);
+    q(`#devRows [data-act="sel-dcell"][data-stop="${stopOf(50)}"]`).click();
+    report("devices: a stop's settings open under the row", !!q("#devRows .exp #devEditor") && !!q(`#dup-${stopOf(50)}`) && !!q(`#dv-${stopOf(50)}`));
+    const upSel = () => q(`#dup-${stopOf(50)}`);
+    upSel().value = "media_play";
+    upSel().dispatchEvent(new Event("change", { bubbles: true }));
+    const sw = () => speaker().find((d) => d.kind === "threshold");
+    report("devices: a switch point on a stop switches back below it", sw()?.at === 50 && sw().action === "media_play" && sw().back === "media_pause", JSON.stringify(sw()));
+    upSel().value = "";
+    upSel().dispatchEvent(new Event("change", { bubbles: true }));
+    report("devices: a switch point may act only one way", sw()?.action === null && sw().back === "media_pause");
+    const vol = q(`#dv-${stopOf(50)}`);
+    vol.value = "30";
+    vol.dispatchEvent(new Event("change", { bubbles: true }));
+    const ramps = () => speaker().filter((d) => d.kind === "ramp").map((d) => `${d.from}-${d.to}:${d.min}-${d.max}`).join(" ");
+    report("devices: a value at a stop splits the course there", ramps() === "25-50:0-30 50-100:30-40", ramps());
+    q(`#devRows [data-act="sel-dcell"][data-stop="${stopOf(25)}"]`).click();
+    const mode = q(`#dm-${stopOf(25)}`);
+    mode.value = "up";
+    mode.dispatchEvent(new Event("change", { bubbles: true }));
+    report("devices: a stretch follows only one way, shown in its cell", speaker().find((d) => d.kind === "ramp" && d.from === 25)?.direction === "up" && q(`#devRows [data-act="sel-dcell"][data-stop="${stopOf(25)}"] small`)?.textContent.includes("↗"));
+    q(`#devRows [data-act="sel-dcell"][data-stop="${stopOf(50)}"]`).click();
+    upSel().value = "play_media";
+    upSel().dispatchEvent(new Event("change", { bubbles: true }));
+    q('[data-act="mb-open"]').click();
+    await wait(30);
+    report("devices: the player's library opens to choose from", !!q(".mb .mbrow") && q(".mb").textContent.includes("Playlists") && q(".mb").textContent.includes("Radio Bad"));
+    q('.mb [data-act="mb-go"]').click();
+    await wait(30);
+    report("devices: a folder opens with a way back", q(".mb .crumbs").textContent.includes("Medien") && q(".mb").textContent.includes("Lofi Beats"));
+    q('.mb [data-act="mb-pick"]').click();
     await wait(20);
-    panel._devKind = undefined;
-    panel._renderPicker();
-    report("devices: undo takes the new points away", panel._o.options.devices.length === 3 && !panel._o.options.devices[0].direction);
-    q('[data-act="close-ins"]')?.click();
-    // A light's name opens all its stops; a stop opens its settings with a way back.
+    report("devices: a chosen title is played at the switch point", sw()?.action === "play_media" && sw().data?.media_content_id === "spotify:playlist:1" && sw().label === "Lofi Beats" && q(".media b").textContent === "Lofi Beats", JSON.stringify(sw()));
+    report("devices: the list names its values and switch points", [...panel.shadowRoot.querySelectorAll("#rows .dev .members")].some((m) => m.textContent.includes("Werte an 3 Stufen") && m.textContent.includes("1 Schaltpunkt")));
+    for (let i = 0; i < 6; i++) q('[data-act="undo"]').click();
+    await wait(20);
+    report("devices: undo takes the changes back", speaker().length === 1 && speaker()[0].from === 25 && !speaker()[0].direction, JSON.stringify(speaker()));
+    q('#devRows [data-act="win-dev"][data-entity="media_player.bad"]').click();
+    report("devices: the name again folds the row", !q("#devRows .exp"));
+    // Settings from before stops held devices get stops of their own; the lights keep their values.
+    panel._o.options.devices.push({ id: "dx", entity_id: "cover.bad", kind: "threshold", at: 30, action: "open_cover", back: null });
+    panel._renderEdit();
+    const s30 = panel._o.options.stops.find((s) => s.position === 30);
+    report("devices: an old setting off the stops gets a stop", !!s30 && s30.values["light.boden"].brightness > 30 && s30.values["light.boden"].brightness < 100);
+    panel._o.options.devices = panel._o.options.devices.filter((d) => d.id !== "dx");
+    panel._o.options.stops = panel._o.options.stops.filter((s) => s !== s30);
+    panel._renderEdit();
+    // A light's name opens its row of stops right under its lane; a stop opens its bars and fields under the row.
     q('#lanes [data-act="win-light"][data-ids="light.spiegel"]').click();
-    const stopCount = panel._o.options.stops.filter((s) => s.position > 0).length;
-    report("lights: a light's window lists its stops", !q("#inspector").hidden && panel.shadowRoot.querySelectorAll("#inspector .ptrow").length === stopCount);
-    panel.shadowRoot.querySelectorAll("#inspector .ptrow")[1].click();
-    report("lights: a stop opens its settings with a way back", !!q('#inspector [data-pbar="bri"]') && !!q('#inspector [data-act="win-back"]'));
-    q('[data-act="win-back"]').click();
-    report("lights: back leads to the stops", panel.shadowRoot.querySelectorAll("#inspector .ptrow").length === stopCount);
+    const lightExp = q("#lanes .exp");
+    report("lights: a light's row of stops opens right under its lane", !!lightExp && lightExp.previousElementSibling.dataset.ids === "light.spiegel" && lightExp.querySelectorAll(".cell").length === panel._o.options.stops.length && !q("#inspector"));
+    q(`#lanes [data-act="sel-cell"][data-stop="${stopOf(50)}"]`).click();
+    report("lights: a stop opens its bars under the row", !!q("#lanes .exp #inspector [data-pbar='bri']") && q("#lanes .exp .cell.sel")?.dataset.stop === stopOf(50));
+    const briField = q("#pn-bri");
+    briField.value = "33";
+    briField.dispatchEvent(new Event("change", { bubbles: true }));
+    report("lights: a value typed into a field is taken", panel._stop().values["light.spiegel"].brightness === 33 && q("#pn-bri").value === "33");
+    const kField = q("#pn-white");
+    kField.value = "5000";
+    kField.dispatchEvent(new Event("change", { bubbles: true }));
+    report("lights: a white tone typed in kelvin is taken", panel._stop().values["light.spiegel"].kelvin === 5000);
+    q('[data-act="undo"]').click();
+    q('[data-act="undo"]').click();
+    q(`#lanes [data-act="sel-cell"][data-stop="${stopOf(50)}"]`).click();
+    report("lights: the same stop again folds the bars, the row stays", !q("#inspector") && !!q("#lanes .exp"));
+    q('#lanes [data-act="win-light"][data-ids="light.spiegel"]').click();
+    report("lights: the name again folds the row", !q("#lanes .exp"));
+    // In the table the settings open right under the light's row.
+    q('[data-act="view-table"]').click();
+    q(`#matrix [data-act="sel-cell"][data-stop="${stopOf(50)}"][data-lamp="light.spiegel"]`).click();
+    const tableEditor = q("#matrix tr.exptr");
+    report("table: a cell's settings open right under its row", !!tableEditor && !!tableEditor.previousElementSibling.querySelector('[data-lamp="light.spiegel"]') && !!tableEditor.querySelector("[data-pbar='bri']"));
     q('[data-act="close-ins"]').click();
-    report("lights: the window closes", q("#inspector").hidden);
+    q('[data-act="view-chart"]').click();
     // Speed with the stops, on/off with the buttons.
     report("page: the speed stands with the stops", !!q("#sec-stops #fadeDef") && !q("#sec-behavior #fadeDef"));
     report("page: on/off leads the standard buttons", !!q("#btnTable tbody tr:first-child #onMode") && !q("#onPos"));
@@ -762,7 +809,8 @@ setTimeout(async () => {
     await wait(20);
     const stopAt = (p) => panel._o.options.stops.find((s) => s.position === p);
     const shapeOk =
-      JSON.stringify(panel._o.options.stops.map((s) => s.position)) === "[0,10,25,40,60,80,100]" &&
+      // The devices keep their stop at 50 next to the template's stops.
+      JSON.stringify(panel._o.options.stops.map((s) => s.position)) === "[0,10,25,40,50,60,80,100]" &&
       stopAt(10).values["light.boden"].brightness === 20 &&
       stopAt(10).values["light.spiegel"].brightness === 0 &&
       stopAt(60).values["light.links"].brightness === 26 && stopAt(60).values["light.links"].kelvin === 2700 &&
@@ -814,8 +862,7 @@ setTimeout(async () => {
     point(pointHit, "pointerdown", phb.left + phb.width / 2, phb.top + phb.height / 2);
     point(pointHit, "pointerup", phb.left + phb.width / 2, phb.top + phb.height / 2);
     await wait(40);
-    const ins = q("#inspector");
-    report("page: a tapped point opens its settings beside it", !ins.hidden && ins.classList.contains("pop") && ins.style.left !== "" && !!q('[data-pbar="bri"]'), `${ins.classList} ${ins.style.left}`);
+    report("page: a tapped point opens its light's row and bars under its lane", !!q("#lanes .exp #inspector [data-pbar='bri']") && !!q("#lanes .exp .cell.sel") && !!q("#lanes .lrow.sel"));
     // The point's white tone and color are set on gradient bars, one tap choosing between them.
     const s50 = panel._o.options.stops.find((s) => s.position === 50);
     panel._selectPoint(s50._sid, "light.boden");
@@ -825,7 +872,7 @@ setTimeout(async () => {
     point(wbar, "pointerup", wb.right - 0.5, wb.top + 5);
     await wait(40);
     const v50 = () => s50.values["light.boden"];
-    report("page: the white-tone bar sets the kelvin up to the light's limit", v50().kelvin === 6500 && !v50().color && !q('[data-pbar="white"] .pknob').hidden && q('[data-pout="white"]').textContent === "6500 K", JSON.stringify(v50()));
+    report("page: the white-tone bar sets the kelvin up to the light's limit", v50().kelvin === 6500 && !v50().color && !q('[data-pbar="white"] .pknob').hidden && q('[data-pnum="white"]').value === "6500", JSON.stringify(v50()));
     const hbar = q('[data-pbar="hue"]'), hb = hbar.getBoundingClientRect();
     capture(hbar);
     point(hbar, "pointerdown", hb.left + hb.width / 3, hb.top + 5);
@@ -837,17 +884,18 @@ setTimeout(async () => {
     point(sbar, "pointerdown", sb.left + sb.width / 2, sb.top + 5);
     point(sbar, "pointerup", sb.left + sb.width / 2, sb.top + 5);
     await wait(40);
-    report("page: the saturation bar keeps the hue", v50().color[1] === 255 && v50().color[0] > 100 && q('[data-pout="hue"]').textContent === "120°", JSON.stringify(v50()));
+    report("page: the saturation bar keeps the hue", v50().color[1] === 255 && v50().color[0] > 100 && q('[data-pnum="hue"]').value === "120", JSON.stringify(v50()));
     q('[data-pbar="white"]').dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true, composed: true }));
     report("page: a key on the white-tone bar returns to a white tone", v50().kelvin === 6500 && !v50().color, JSON.stringify(v50()));
     report("page: the point's settings close with a check mark", q('[data-act="close-ins"]').classList.contains("done") && !!q('[data-act="close-ins"] svg'));
     q('[data-act="close-ins"]').click();
-    report("page: the point's settings can be closed", q("#inspector").hidden && !!panel._sel.stop);
+    report("page: the point's settings can be closed", !q("#inspector") && !!panel._sel.stop);
     panel._selectPoint(panel._o.options.stops.find((s) => s.position === 50)._sid, "light.spiegel");
     const outside = q("#sec-buttons h2"), ob = outside.getBoundingClientRect();
     point(outside, "pointerdown", ob.left + 2, ob.top + 2);
     point(outside, "pointerup", ob.left + 2, ob.top + 2);
-    report("page: a press outside puts the point's settings away", q("#inspector").hidden);
+    report("page: a press elsewhere leaves the open settings alone", !!q("#inspector"));
+    q('[data-act="close-ins"]').click();
     // Export saves the object as a file; import offers a new object or replacing this one.
     let exported = null,
       exportName = "";

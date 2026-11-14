@@ -200,9 +200,12 @@ def threshold_steps(
             low, high = float(device["from"]), float(device["to"])
             enter, leave = min(max(start, low), high), min(max(target, low), high)
             begin, last = ramp_value(device, enter), ramp_value(device, leave)
-            first = (sent or {}).get(device.get("id") or device["entity_id"], begin)
+            key = device.get("id") or device["entity_id"]
+            # A value the device never got from us is sent even if the ramp is a single point.
+            known = key in (sent or {})
+            first = (sent or {}).get(key, begin)
             offset = first - begin
-            if abs(begin - last) < 1e-6 and abs(offset) < 1e-6:
+            if known and abs(begin - last) < 1e-6 and abs(offset) < 1e-6:
                 continue
 
             def when(position: float) -> float:
