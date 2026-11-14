@@ -3,8 +3,16 @@
     "step": {
       "user": {
         "title": "Neues Crescendo-Objekt",
-        "description": "Gib dem Objekt einen Namen und wähle seine Leuchten. Stufen, Farben und Buttons stellst du auf der Seite **Crescendo** in der Seitenleiste ein.",
+        "description": "Gib dem Objekt einen Namen und wähle seine Leuchten. Stufen, Farben und Buttons stellst du auf der Seite **Crescendo** ein: in der Seitenleiste oder über **Konfigurieren** beim Objekt.",
         "data": { "name": "Name", "lights": "Leuchten" }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "{title} in Crescendo",
+        "description": "Leuchten, Stufen, Buttons und Tempo dieses Objekts stellst du auf der Crescendo-Seite ein.\n\n[Crescendo-Seite für {title} öffnen]({url})"
       }
     }
   },

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0b4
+
+Restart Home Assistant after updating, then reload the browser or app once so the card and the page load anew.
+
+### Added
+
+- The card can hide the names on buttons that have an icon. A button without an icon keeps its name.
+- The sidebar entry can be removed on the setup page under **Behavior**, after a question, and added again. The page stays reachable through **Configure** on an object under Devices & services, which links straight to it, and through the card editor.
+
+### Changed
+
+- **The setup page is rearranged.** The object is chosen in the header, with **New object** as the last entry. A jump bar on the left leads to five sections: **Lights**, each with what it shows in view and the fade and slider behavior under **More**; **Stops**, with the chart and the lanes, where a tapped point opens its settings right beside it; **Standard buttons**; **Devices**, in a section of their own; and **Behavior** with speed, switching on and the slider. A bar at the bottom shows the position, switches the preview and starts test runs, on every part of the page.
+- The modes of a light are named by what it shows: on/off only, dimming only, white tones, colors, colors and white tones.
+
 ## 0.2.0b3
 
 Restart Home Assistant after updating, then reload the browser or app once so the card loads anew.

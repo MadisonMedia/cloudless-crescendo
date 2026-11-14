@@ -3,8 +3,16 @@
     "step": {
       "user": {
         "title": "New Crescendo object",
-        "description": "Name the object and pick its lights. Stops, colors and buttons are set up on the **Crescendo** page in the sidebar.",
+        "description": "Name the object and pick its lights. Stops, colors and buttons are set up on the **Crescendo** page: in the sidebar or through **Configure** on the object.",
         "data": { "name": "Name", "lights": "Lights" }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "{title} in Crescendo",
+        "description": "This object's lights, stops, buttons and speed are set up on the Crescendo page.\n\n[Open the Crescendo page for {title}]({url})"
       }
     }
   },

@@ -15,6 +15,7 @@ import voluptuous as vol
 from .const import CONF_DEVICES, CONF_LIGHTS, DOMAIN
 from .curve import curve_from_options
 from .engine import Engine, Origin
+from .frontend import async_set_sidebar, async_sidebar_shown
 from .model import normalize_options
 from .planner import settle
 
@@ -62,6 +63,8 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         ws_reset_lights,
         ws_color_lights,
         ws_reset_color,
+        ws_sidebar,
+        ws_sidebar_set,
         ws_preview,
         ws_diagnostics,
         ws_test_connection,
@@ -243,6 +246,23 @@ async def ws_reset_lights(hass: HomeAssistant, connection: websocket_api.ActiveC
     else:
         engine.reset_lights(msg["what"])
     connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/sidebar"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_sidebar(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Tell whether the setup page has a sidebar entry."""
+    connection.send_result(msg["id"], {"shown": await async_sidebar_shown(hass)})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/sidebar/set", vol.Required("show"): bool})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_sidebar_set(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Show or hide the setup page's sidebar entry."""
+    await async_set_sidebar(hass, msg["show"])
+    connection.send_result(msg["id"], {"shown": msg["show"]})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/color/reset", vol.Required("entity_id"): str})

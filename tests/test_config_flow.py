@@ -43,3 +43,19 @@ async def test_two_objects_may_share_lights(hass: HomeAssistant, setup_object, l
         result = await _create(hass, name, [FLOOR])
         assert result["type"] is FlowResultType.CREATE_ENTRY
     assert len(hass.config_entries.async_entries(DOMAIN)) == 2
+
+
+async def test_configure_leads_to_the_page_and_changes_nothing(hass: HomeAssistant, setup_object) -> None:
+    entity = await setup_object()
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    before = dict(entry.options)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+    assert result["description_placeholders"]["url"] == f"/crescendo?object={entry.entry_id}"
+    assert result["description_placeholders"]["title"] == "Bad"
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert dict(entry.options) == before
+    assert entity.engine.options == before

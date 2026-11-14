@@ -62,6 +62,8 @@ const hass = {
     if (m.type === "cloudless_crescendo/object") return { entry_id: "e1", title: "Bad", entity_id: "light.bad", options };
     if (m.type === "cloudless_crescendo/object/save") return { options: m.options };
     if (m.type === "cloudless_crescendo/diagnostics") return { lights: options.lights.map((l, i) => ({ entity_id: l.entity_id, network: "matter", state: "on", answers: 20 + i, failures: i === 1 ? 2 : 0, repeats: 0, average_ms: 80 + i * 9, last_ms: 90, last_error: null, following: true, rate: 3 })) };
+    if (m.type === "cloudless_crescendo/sidebar") return { shown: window.__sidebar ?? true };
+    if (m.type === "cloudless_crescendo/sidebar/set") { window.__sidebar = m.show; return { shown: m.show }; }
     if (m.type === "cloudless_crescendo/test_connection") return options.lights.map((l) => ({ entity_id: l.entity_id, ok: true, ms: 90, error: null }));
     return null;
   },
@@ -113,7 +115,8 @@ setTimeout(async () => {
   const view = params.get("view") || "edit";
   if (view === "cards") panel.hidden = true;
   if (view === "panel") host.hidden = true;
-  if (view === "table") { host.hidden = true; q('[data-act="view-table"]').click(); q('[data-act="sel-cell"]:not(.locked)').click(); q("#edAdv").click(); }
+  if (view === "point") { host.hidden = true; const ph = q('[data-pthit][data-lamp="light.spiegel"]'); const pb = ph.getBoundingClientRect(); capture(ph); point(ph, "pointerdown", pb.left + pb.width / 2, pb.top + pb.height / 2); point(ph, "pointerup", pb.left + pb.width / 2, pb.top + pb.height / 2); }
+  if (view === "table") { host.hidden = true; q('[data-act="view-table"]').click(); q('[data-act="sel-cell"]:not(.locked)').click(); }
   if (view === "diag") { host.hidden = true; q('[data-v="diag"]').click(); await wait(300); q('[data-act="test-ask"]').click(); await wait(100); }
   if (view === "behave") {
     // Dragging the wide slider sends positions and a final one on release.
@@ -443,6 +446,9 @@ setTimeout(async () => {
     report("buttons: tinted by default, without an icon nobody chose", night?.classList.contains("tint") && !night.querySelector("ha-icon"), night?.outerHTML.slice(0, 120));
     const withIcon = await newCard({ buttons: [{ name: "Nacht", position: 25, duration: 3, icon: "mdi:weather-night" }] });
     report("buttons: a chosen icon shows", withIcon.shadowRoot.querySelector('.preset[data-pos="25"] ha-icon')?.getAttribute("icon") === "mdi:weather-night");
+    const iconOnly = await newCard({ show_button_names: false, buttons: [{ name: "Nacht", position: 25, duration: 3, icon: "mdi:weather-night" }, { name: "Hell", position: 100, duration: 3 }] });
+    const nightOnly = iconOnly.shadowRoot.querySelector('.preset[data-pos="25"]');
+    report("buttons: names can be hidden where an icon stands in", !nightOnly.querySelector("b") && nightOnly.getAttribute("aria-label") === "Nacht" && !!iconOnly.shadowRoot.querySelector('.preset[data-pos="100"] b'));
     const twoColors = await newCard({}, redFloor());
     const bg50 = twoColors.shadowRoot.querySelector('.preset[data-pos="50"]').style.background;
     report("buttons: a tint shows every light color at its position", bg50.includes("255, 51, 0") && (bg50.match(/rgba\(/g) || []).length >= 2, bg50.slice(0, 120));
@@ -645,6 +651,27 @@ setTimeout(async () => {
     q('[data-act="add-item"]').click();
     report("add light", panel._o.options.lights.some((l) => l.entity_id === "light.bogen"));
     report("new light has a value at every stop", panel._o.options.stops.every((s) => s.values["light.bogen"]));
+    // The page as the user chose it: one page with a jump bar, the object in the header, modes in view, a live bar.
+    report("page: object chosen in the header, with a way to a new one", !!q("#objPick") && [...q("#objPick").options].some((o) => o.value === "new") && !q("#objList"));
+    q("#objPick").value = "new";
+    q("#objPick").dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(20);
+    report("page: new object asks for a name in the header", !q("#newBox").hidden);
+    q('[data-act="new-cancel"]').click();
+    report("page: jump bar with the five sections", q("#jump").querySelectorAll("a").length === 5 && ["sec-lights", "sec-stops", "sec-buttons", "sec-devices", "sec-behavior"].every((id) => !!q(`#${id}`)));
+    report("page: every light shows what it shows, without an advanced switch", panel.shadowRoot.querySelectorAll('#rows select[data-mode]').length === panel._units().length && !q("#edAdv"));
+    report("page: lanes under the chart, devices in their own section", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#devRows .lrow").length === 3 && !!q("#addDevSel"));
+    report("page: the live bar holds position, preview and test run", !!q(".livebar #editPos") && !!q(".livebar #preview") && !!q('.livebar [data-act="run-up"]'));
+    const pointHit = q("[data-pthit]");
+    const phb = pointHit.getBoundingClientRect();
+    capture(pointHit);
+    point(pointHit, "pointerdown", phb.left + phb.width / 2, phb.top + phb.height / 2);
+    point(pointHit, "pointerup", phb.left + phb.width / 2, phb.top + phb.height / 2);
+    await wait(40);
+    const ins = q("#inspector");
+    report("page: a tapped point opens its settings beside it", !ins.hidden && ins.classList.contains("pop") && ins.style.left !== "" && !!q("#insB"), `${ins.classList} ${ins.style.left}`);
+    q('[data-act="close-ins"]').click();
+    report("page: the point's settings can be closed", q("#inspector").hidden);
     q('[data-v="diag"]').click();
     await wait(200);
     report("test question closed at start", getComputedStyle(q("#testAsk")).display === "none");
@@ -654,6 +681,20 @@ setTimeout(async () => {
     q('[data-act="test-run"]').click();
     await wait(100);
     report("test runs after confirming", calls.some((c) => c.type === "cloudless_crescendo/test_connection"));
+    // The sidebar entry can be removed, with a question first, and added again.
+    q('[data-v="edit"]').click();
+    await wait(200);
+    report("sidebar: an option to remove the entry", !!q('[data-act="sidebar-ask"]') && !q('[data-act="sidebar-yes"]'));
+    q('[data-act="sidebar-ask"]').click();
+    await wait(30);
+    report("sidebar: asks before removing", !!q('[data-act="sidebar-yes"]') && !!q('[data-act="sidebar-no"]'));
+    calls.length = 0;
+    q('[data-act="sidebar-yes"]').click();
+    await wait(60);
+    report("sidebar: removing sends the choice and offers the way back", calls.some((c) => c.type === "cloudless_crescendo/sidebar/set" && c.show === false) && !!q('[data-act="sidebar-add"]'));
+    q('[data-act="sidebar-add"]').click();
+    await wait(60);
+    report("sidebar: can be added again", calls.some((c) => c.type === "cloudless_crescendo/sidebar/set" && c.show === true) && !!q('[data-act="sidebar-ask"]'));
   }
   console.log(`HARNESS width ${window.innerWidth} horizontal-scroll=${document.documentElement.scrollWidth > window.innerWidth}`);
   console.log("HARNESS-DONE");
