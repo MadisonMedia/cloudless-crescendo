@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0b6
+
+Restart Home Assistant after updating, then reload the browser or app once so the card and the page load anew.
+
+### Added
+
+- **Templates for the stops.** One after another, taken from a real bathroom: lights come on in turn, warm at first and neutral at the top, with the buttons Night, Morning, Day and Bright if there are none yet. Together: all lights from warm to neutral. And like any other object: lights it shares get exactly its values, the others the light in the same place. Each template shows a preview and can be undone.
+- **Export and import.** An object is saved as a file and imported as a new object or in place of the chosen one. Lights and devices this Home Assistant does not have are named and left out.
+- **Groups are made by the user.** Lights set the same or almost the same are suggested as a group, with a display name to keep or change; **Group lights** makes a group of any lights. A group shows as one light on the page and in the cards; under More it can be renamed, lose a light or be dissolved.
+
+### Changed
+
+- **Lights and devices are found in one search**, with lights chosen first, kinds as chips and a choice of room. Devices stand in the list with the lights and choose there how they follow; their lanes, values and thresholds stand under Stops, in the chart and in the table.
+- A new threshold switches back below it: what switches on switches off again, a blind closes again, a speaker pauses.
+- **Speed** stands with the stops. **On/off** leads the standard buttons and sets what the object switches on to.
+- A point's settings close with a check mark, a tap beside them or Escape; the stop stays chosen for its tools.
+- Identical lights are no longer combined by themselves. The card's option reads **Show groups as one light** and appears once an object has groups.
+
 ## 0.2.0b5
 
 Reload the browser or app once after updating so the page loads anew.

@@ -60,6 +60,25 @@ def test_two_stops_at_one_position_are_rejected() -> None:
         normalize_options({"stops": [{"position": 10}, {"position": 10.0}]})
 
 
+def test_groups_keep_known_lights_once_and_need_two() -> None:
+    lights = [{"entity_id": f"light.{n}"} for n in ("a", "b", "c", "d")]
+    options = normalize_options(
+        {
+            "lights": lights,
+            "groups": [
+                {"name": " Waschtisch ", "lights": ["light.a", "light.b", "light.a", "light.gone"]},
+                {"name": "Rest", "lights": ["light.b", "light.c"]},
+                {"lights": ["light.c", "light.d"]},
+            ],
+        }
+    )
+    groups = options["groups"]
+    assert [g["lights"] for g in groups] == [["light.a", "light.b"], ["light.c", "light.d"]]
+    assert groups[0]["name"] == "Waschtisch"
+    assert groups[1]["name"] == ""
+    assert all(g["id"] for g in groups)
+
+
 def test_a_new_object_rises_from_off_to_full() -> None:
     options = default_options([FLOOR])
     assert [s["values"][FLOOR]["brightness"] for s in options["stops"]] == [0, 100]

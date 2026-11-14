@@ -612,7 +612,7 @@ class CrescendoCard extends HTMLElement {
       <div class="details-head"><div><h3 class="name js-name"></h3><p class="status">${title}</p></div><button class="icon-btn js-details-close" aria-label="${esc(t("Close", "Schließen"))}">${CLOSE_ICON}</button></div>
       <div class="bars js-dbars"></div>
       <div class="details-colors" hidden><b>${esc(t("Active light colors", "Aktive Lichtfarben"))}</b><div class="named-chips js-named-chips"></div></div>
-      ${canGroup ? `<label class="details-group"><input type="checkbox" class="js-dgroup"${group ? " checked" : ""}> ${esc(t("Combine identical lights", "Gleiche Leuchten zusammenfassen"))}</label>` : ""}
+      ${canGroup ? `<label class="details-group"><input type="checkbox" class="js-dgroup"${group ? " checked" : ""}> ${esc(t("Show groups as one light", "Gruppen als eine Leuchte zeigen"))}</label>` : ""}
       <div class="details-foot">${RESETS}</div>
     </div></dialog>`;
   }
@@ -2076,7 +2076,8 @@ class CrescendoCardEditor extends HTMLElement {
     const design = cfg.design;
     const hasSlider = ["gradient", "scenes", "columns", "picture"].includes(design);
     const offersDetails = ctl.crescendo && design !== "columns";
-    const combines = ["gradient", "columns", "chart"].includes(design) || (offersDetails && cfg.details !== "off");
+    // Only groups set on the setup page can be shown as one light.
+    const combines = !!this._options?.groups?.length && (["gradient", "columns", "chart"].includes(design) || (offersDetails && cfg.details !== "off"));
     const pictureSection =
       design === "picture"
         ? `<div class="ctl stack section">
@@ -2272,7 +2273,7 @@ class CrescendoCardEditor extends HTMLElement {
             ])}</div>`
           : ""
       }
-      ${combines ? check("group", cfg.group, t("Combine identical lights", "Gleiche Leuchten zusammenfassen")) : ""}
+      ${combines ? check("group", cfg.group, t("Show groups as one light", "Gruppen als eine Leuchte zeigen")) : ""}
       ${design === "gradient" ? check("show_lanes", cfg.show_lanes, t("Show a lane per light", "Spuren je Leuchte zeigen")) : ""}`,
       )}
     </div>`;

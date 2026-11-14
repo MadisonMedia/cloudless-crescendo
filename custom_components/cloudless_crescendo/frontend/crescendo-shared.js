@@ -292,7 +292,6 @@ export function stripeLayers(options, list, override, dark, vertical = false) {
 
 export const friendly = (hass, entityId) => hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
 
-// Lights with the same mode and the same values at every stop count as one unit.
 // Home Assistant loads its icon picker on demand. Opening the button card's editor pulls it in; then it is
 // there for our own forms. Resolves once the picker is defined, however it arrived.
 export async function loadIconPicker() {
@@ -308,29 +307,37 @@ export async function loadIconPicker() {
   return true;
 }
 
+// The lights the user grouped count as one unit, named by the group or by what their names share.
+// A unit's first light leads: the others carry the same values.
 export function units(options, hass, group, count = true) {
   const list = options.lights.map((light, slot) => ({ light, slot, ids: [light.entity_id] }));
-  if (!group) return list.map((u) => ({ ...u, name: friendly(hass, u.light.entity_id) }));
-  const map = new Map();
-  for (const u of list) {
-    const sig = JSON.stringify([
-      u.light.mode,
-      u.light.fade,
-      options.stops.map((s) => s.values[u.light.entity_id] || null),
-    ]);
-    if (map.has(sig)) map.get(sig).ids.push(u.light.entity_id);
-    else map.set(sig, { ...u });
+  const single = (u) => ({ ...u, name: friendly(hass, u.light.entity_id) });
+  if (!group || !options.groups?.length) return list.map(single);
+  const known = new Set(options.lights.map((l) => l.entity_id));
+  const taken = new Map();
+  for (const g of options.groups) {
+    const ids = [...new Set(g.lights || [])].filter((id) => known.has(id) && !taken.has(id));
+    if (ids.length < 2) continue;
+    for (const id of ids) taken.set(id, g);
   }
-  return [...map.values()].map((u) => ({
-    ...u,
-    name:
-      u.ids.length > 1
-        ? `${commonName(u.ids.map((id) => friendly(hass, id)))}${count ? ` (${u.ids.length})` : ""}`
-        : friendly(hass, u.ids[0]),
-  }));
+  const out = [],
+    done = new Set();
+  for (const u of list) {
+    const g = taken.get(u.light.entity_id);
+    if (!g) {
+      out.push(single(u));
+      continue;
+    }
+    if (done.has(g)) continue;
+    done.add(g);
+    const ids = options.lights.map((l) => l.entity_id).filter((id) => taken.get(id) === g);
+    const base = (g.name || "").trim() || commonName(ids.map((id) => friendly(hass, id)));
+    out.push({ ...u, ids, group: g, name: `${base}${count ? ` (${ids.length})` : ""}` });
+  }
+  return out;
 }
 
-function commonName(names) {
+export function commonName(names) {
   const words = names[0].split(" ");
   let n = words.length;
   for (const other of names.slice(1)) {
