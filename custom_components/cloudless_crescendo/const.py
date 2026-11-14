@@ -36,6 +36,10 @@ ON_FIXED: Final = "fixed"
 
 DEVICE_RAMP: Final = "ramp"
 DEVICE_THRESHOLD: Final = "threshold"
+# A ramp acts when dimming up, down or both.
+RAMP_BOTH: Final = "both"
+RAMP_UP: Final = "up"
+RAMP_DOWN: Final = "down"
 
 DEFAULT_SLIDER_RATE: Final = 4
 DEFAULT_TRANSITION: Final = 5.0

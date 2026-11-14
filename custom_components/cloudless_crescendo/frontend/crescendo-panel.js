@@ -107,6 +107,32 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .lpanel label { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .lpanel select, .lpanel input:not([type="checkbox"]) { min-height: 30px; padding: 2px 6px; font-size: 13px; color: var(--ink); }
 .lrow2 > .info-text, .lrow2 > .lwarn { grid-column: 2 / -1; }
+.lpanel .lwarn { flex-basis: 100%; margin: 0; }
+.wdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-left: 5px; vertical-align: 1px; }
+.inspector.wide { max-width: 560px; }
+.inspector h3 ha-icon { --mdc-icon-size: 20px; color: var(--muted); }
+.pt { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.pt-head { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.pt-head .x { margin-left: auto; }
+.pt label { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pt select, .pt input { min-height: 30px; padding: 2px 6px; font-size: 13px; color: var(--ink); }
+.ptlist { display: grid; gap: 2px; }
+.ptrow { display: grid; grid-template-columns: 70px 18px 52px minmax(0, 1fr); align-items: center; gap: 8px; border: 0; background: transparent; text-align: left; padding: 6px 8px; border-radius: 8px; font-variant-numeric: tabular-nums; color: var(--ink); font-size: 13.5px; }
+.ptrow:hover { background: var(--line); }
+.ptrow b { font-weight: 600; }
+.ptrow small { color: var(--muted); }
+.lanename { border: 0; background: transparent; padding: 0; display: inline-flex; gap: 6px; align-items: center; font: inherit; font-weight: 550; color: var(--ink); text-align: left; cursor: pointer; min-width: 0; }
+.lanename:hover { color: var(--accent); }
+.lanename ha-icon { --mdc-icon-size: 16px; color: var(--muted); flex: none; }
+.devrow .lname { flex-wrap: wrap; row-gap: 0; }
+.devrow .devval { flex-basis: 100%; }
+.dkey { flex: none; stroke: var(--ink); stroke-width: 2; opacity: .65; }
+.devramp.fall { background: linear-gradient(90deg, var(--accent), transparent); }
+.devramp .dir { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--ink); }
+.c-dev { fill: none; stroke: var(--ink); stroke-width: 2; opacity: .6; }
+.c-mark { fill: var(--ink); opacity: .75; }
+.c-tick { stroke: var(--ink); stroke-width: 1; opacity: .35; }
+.mxmarks { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 .gline { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .lwarn { font-size: 12.5px; color: var(--warn); max-width: none; }
 .sugline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 5px 6px 5px 12px; border-radius: 9px; background: var(--accent-soft); font-size: 13px; }
@@ -354,6 +380,9 @@ const slug = (s) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "") || "objekt";
 const MENU_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>';
+// Devices on the chart are told apart by their dash, as the lights are by their color.
+const DASHES = ["6 4", "2 3", "10 3 2 3", "1 4"];
+const PCT_DOMAINS = ["media_player", "cover", "fan"];
 const PT = 10,
   PB = 30,
   PR = 14,
@@ -920,6 +949,7 @@ class CrescendoPanel extends HTMLElement {
     this._renderDevices();
     this._renderTemplates();
     this._renderPicker();
+    this._placeInspector();
   }
 
   _domainLabel(domain) {
@@ -995,16 +1025,8 @@ class CrescendoPanel extends HTMLElement {
       else acts = `<button class="btn" data-act="add-light" data-id="${esc(c.id)}">${esc(t("Add", "Hinzufügen"))}</button>`;
     } else {
       facts = [c.kind, c.area, this._stateText(c)];
-      tags = o.devices
-        .filter((d) => d.entity_id === c.id)
-        .map((d) => `<span class="tag">${esc(d.kind === "ramp" ? t("course added", "Verlauf dabei") : t("threshold added", "Schwelle dabei"))}</span>`)
-        .join("");
-      const r = RAMP_LABEL[c.domain];
-      const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("value", "Wert");
-      const btn = (kind, label, title) => `<button class="btn" data-act="add-dev" data-kind="${kind}" data-id="${esc(c.id)}" title="${esc(title)}">${esc(label)}</button>`;
-      acts =
-        (c.ramp ? btn("ramp", t("Course", "Verlauf"), t(`${what} runs between two stops`, `${what} läuft zwischen zwei Stufen`)) : "") +
-        (c.threshold ? btn("threshold", t("Threshold", "Schwelle"), t("An action when a stop is crossed", "Eine Aktion beim Überschreiten einer Stufe")) : "");
+      if (o.devices.some((d) => d.entity_id === c.id)) tags = `<span class="tag">${esc(t("added", "dabei"))}</span>`;
+      else acts = `<button class="btn" data-act="add-dev" data-kind="${c.ramp ? "ramp" : "threshold"}" data-id="${esc(c.id)}">${esc(t("Add", "Hinzufügen"))}</button>`;
     }
     return `<div class="pickrow"><ha-icon icon="${esc(s.attributes?.icon || DOMAIN_ICON[c.domain] || "mdi:devices")}"></ha-icon><div class="pickmain"><b>${esc(c.name)}${tags}</b><small>${esc(facts.filter(Boolean).join(" · "))}</small><code>${esc(c.id)}</code></div><div class="pickacts">${acts}</div></div>`;
   }
@@ -1102,9 +1124,33 @@ class CrescendoPanel extends HTMLElement {
           .join(""),
       )
       .join("");
+    const groups = this._devGroups();
+    const devLines = groups
+      .filter((g) => this._isPct(g.entity))
+      .map((g) =>
+        g.points
+          .filter((d) => d.kind === "ramp")
+          .map((d) => `<line class="c-dev" x1="${X(d.from)}" x2="${X(d.to)}" y1="${Y(clamp(d.min, 0, 100))}" y2="${Y(clamp(d.max, 0, 100))}" stroke-dasharray="${g.dash}"><title>${esc(friendly(this._hass, g.entity))}: ${esc(this._pointText(d))}</title></line>`)
+          .join(""),
+      )
+      .join("");
+    const base = +Y(0);
+    const marks = groups
+      .map((g) =>
+        g.points
+          .filter((d) => d.kind === "threshold")
+          .map((d) => {
+            const x = +X(d.at);
+            const up = d.action ? `<path class="c-mark" d="M${x - 5} ${base - 13} L${x} ${base - 21} L${x + 5} ${base - 13} Z"/>` : "";
+            const down = d.back ? `<path class="c-mark" d="M${x - 5} ${base - 10} L${x} ${base - 2} L${x + 5} ${base - 10} Z"/>` : "";
+            return `<g><title>${esc(friendly(this._hass, g.entity))}: ${esc(this._pointText(d))}</title><line class="c-tick" x1="${x}" x2="${x}" y1="${base}" y2="${base - 24}"/>${up}${down}</g>`;
+          })
+          .join(""),
+      )
+      .join("");
     const pos = this._livePos();
     box.innerHTML = `<svg width="${w}" height="${CHART_H}" viewBox="0 0 ${w} ${CHART_H}" role="img" aria-label="${esc(this._t("Brightness of each light over the scale. The table shows the same values.", "Helligkeit jeder Leuchte über die Skala. Die Tabelle zeigt dieselben Werte."))}">
-      ${grid}${stops}${lines}<line class="c-cross" id="chartCross" x1="0" x2="0" y1="${PT}" y2="${CHART_H - PB}" visibility="hidden"/><line class="c-ph" id="chartPh" x1="${X(pos)}" x2="${X(pos)}" y1="${PT}" y2="${CHART_H - PB}"/>${dots}</svg><div class="chart-tip" id="chartTip" hidden></div>`;
+      ${grid}${stops}${devLines}${lines}${marks}<line class="c-cross" id="chartCross" x1="0" x2="0" y1="${PT}" y2="${CHART_H - PB}" visibility="hidden"/><line class="c-ph" id="chartPh" x1="${X(pos)}" x2="${X(pos)}" y1="${PT}" y2="${CHART_H - PB}"/>${dots}</svg><div class="chart-tip" id="chartTip" hidden></div>`;
     this._placeInspector();
   }
 
@@ -1129,72 +1175,109 @@ class CrescendoPanel extends HTMLElement {
     return `${comma(this._lang, step < 1 ? (Math.round(v / step) * step).toFixed(1) : Math.round(v))} ${unit}`.trim();
   }
 
-  _devLane(d) {
-    if (d.kind === "ramp") {
-      return `<div class="llane devlane" data-devlane="${esc(d.id)}" title="${esc(this._t("Dragging moves the nearest end", "Ziehen verschiebt das nächstliegende Ende"))}"><div class="devramp" id="dvr-${esc(d.id)}" style="left:${d.from}%;width:${Math.max(0, d.to - d.from)}%"></div></div>`;
+  // A device with all its entries, in the order they first appear. Each device has its own dash.
+  _devGroups() {
+    const map = new Map();
+    for (const d of this._o.options.devices) {
+      if (!map.has(d.entity_id)) map.set(d.entity_id, { entity: d.entity_id, points: [] });
+      map.get(d.entity_id).points.push(d);
     }
-    return `<div class="llane devlane" data-devlane="${esc(d.id)}" title="${esc(this._t("Dragging moves the threshold", "Ziehen verschiebt die Schwelle"))}"><div class="devfill" id="dvf-${esc(d.id)}" style="left:${d.at}%"></div><div class="devmark" id="dvm-${esc(d.id)}" style="left:${d.at}%"></div></div>`;
+    return [...map.values()].map((g, i) => ({ ...g, dash: DASHES[i % DASHES.length] }));
   }
 
-  _devFields(d) {
-    const t = this._t;
-    const num = (f, v, label, attrs = 'min="0" max="100"') =>
-      `<input class="field num" type="number" id="d${f}-${esc(d.id)}" data-dev="${esc(d.id)}" data-f="${f}" ${attrs} value="${v}" aria-label="${esc(label)}">`;
-    if (d.kind === "ramp") {
-      const u = this._rampUnit(d);
-      return `<label>${esc(t("From stop", "Von Stufe"))} ${num("from", d.from, t("Start", "Beginn"))}</label><label>${esc(t("to", "bis"))} ${num("to", d.to, t("End", "Ende"))}:</label>
-        <label>${esc(u.label)} ${num("min", d.min, t("Start value", "Anfangswert"), `step="${u.step}"`)}</label><label>${esc(t("to", "bis"))} ${num("max", d.max, t("End value", "Endwert"), `step="${u.step}"`)} ${esc(u.unit)}</label>`;
-    }
-    const domain = d.entity_id.split(".")[0];
-    const names = (a) => (ACTION_LABEL[a] ? (this._lang === "de" ? ACTION_LABEL[a][1] : ACTION_LABEL[a][0]) : a);
-    const actions = DEVICE_ACTIONS[domain] || ["turn_on", "turn_off"];
-    const opts = (val, list, empty) =>
-      (empty ? `<option value="">${esc(t("Do nothing", "Nichts tun"))}</option>` : "") +
-      list.map((a) => `<option value="${a}"${val === a ? " selected" : ""}>${esc(names(a))}</option>`).join("");
-    const media =
-      d.action === "play_media"
-        ? `<label>${esc(t("Title or playlist", "Titel oder Playlist"))} <input class="field" id="dcid-${esc(d.id)}" data-dev="${esc(d.id)}" data-f="media_content_id" value="${esc(d.data?.media_content_id || "")}"></label>
-           <label>${esc(t("Type", "Art"))} <input class="field" id="dctype-${esc(d.id)}" data-dev="${esc(d.id)}" data-f="media_content_type" value="${esc(d.data?.media_content_type || "music")}"></label>`
-        : "";
-    return `<label>${esc(t("From stop", "Ab Stufe"))} ${num("at", d.at, t("Threshold", "Schwelle"))}</label>
-      <label><select class="field" id="dact-${esc(d.id)}" data-dev="${esc(d.id)}" data-f="action" aria-label="${esc(t("Action when crossed", "Aktion beim Überschreiten"))}">${opts(d.action, actions)}</select></label>
-      <label>${esc(t("When falling below", "Beim Unterschreiten"))} <select class="field" id="dbck-${esc(d.id)}" data-dev="${esc(d.id)}" data-f="back">${opts(d.back || "", actions.filter((a) => a !== "play_media"), true)}</select></label>${media}`;
+  // Values in percent share the chart's axis with the lights; a temperature does not.
+  _isPct(entityId) {
+    const domain = entityId.split(".")[0];
+    if (PCT_DOMAINS.includes(domain)) return true;
+    return (domain === "number" || domain === "input_number") && this._hass.states[entityId]?.attributes?.unit_of_measurement === "%";
   }
 
   _devIcon(d) {
-    return this._hass.states[d.entity_id]?.attributes?.icon || DOMAIN_ICON[d.entity_id.split(".")[0]] || "mdi:devices";
+    const id = d.entity_id || d.entity;
+    return this._hass.states[id]?.attributes?.icon || DOMAIN_ICON[id.split(".")[0]] || "mdi:devices";
   }
 
-  // Under the stops: a device's lane and its values, beside the lights' lanes.
-  _deviceRow(d) {
-    return `<div class="lrow devrow"><div class="lname"><ha-icon icon="${esc(this._devIcon(d))}"></ha-icon><span>${esc(friendly(this._hass, d.entity_id))}<span class="devval" data-devval="${esc(d.id)}"></span></span></div>${this._devLane(d)}<div class="ladv">${this._devFields(d)}</div></div>`;
+  _dashKey(g) {
+    return this._isPct(g.entity) && g.points.some((d) => d.kind === "ramp") ? `<svg class="dkey" width="16" height="4" aria-hidden="true"><line x1="0" x2="16" y1="2" y2="2" stroke-dasharray="${g.dash}"/></svg>` : "";
   }
 
-  // In the list of lights and devices: what the device is and how it follows.
-  _devItem(d) {
+  // A point in words: a range with its values and direction, a switch point with what it does each way.
+  _pointText(d) {
+    const t = this._t;
+    if (d.kind === "ramp") {
+      const u = this._rampUnit(d);
+      const dir = d.direction === "up" ? t(", only when dimming up", ", nur beim Hochdimmen") : d.direction === "down" ? t(", only when dimming down", ", nur beim Runterdimmen") : "";
+      return `${t("Stop", "Stufe")} ${d.from}–${d.to}: ${u.label} ${this._fmtRamp(d, d.min)} → ${this._fmtRamp(d, d.max)}${dir}`;
+    }
+    const up = d.action ? `▲ ${this._actionName(d.action)}` : "",
+      down = d.back ? `▼ ${this._actionName(d.back)}` : "";
+    return `${t("Stop", "Stufe")} ${d.at}: ${[up, down].filter(Boolean).join(" · ") || t("does nothing", "tut nichts")}`;
+  }
+
+  // What a device shows at a position: the value of a range it lies in, otherwise nothing.
+  _devValueAt(g, p) {
+    const hit = g.points.filter((d) => d.kind === "ramp" && d.from <= p && p <= d.to).at(-1);
+    return hit ? this._fmtRamp(hit, this._rampVal(hit, p)) : null;
+  }
+
+  // Under the stops: a device's lane with its ranges and switch points, its name opening its points.
+  _deviceRow(g) {
     const t = this._t,
-      domain = d.entity_id.split(".")[0];
-    const r = RAMP_LABEL[domain];
-    const what = r ? (this._lang === "de" ? r[1] : r[0]) : t("value", "Wert");
-    const kinds = [];
-    if (RAMP_DOMAINS.includes(domain)) kinds.push(["ramp", t(`Course: ${what}`, `Verlauf: ${what}`)]);
-    if (DEVICE_ACTIONS[domain]) kinds.push(["threshold", t("Action at a threshold", "Aktion an einer Schwelle")]);
-    const kind =
-      kinds.length > 1
-        ? `<select class="field" id="dk-${esc(d.id)}" data-devkind="${esc(d.id)}" aria-label="${esc(t("How it follows the scale", "Wie es der Skala folgt"))}">${kinds.map(([k, l]) => `<option value="${k}"${d.kind === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`
-        : `<span class="dkind">${esc((kinds.find(([k]) => k === d.kind) || kinds[0] || ["", ""])[1])}</span>`;
-    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(d))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, d.entity_id))}<small class="members">${esc(this._domainLabel(domain))}</small></span></div><div class="ctrls">${kind}<button class="x" data-act="rm-dev" data-id="${esc(d.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
+      e = esc(g.entity);
+    const marks = g.points
+      .map((d) =>
+        d.kind === "ramp"
+          ? `<div class="devramp${d.max < d.min ? " fall" : ""}" id="dvr-${esc(d.id)}" style="left:${d.from}%;width:${Math.max(0, d.to - d.from)}%" title="${esc(this._pointText(d))}">${d.direction === "up" ? '<span class="dir">↑</span>' : d.direction === "down" ? '<span class="dir">↓</span>' : ""}</div>`
+          : `<div class="devmark" id="dvm-${esc(d.id)}" style="left:${d.at}%" title="${esc(this._pointText(d))}"></div>`,
+      )
+      .join("");
+    return `<div class="lrow devrow"><div class="lname"><button class="lanename" data-act="win-dev" data-entity="${e}">${this._dashKey(g)}<ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><span>${esc(friendly(this._hass, g.entity))}</span></button><span class="devval" data-devval="${e}"></span></div><div class="llane devlane" data-devlane="${e}" title="${esc(t("Dragging moves the nearest end or switch point", "Ziehen verschiebt das nächste Ende oder den nächsten Schaltpunkt"))}">${marks}</div></div>`;
+  }
+
+  // In the list of lights and devices: what the device is, how many points it has, and the way to them.
+  _devItem(g) {
+    const t = this._t,
+      e = esc(g.entity),
+      domain = g.entity.split(".")[0];
+    const ramps = g.points.filter((d) => d.kind === "ramp").length,
+      marks = g.points.length - ramps;
+    const parts = [this._domainLabel(domain)];
+    if (ramps) parts.push(ramps === 1 ? t("1 range", "1 Bereich") : t(`${ramps} ranges`, `${ramps} Bereiche`));
+    if (marks) parts.push(marks === 1 ? t("1 switch point", "1 Schaltpunkt") : t(`${marks} switch points`, `${marks} Schaltpunkte`));
+    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, g.entity))}<small class="members">${esc(parts.join(" · "))}</small></span></div><div class="ctrls"><button class="morebtn" data-act="win-dev" data-entity="${e}" data-jump="1">${esc(t("Points", "Punkte"))} ▸</button><button class="x" data-act="rm-devall" data-entity="${e}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
+  }
+
+  // One point in the device's window.
+  _ptFields(d) {
+    const t = this._t,
+      id = esc(d.id);
+    const num = (f, v, label, attrs = 'min="0" max="100"') => `<input class="field num" type="number" id="d${f}-${id}" data-dev="${id}" data-f="${f}" ${attrs} value="${v}" aria-label="${esc(label)}">`;
+    const head = (title) => `<div class="pt-head"><b>${esc(title)}</b><button class="x" data-act="rm-dev" data-id="${id}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>`;
+    if (d.kind === "ramp") {
+      const u = this._rampUnit(d);
+      const dir = d.direction || "both";
+      const opt = (v, l) => `<option value="${v}"${dir === v ? " selected" : ""}>${esc(l)}</option>`;
+      return `<div class="pt">${head(t("Range", "Bereich"))}
+        <div class="row"><label>${esc(t("Stop", "Stufe"))} ${num("from", d.from, t("Start", "Beginn"))}</label><label>${esc(t("to", "bis"))} ${num("to", d.to, t("End", "Ende"))}</label></div>
+        <div class="row"><label>${esc(u.label)} ${num("min", d.min, t("Start value", "Anfangswert"), `step="${u.step}"`)}</label><label>${esc(t("to", "bis"))} ${num("max", d.max, t("End value", "Endwert"), `step="${u.step}"`)} ${esc(u.unit)}</label></div>
+        <label>${esc(t("Acts", "Wirkt"))} <select class="field" id="ddir-${id}" data-dev="${id}" data-f="direction">${opt("both", t("when dimming up and down", "beim Hoch- und Runterdimmen"))}${opt("up", t("only when dimming up", "nur beim Hochdimmen"))}${opt("down", t("only when dimming down", "nur beim Runterdimmen"))}</select></label></div>`;
+    }
+    const actions = DEVICE_ACTIONS[d.entity_id.split(".")[0]] || ["turn_on", "turn_off"];
+    const opts = (val, list) =>
+      `<option value="">${esc(t("Do nothing", "Nichts tun"))}</option>` + list.map((a) => `<option value="${a}"${val === a ? " selected" : ""}>${esc(this._actionName(a))}</option>`).join("");
+    const media =
+      d.action === "play_media"
+        ? `<div class="row"><label>${esc(t("Title or playlist", "Titel oder Playlist"))} <input class="field" id="dcid-${id}" data-dev="${id}" data-f="media_content_id" value="${esc(d.data?.media_content_id || "")}"></label>
+           <label>${esc(t("Type", "Art"))} <input class="field" id="dctype-${id}" data-dev="${id}" data-f="media_content_type" value="${esc(d.data?.media_content_type || "music")}"></label></div>`
+        : "";
+    return `<div class="pt">${head(t("Switch point", "Schaltpunkt"))}
+      <div class="row"><label>${esc(t("At stop", "Bei Stufe"))} ${num("at", d.at, t("Switch point", "Schaltpunkt"))}</label></div>
+      <label>▲ ${esc(t("Crossing up", "Beim Überschreiten"))} <select class="field" id="dact-${id}" data-dev="${id}" data-f="action">${opts(d.action || "", actions)}</select></label>
+      <label>▼ ${esc(t("Crossing down", "Beim Unterschreiten"))} <select class="field" id="dbck-${id}" data-dev="${id}" data-f="back">${opts(d.back || "", actions.filter((a) => a !== "play_media"))}</select></label>${media}</div>`;
   }
 
   _actionName(a) {
     return ACTION_LABEL[a] ? (this._lang === "de" ? ACTION_LABEL[a][1] : ACTION_LABEL[a][0]) : a;
-  }
-
-  // What a device does at a position: its value on a course, its action past a threshold.
-  _devAt(d, p) {
-    if (d.kind === "ramp") return this._fmtRamp(d, this._rampVal(d, p));
-    if (p >= d.at) return this._actionName(d.action);
-    return d.back ? this._actionName(d.back) : "–";
   }
 
   _opposite(entityId, action) {
@@ -1241,7 +1324,6 @@ class CrescendoPanel extends HTMLElement {
     const names = u.ids.map((id) => friendly(this._hass, id));
     const title = g ? (g.name || "").trim() || commonName(names) : u.name;
     const open = this._openMore.has(key);
-    const fid = `flicker-${key}`;
     const flicker = l.mode === "rgbcct";
     let panel = "";
     if (open) {
@@ -1255,17 +1337,18 @@ class CrescendoPanel extends HTMLElement {
             .filter((x) => x.ids.join(",") !== key)
             .map((x) => `<option value="${esc(x.ids.join(","))}">${esc(x.group ? t(`Join “${nameOf(x)}”`, `Zu „${nameOf(x)}“ hinzufügen`) : t(`Group with “${nameOf(x)}”`, `Mit „${nameOf(x)}“ gruppieren`))}</option>`)
             .join("")}</select></label>`;
-      panel = `<div class="lpanel">${g ? group : ""}
+      const note = flicker
+        ? `<p class="lwarn">${esc(t("Changing between color and white can make this light flicker. If that bothers you, choose Colors or White tones. Another object with the same light can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann diese Leuchte flackern. Falls das stört, wähle „Farben“ oder „Weißtöne“. Ein weiteres Objekt mit derselben Leuchte kann anders eingestellt sein."))}</p>`
+        : "";
+      panel = `<div class="lpanel">${note}${g ? group : ""}
         <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${k}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
         <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${k}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
         ${g ? "" : group}${this._ib(`fade-${key}`)}</div>${this._it(`fade-${key}`, t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider. A group shows as one light, here and in the cards, and takes the settings of the light or group it joins.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der Leuchte oder Gruppe, zu der sie kommt."))}`;
     }
-    const warn = flicker
-      ? `<button class="warnbtn" data-act="info" data-info-for="${esc(fid)}" aria-expanded="${this._infos.has(fid)}" aria-label="${esc(t("Can flicker", "Kann flackern"))}" title="${esc(t("Can flicker", "Kann flackern"))}">!</button>`
-      : "";
+    const dot = flicker ? `<span class="wdot" title="${esc(t("Can flicker, see More", "Kann flackern, siehe Mehr"))}"></span>` : "";
     return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname"><span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
-      <div class="ctrls"><button class="morebtn" data-act="more" data-key="${k}" aria-expanded="${open}">${esc(t("More", "Mehr"))} ${open ? "▾" : "▸"}</button>${warn}<select class="field" id="mode-${esc(l.entity_id)}" data-mode="${k}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select><button class="x" data-act="rm-lamp" data-ids="${k}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>
-      ${flicker ? `<p class="lwarn" data-info="${esc(fid)}"${this._infos.has(fid) ? "" : " hidden"}>${esc(t("Changing between color and white can make this light flicker. If that bothers you, choose Colors or White tones. Another object with the same light can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann diese Leuchte flackern. Falls das stört, wähle „Farben“ oder „Weißtöne“. Ein weiteres Objekt mit derselben Leuchte kann anders eingestellt sein."))}</p>` : ""}${panel}</div>`;
+      <div class="ctrls"><button class="morebtn" data-act="more" data-key="${k}" aria-expanded="${open}">${esc(t("More", "Mehr"))}${dot} ${open ? "▾" : "▸"}</button><select class="field" id="mode-${esc(l.entity_id)}" data-mode="${k}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select><button class="x" data-act="rm-lamp" data-ids="${k}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>
+      ${panel}</div>`;
   }
 
   _renderRows() {
@@ -1273,7 +1356,7 @@ class CrescendoPanel extends HTMLElement {
       t = this._t,
       o = this._o.options;
     const us = this._units();
-    const rows = us.map((u) => this._lampRow(u, us)).join("") + o.devices.map((d) => this._devItem(d)).join("");
+    const rows = us.map((u) => this._lampRow(u, us)).join("") + this._devGroups().map((g) => this._devItem(g)).join("");
     const folded = this._addOpen || !o.lights.length;
     box.innerHTML =
       (rows || `<p class="note">${esc(t("Nothing yet. Add the first light below.", "Noch nichts. Füge unten die erste Leuchte hinzu."))}</p>`) +
@@ -1390,7 +1473,7 @@ class CrescendoPanel extends HTMLElement {
       o = this._o.options;
     box.innerHTML = this._units()
       .map(
-        (u) => `<div class="lrow"><div class="lname"><i class="key" style="background:${seriesVar(u.slot)}"></i><span>${esc(u.name)}</span></div>
+        (u) => `<div class="lrow"><div class="lname"><button class="lanename" data-act="win-light" data-ids="${esc(u.ids.join(","))}"><i class="key" style="background:${seriesVar(u.slot)}"></i><span>${esc(u.name)}</span></button></div>
         <div class="llane" style="background-image:${laneGradient(o, u.light, undefined, this._dark)}"></div></div>`,
       )
       .join("");
@@ -1401,7 +1484,9 @@ class CrescendoPanel extends HTMLElement {
       t = this._t,
       o = this._o.options;
     box.hidden = !o.devices.length;
-    box.innerHTML = o.devices.map((d) => this._deviceRow(d)).join("");
+    box.innerHTML = this._devGroups()
+      .map((g) => this._deviceRow(g))
+      .join("");
   }
 
   _renderMatrix() {
@@ -1433,11 +1518,17 @@ class CrescendoPanel extends HTMLElement {
     };
     const rows = us
       .map(
-        (u) => `<tr><th scope="row"><div class="lname" style="padding:0"><span>${esc(u.name)}</span><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></th>${o.stops.map((s) => `<td>${cell(u, s)}</td>`).join("")}</tr>`,
+        (u) => `<tr><th scope="row"><div class="lname" style="padding:0"><button class="lanename" data-act="win-light" data-ids="${esc(u.ids.join(","))}">${esc(u.name)}</button><button class="x" data-act="rm-lamp" data-ids="${esc(u.ids.join(","))}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></th>${o.stops.map((s) => `<td>${cell(u, s)}</td>`).join("")}</tr>`,
       )
       .join("");
-    const devRows = o.devices
-      .map((d) => `<tr><th scope="row">${esc(friendly(this._hass, d.entity_id))}</th>${o.stops.map((s) => `<td class="num-cell" style="text-align:center;font-size:12.5px">${esc(this._devAt(d, s.position))}</td>`).join("")}</tr>`)
+    const devRows = this._devGroups()
+      .map((g) => {
+        const marks = g.points
+          .filter((d) => d.kind === "threshold")
+          .map((d) => this._pointText(d))
+          .join("; ");
+        return `<tr><th scope="row"><button class="lanename" data-act="win-dev" data-entity="${esc(g.entity)}">${esc(friendly(this._hass, g.entity))}</button>${marks ? `<small class="mxmarks">${esc(marks)}</small>` : ""}</th>${o.stops.map((s) => `<td class="num-cell" style="text-align:center;font-size:12.5px">${esc(this._devValueAt(g, s.position) ?? "–")}</td>`).join("")}</tr>`;
+      })
       .join("");
     this.shadowRoot.getElementById("matrix").innerHTML = `<thead><tr><th>${esc(t("Stop", "Stufe"))}</th>${head}</tr></thead><tbody><tr><th scope="row">${esc(t("Room", "Raum"))}</th>${room}</tr>${rows || `<tr><th scope="row">${esc(t("No light yet", "Noch keine Leuchte"))}</th><td colspan="${o.stops.length}"><span class="note">${esc(t("Add the first one below.", "Füge unten die erste hinzu."))}</span></td></tr>`}${devRows}</tbody>`;
   }
@@ -1482,10 +1573,61 @@ class CrescendoPanel extends HTMLElement {
     return { val, shine: val.brightness > 0 ? lightA(shine, 1) : "var(--well)", bars };
   }
 
+  // A light's window lists its stops; a device's window holds its ranges and switch points.
+  _renderWin() {
+    const box = this.shadowRoot.getElementById("inspector"),
+      t = this._t,
+      w = this._win,
+      o = this._o.options;
+    const close = `<button class="x done" data-act="close-ins" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
+    box.classList.toggle("wide", w.kind === "device");
+    if (w.kind === "light") {
+      const u = this._units().find((x) => x.ids.join(",") === w.ids);
+      if (!u) {
+        this._win = null;
+        box.hidden = true;
+        return;
+      }
+      const light = u.light;
+      const rows = o.stops
+        .filter((s) => s.position > 0)
+        .map((s) => {
+          const v = s.values[light.entity_id] || { brightness: 0 };
+          const on = v.brightness > 0;
+          const main = !on ? t("off", "aus") : light.mode === "onoff" ? t("on", "an") : `${Math.round(v.brightness)} %`;
+          const sub = !on ? "" : v.color ? t("Color", "Farbe") : light.mode === "cct" || light.mode === "rgbcct" ? `${v.kelvin ?? 3000} K` : "";
+          return `<button class="ptrow" data-act="win-point" data-stop="${s._sid}" data-lamp="${esc(light.entity_id)}"><span>${esc(t("Stop", "Stufe"))} ${s.position}</span><i class="swatch" style="background:${on ? lightA(rgbOf(light, v), 1) : "var(--well)"}"></i><b>${esc(main)}</b><small>${esc(sub)}</small></button>`;
+        })
+        .join("");
+      box.innerHTML = `<h3><i class="key" style="background:${seriesVar(u.slot)}"></i>${esc(u.name)}<small>${esc(t("All stops", "Alle Stufen"))}</small>${close}</h3><div class="ptlist">${rows}</div><p class="note">${esc(t("Tap a stop to set it.", "Tippe eine Stufe an, um sie einzustellen."))}</p>`;
+    } else {
+      const g = this._devGroups().find((x) => x.entity === w.entity);
+      if (!g) {
+        this._win = null;
+        box.hidden = true;
+        return;
+      }
+      const domain = g.entity.split(".")[0],
+        e = esc(g.entity);
+      const add = (kind, label) => `<button class="btn" data-act="add-pt" data-kind="${kind}" data-entity="${e}">+ ${esc(label)}</button>`;
+      box.innerHTML = `<h3><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon>${esc(friendly(this._hass, g.entity))}<small>${esc(this._domainLabel(domain))}</small>${close}</h3>
+        ${g.points.map((d) => this._ptFields(d)).join("")}
+        <div class="row">${RAMP_DOMAINS.includes(domain) ? add("ramp", t("Range", "Bereich")) : ""}${DEVICE_ACTIONS[domain] ? add("threshold", t("Switch point", "Schaltpunkt")) : ""}${this._ib("devwin")}</div>
+        ${this._it("devwin", t("A range changes the value while the scale runs through it; a jump over it ends at its end value. A switch point acts when the scale crosses it, on a slider when you let go; Do nothing leaves one side out. Several ranges and switch points can work together, for example play from 50, louder from 60 to 80, pause below 40.", "Ein Bereich ändert den Wert, während die Skala durch ihn läuft; wer ihn überspringt, landet auf seinem Endwert. Ein Schaltpunkt löst aus, wenn die Skala ihn überquert, beim Slider erst beim Loslassen; „Nichts tun“ lässt eine Seite aus. Mehrere Bereiche und Schaltpunkte arbeiten zusammen, zum Beispiel ab 50 abspielen, von 60 bis 80 lauter, unter 40 pausieren."))}`;
+    }
+    box.hidden = false;
+    this._placeInspector();
+  }
+
   _renderInspector() {
     const box = this.shadowRoot.getElementById("inspector"),
       t = this._t;
     if (!box || this._insDrag) return;
+    if (this._win && !this._sel.lamp) {
+      this._renderWin();
+      return;
+    }
+    box.classList.remove("wide");
     const st = this._stop(),
       u = this._selUnit();
     box.hidden = !st || !u;
@@ -1493,7 +1635,8 @@ class CrescendoPanel extends HTMLElement {
     const close = `<button class="x done" data-act="close-ins" aria-label="${esc(t("Done", "Fertig"))}" title="${esc(t("Done", "Fertig"))}">${CHECK_ICON}</button>`;
     const light = u.light;
     const m = this._insModel(st, u);
-    let html = `<h3><i class="swatch" style="background:${m.shine}"></i>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
+    const back = this._win?.kind === "light" ? `<button class="x" data-act="win-back" aria-label="${esc(t("Back to all stops", "Zurück zu allen Stufen"))}" title="${esc(t("All stops", "Alle Stufen"))}">‹</button>` : "";
+    let html = `<h3>${back}<i class="swatch" style="background:${m.shine}"></i>${esc(u.name)}<small>${esc(t("Stop", "Stufe"))} ${st.position}</small>${close}</h3>`;
     if (st.position === 0) {
       box.innerHTML = `${html}<p class="note">${esc(t("At stop 0 all lights are always off.", "Bei Stufe 0 sind immer alle Leuchten aus."))}</p>`;
       this._placeInspector();
@@ -1537,6 +1680,7 @@ class CrescendoPanel extends HTMLElement {
 
   // Changes apply as they are made, so closing only puts the settings away. The stop stays chosen for its tools.
   _closeInspector() {
+    this._win = null;
     this._sel = { stop: this._sel.stop, lamp: null };
     this._renderInspector();
     const r = this.shadowRoot;
@@ -1610,8 +1754,16 @@ class CrescendoPanel extends HTMLElement {
       lights = r.getElementById("lights"),
       chart = r.getElementById("chartBox");
     if (!box || box.hidden || !lights) return;
-    const dot = chart && !chart.hidden ? chart.querySelector(".c-dot.sel") : null;
-    if (!dot || lights.clientWidth <= 860 - 0 && r.querySelector(".shell").clientWidth <= 860) {
+    // A device's window is a form and opens in place under the lanes; a light's list opens below its name.
+    const win = this._win && !this._sel.lamp;
+    if (win && this._win.kind === "device") {
+      box.classList.remove("pop");
+      box.style.left = box.style.top = "";
+      return;
+    }
+    const key = win ? (this._win.kind === "light" ? `[data-act="win-light"][data-ids="${this._win.ids}"]` : `[data-act="win-dev"][data-entity="${this._win.entity}"]`) : "";
+    const dot = win ? [...lights.querySelectorAll(key)].find((el) => el.offsetParent) : chart && !chart.hidden ? chart.querySelector(".c-dot.sel") : null;
+    if (!dot || r.querySelector(".shell").clientWidth <= 860) {
       box.classList.remove("pop");
       box.style.left = box.style.top = "";
       return;
@@ -1621,6 +1773,11 @@ class CrescendoPanel extends HTMLElement {
       dr = dot.getBoundingClientRect();
     const bw = box.offsetWidth,
       bh = box.offsetHeight;
+    if (win) {
+      box.style.left = `${clamp(this._chartGut, 4, Math.max(4, lr.width - bw - 4))}px`;
+      box.style.top = `${dr.bottom - lr.top + 6}px`;
+      return;
+    }
     let left = dr.right - lr.left + 12;
     if (left + bw > lr.width - 4) left = Math.max(4, dr.left - lr.left - bw - 12);
     const top = clamp(dr.top - lr.top - 20, 0, Math.max(0, lr.height - bh));
@@ -1709,8 +1866,8 @@ data:
       ph.setAttribute("x2", x);
     }
     r.querySelectorAll("[data-devval]").forEach((el) => {
-      const d = this._o.options.devices.find((x) => x.id === el.dataset.devval);
-      if (d?.kind === "ramp") el.textContent = this._fmtRamp(d, this._rampVal(d, p));
+      const id = el.dataset.devval;
+      if (this._hass.states[id]) el.textContent = this._stateText({ id, domain: id.split(".")[0] });
     });
   }
 
@@ -1902,7 +2059,8 @@ data:
     return Object.fromEntries(o.lights.map((l) => [l.entity_id, interpVal(a.values[l.entity_id] || { brightness: 0 }, b.values[l.entity_id] || { brightness: 0 }, tt)]));
   }
 
-  _selectPoint(stop, lamp) {
+  _selectPoint(stop, lamp, fromWin = false) {
+    if (!fromWin) this._win = null;
     this._sel = { stop, lamp };
     this._lastKey = null;
     this._renderTools();
@@ -1925,6 +2083,7 @@ data:
     if (kind === "ramp") {
       d.from = 20;
       d.to = 100;
+      d.direction = "both";
       if (domain === "media_player") Object.assign(d, { min: 0, max: 40 });
       else if (domain === "climate") {
         const now = +a.temperature || 20;
@@ -2129,10 +2288,43 @@ data:
         this._change(() => {
           o.devices = o.devices.filter((d) => d.id !== a.dataset.id);
         });
+        this._renderInspector();
+        break;
+      case "rm-devall":
+        this._change(() => {
+          o.devices = o.devices.filter((d) => d.entity_id !== a.dataset.entity);
+        });
+        if (this._win?.entity === a.dataset.entity) this._win = null;
+        this._renderInspector();
         break;
       case "add-dev":
         this._addDevice(a.dataset.kind, a.dataset.id);
-        this._toast(t(`${friendly(hass, a.dataset.id)} added. Set it up under Stops.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Stelle es unter „Stufen“ ein.`));
+        this._win = { kind: "device", entity: a.dataset.id };
+        this._sel = { stop: this._sel.stop, lamp: null };
+        this._renderInspector();
+        this._toast(t(`${friendly(hass, a.dataset.id)} added. Its points stand under Stops.`, `${friendly(hass, a.dataset.id)} hinzugefügt. Seine Punkte stehen unter „Stufen“.`));
+        break;
+      case "add-pt": {
+        const d = this._newDevice(a.dataset.kind, a.dataset.entity);
+        this._change(() => o.devices.push(d));
+        this._renderInspector();
+        break;
+      }
+      case "win-dev":
+      case "win-light":
+        this._win = act === "win-dev" ? { kind: "device", entity: a.dataset.entity } : { kind: "light", ids: a.dataset.ids };
+        this._sel = { stop: this._sel.stop, lamp: null };
+        this._renderStops();
+        this._renderInspector();
+        if (a.dataset.jump) this.shadowRoot.getElementById("devRows")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        break;
+      case "win-point":
+        this._selectPoint(a.dataset.stop, a.dataset.lamp, true);
+        break;
+      case "win-back":
+        this._sel = { stop: this._sel.stop, lamp: null };
+        this._renderStops();
+        this._renderInspector();
         break;
       case "dev-kind":
         this._devKind = a.dataset.domain;
@@ -2381,14 +2573,6 @@ data:
     } else if (t.dataset.gname) {
       const g = o.groups.find((x) => x.id === t.dataset.gname);
       if (g) this._change(() => (g.name = t.value.trim()));
-    } else if (t.dataset.devkind) {
-      const i = o.devices.findIndex((x) => x.id === t.dataset.devkind);
-      if (i < 0) return;
-      this._change(() => {
-        const d = this._newDevice(t.value, o.devices[i].entity_id);
-        d.id = o.devices[i].id;
-        o.devices[i] = d;
-      });
     } else if (t.id === "diagObj") {
       this._i = +t.value;
       this._test = {};
@@ -2443,13 +2627,16 @@ data:
         if (f === "action") {
           // A "back" that was the opposite of the old action follows the new one.
           const follows = (d.back || null) === this._opposite(d.entity_id, d.action);
-          d.action = t.value;
-          if (follows) d.back = this._opposite(d.entity_id, t.value);
+          d.action = t.value || null;
+          if (follows && d.action) d.back = this._opposite(d.entity_id, d.action);
         } else if (f === "back") d.back = t.value || null;
+        else if (f === "direction") d.direction = t.value;
         else if (f === "media_content_id" || f === "media_content_type") d.data = { media_content_type: "music", ...d.data, [f]: t.value };
         else if (f === "min" || f === "max") d[f] = +t.value || 0;
         else d[f] = clamp(+t.value || 0, 0, 100);
+        if (d.kind === "ramp" && d.from > d.to) [d.from, d.to] = [d.to, d.from];
       });
+      this._renderInspector();
     } else if (t.id === "rate") {
       this._change(() => (o.slider_rate = clamp(Math.round(+t.value) || 4, 1, 10)));
       t.value = o.slider_rate;
@@ -2483,7 +2670,7 @@ data:
   _onDown(e) {
     // A press outside a point's settings puts them away, unless it chooses another point or a tool of the stop.
     const ins = this.shadowRoot.getElementById("inspector");
-    if (ins && !ins.hidden && !e.composedPath().includes(ins) && !e.target.closest?.("[data-pthit], .cell, #stopTools")) this._closeInspector();
+    if (ins && !ins.hidden && !e.composedPath().includes(ins) && !e.target.closest?.('[data-pthit], .cell, #stopTools, [data-act^="win-"], [data-devlane]')) this._closeInspector();
     const pbar = e.target.closest?.("[data-pbar]");
     if (pbar) {
       e.preventDefault();
@@ -2497,16 +2684,21 @@ data:
     }
     const lane = e.target.closest?.("[data-devlane]");
     if (lane) {
-      const d = this._o.options.devices.find((x) => x.id === lane.dataset.devlane);
-      if (!d) return;
+      const points = this._o.options.devices.filter((x) => x.entity_id === lane.dataset.devlane);
+      if (!points.length) return;
       e.preventDefault();
       const r = lane.getBoundingClientRect();
       const p = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
       this._undo.push(JSON.stringify({ title: this._o.title, options: this._o.options }));
       this.shadowRoot.getElementById("undoBtn").disabled = false;
       this._lastKey = null;
-      const end = d.kind === "ramp" ? (Math.abs(p - d.from) < Math.abs(p - d.to) ? "from" : "to") : "at";
-      this._devDrag = { d, r, end };
+      let best = null;
+      for (const x of points)
+        for (const end of x.kind === "ramp" ? ["from", "to"] : ["at"]) {
+          const gap = Math.abs(p - x[end]);
+          if (!best || gap < best.gap) best = { d: x, end, gap };
+        }
+      this._devDrag = { d: best.d, r, end: best.end };
       lane.setPointerCapture(e.pointerId);
       this._moveDev(e);
       return;
@@ -2592,7 +2784,6 @@ data:
       }
     } else {
       if (q(`dvm-${d.id}`)) q(`dvm-${d.id}`).style.left = `${p}%`;
-      if (q(`dvf-${d.id}`)) q(`dvf-${d.id}`).style.left = `${p}%`;
     }
     const inp = q(`d${end}-${d.id}`);
     if (inp) inp.value = p;
@@ -2608,6 +2799,8 @@ data:
     if (this._devDrag) {
       this._devDrag = null;
       this._save();
+      this._renderStops();
+      this._renderInspector();
       return;
     }
     const d = this._chartDrag;
@@ -2658,7 +2851,12 @@ data:
       this._units()
         .map((u) => `<div><i class="key" style="background:${seriesVar(u.slot)}"></i>${esc(u.name)}<em>${Math.round(lampAt(o, u.light, pos).v)} %</em></div>`)
         .join("") +
-      o.devices.map((d) => `<div>${esc(friendly(this._hass, d.entity_id))}<em>${esc(this._devAt(d, pos))}</em></div>`).join("");
+      this._devGroups()
+        .map((g) => {
+          const v = this._devValueAt(g, pos);
+          return v === null ? "" : `<div>${this._dashKey(g)}${esc(friendly(this._hass, g.entity))}<em>${esc(v)}</em></div>`;
+        })
+        .join("");
     tip.hidden = false;
     const left = p.x + 14 + tip.offsetWidth > this._chartW ? p.x - 14 - tip.offsetWidth : p.x + 14;
     tip.style.left = `${left}px`;

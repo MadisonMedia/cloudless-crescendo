@@ -239,6 +239,23 @@ async def test_devices_follow_the_scale(hass: HomeAssistant, setup_object) -> No
     assert temperature[-1].data["temperature"] == 22
 
 
+async def test_a_range_follows_the_slider_only_inside_it(hass: HomeAssistant, setup_object) -> None:
+    volume = async_mock_service(hass, "media_player", "volume_set")
+    options = sample_options(
+        devices=[{"entity_id": "media_player.bad", "kind": "ramp", "from": 60, "to": 80, "min": 20, "max": 40}]
+    )
+    entity = await setup_object(options=options)
+    engine = entity.engine
+    engine.set_position(30)
+    await _wait(hass, 0.1)
+    engine.set_position(50, final=True)
+    await _wait(hass, 0.1)
+    assert not volume
+    engine.set_position(90, final=True)
+    await _wait(hass, 0.1)
+    assert volume[-1].data["volume_level"] == 0.4
+
+
 async def test_thresholds_on_the_slider_wait_for_the_release(hass: HomeAssistant, setup_object) -> None:
     opened = async_mock_service(hass, "cover", "open_cover")
     closed = async_mock_service(hass, "cover", "close_cover")

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0b8
+
+Restart Home Assistant after updating, then reload the browser or app once so the page loads anew.
+
+### Added
+
+- **A device can have several points.** A range lets a value follow between two stops, when dimming up and down, only up or only down. A switch point fires one action when crossed upward and one when crossed downward; either side may do nothing. Together they build, for example: play from 50, louder from 60 to 80, pause below 40.
+- **Devices in the chart.** Values in percent, such as volume or a blind's position, appear as dashed lines on the same axis as the lights. Switch points appear as small marks, ▲ for crossing up and ▼ for crossing down; temperatures stay in their lane, in degrees.
+- **A light's stops in one list.** A tap on a light's name under the chart or in the table lists all its stops with brightness and color; a stop opens its bars, with a way back.
+- A tap on a device's name opens its ranges and switch points, with **+ Range** and **+ Switch point**.
+
+### Changed
+
+- **A range acts only when the scale touches or crosses it.** A jump across it moves the device swiftly to its end value, like the lights; outside its stops it leaves the device alone. Existing settings keep working.
+- Lights with colors and white tones mark their flicker note with a dot on **More**; the note stands inside.
+
 ## 0.2.0b7
 
 Reload the browser or app once after updating so the page loads anew.

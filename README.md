@@ -13,7 +13,7 @@ A Home Assistant integration that dims several lights as one object, along a seq
 - **One object, many lights.** In Home Assistant the object is a normal light. Tiles, voice commands ("50 percent") and automations work as usual, and its brightness is the position on the scale.
 - **Nothing hidden.** Every light has a value at every stop. You see all of them in a chart or a table and can change them there.
 - **Native fades.** Timed fades use the lights' own transitions through `light.turn_on`, so they run smoothly and don't depend on Home Assistant staying busy. Only a slider dragged by hand sends values in real time, 4 per second by default.
-- **Other devices on the same scale.** Volume and temperature can follow a range of the scale. Blinds, heating or music can start or stop at a threshold, with an optional opposite action below it.
+- **Other devices on the same scale.** Each device can have several points. A **range** lets volume, temperature or a blind's position follow between two stops, when dimming up and down or only one way. A **switch point** fires one action when crossed upward and one when crossed downward, such as play and pause; either side may stay empty.
 - **One card, eight designs.** Room gradient, upright fader, dial, scenes, columns for single lights, chart, a photo of your room with light points, and a mixer for several devices. Any design can open the columns of all lights in a window, by a button or a tap on the card. The card also works with other lights, climate, covers, media players, fans, number entities and read-only sensors.
 - **Diagnostics.** Reaction times and failures from normal operation, plus a connection test that asks before it runs.
 - **German and English.**
@@ -47,7 +47,7 @@ Open **Crescendo** in the sidebar.
 
 1. Choose the object at the top, or **New object**, and name it.
 2. Under **Lights and devices**, **+ Add a light or device** opens the search by name, room or kind; lights are chosen first. For each light choose what it shows: white tones, colors or both. **More** beside it opens the fade, the slider behavior and **Group**. Lights set the same are suggested as a group in one line; change the display name afterwards under **More**.
-3. Under **Stops**, set the **Speed**. **Templates** give all lights a ready shape, such as one after another from warm to neutral, or like another object. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it, with bars for brightness, white tone, color and saturation; the check mark or a tap beside them closes them. Below stand the devices with their course or threshold. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
+3. Under **Stops**, set the **Speed**. **Templates** give all lights a ready shape, such as one after another from warm to neutral, or like another object. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it, with bars for brightness, white tone, color and saturation; the check mark or a tap beside them closes them. A tap on a light's name lists all its stops. Below stand the devices; a tap on a name opens its ranges and switch points. Devices in percent appear as a dashed line in the chart, switch points as small marks: ▲ for crossing up, ▼ for crossing down. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
 4. Add **Standard buttons**, one by one or from a template such as **Night · Morning · Day · Bright**. New cards take them as a template. **On/off** comes first and sets what the object switches on to.
 5. Under **Behavior**, set the slider.
 
@@ -98,7 +98,8 @@ data:
 - Lights that were offline catch up when they return. Fades continue after a restart of Home Assistant, and a chosen color stays.
 - A color chosen in the object's normal light controls or on the card overrides the stops' colors until you switch off or choose **Reset** on the card. Lights without color keep their white. On the card, a light's name opens its settings: brightness, and white tone, color and saturation as far as its mode allows. A combined column lists its lights there, each with its own settings. **Reset** brings single lights and a chosen color back to the stops.
 - Fades without a duration take their share of the time set for 0 to 100 % (**Speed** under **Stops** on the setup page): from 80 to 100 % a fifth of it. This applies to buttons, switching on and off, taps on a card's slider, and tiles or voice commands. A card can set its own speed. A given duration, for example from an automation, counts exactly.
-- A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.
+- A switch point fires once: on a slider when you let go, on a timed fade when it is crossed. A jump across it fires it too.
+- A range acts only when the scale touches or crosses it, and only in its direction. A jump across it moves the device swiftly to its end value. Outside its stops it leaves the device alone, so several ranges of one device work together.
 
 ## For other integrations
 

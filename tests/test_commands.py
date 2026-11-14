@@ -375,6 +375,41 @@ def test_a_ramp_moves_on_from_the_value_it_last_got() -> None:
     assert [s.value for s in in_step] == [s.value for s in threshold_steps([ramp], 40, 0, 10)]
 
 
+def test_a_ramp_acts_only_within_its_range() -> None:
+    ramp = {"entity_id": "media_player.bad", "kind": "ramp", "from": 60, "to": 80, "min": 20, "max": 40}
+    assert threshold_steps([ramp], 0, 40, 10) == []
+    steps = threshold_steps([ramp], 20, 100, 10)
+    assert steps[0].time > 10 * 40 / 80 - 1e-6
+    assert steps[-1].time < 10 * 60 / 80 + 1e-6
+    assert steps[-1].value == 40
+
+
+def test_a_ramp_follows_only_its_direction() -> None:
+    up = {"entity_id": "media_player.bad", "kind": "ramp", "from": 0, "to": 100, "min": 0, "max": 40, "direction": "up"}
+    assert threshold_steps([up], 100, 0, 10) == []
+    assert threshold_steps([up], 0, 100, 10)[-1].value == 40
+    down = {**up, "direction": "down"}
+    assert threshold_steps([down], 0, 100, 10) == []
+    assert threshold_steps([down], 100, 0, 10)[-1].value == 0
+
+
+def test_two_ranges_of_one_device_take_turns() -> None:
+    low = {"id": "a", "entity_id": "media_player.bad", "kind": "ramp", "from": 20, "to": 50, "min": 10, "max": 30}
+    high = {"id": "b", "entity_id": "media_player.bad", "kind": "ramp", "from": 60, "to": 80, "min": 30, "max": 50}
+    up = sorted(threshold_steps([low, high], 0, 100, 10), key=lambda s: s.time)
+    assert up[-1].value == 50
+    assert max(s.time for s in up if s.device is low) <= min(s.time for s in up if s.device is high)
+    down = sorted(threshold_steps([low, high], 100, 30, 10), key=lambda s: s.time)
+    assert down[-1].device is low
+    assert abs(down[-1].value - ramp_value(low, 30)) < 1e-6
+
+
+def test_a_threshold_may_act_only_one_way() -> None:
+    pause = {"entity_id": "media_player.bad", "kind": "threshold", "at": 40, "action": None, "back": "media_pause"}
+    assert threshold_steps([pause], 20, 60, 1) == []
+    assert [s.action for s in threshold_steps([pause], 60, 20, 1)] == ["media_pause"]
+
+
 async def test_a_fade_without_devices_stays_without_them_after_a_restart(hass: HomeAssistant, setup_object) -> None:
     now = dt_util.utcnow()
     attributes = {
