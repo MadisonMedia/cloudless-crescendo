@@ -46,12 +46,12 @@ Go to **Settings → Devices & services → Add integration → Cloudless Cresce
 Open **Crescendo** in the sidebar.
 
 1. Choose the object at the top, or **New object**, and name it.
-2. Under **Lights and devices**, search lights and devices by name, room or kind and add them; lights are chosen first. For each light choose what it shows: white tones, colors or both. **More** holds the fade and slider behavior. Lights set the same are suggested as a group with a display name; **Group lights** makes groups by hand.
+2. Under **Lights and devices**, **+ Add a light or device** opens the search by name, room or kind; lights are chosen first. For each light choose what it shows: white tones, colors or both. **More** beside it opens the fade, the slider behavior and **Group**. Lights set the same are suggested as a group in one line; change the display name afterwards under **More**.
 3. Under **Stops**, set the **Speed**. **Templates** give all lights a ready shape, such as one after another from warm to neutral, or like another object. Drag the points in the chart to set each light's brightness, and tap a point: its settings open right beside it, with bars for brightness, white tone, color and saturation; the check mark or a tap beside them closes them. Below stand the devices with their course or threshold. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
-4. Add **Standard buttons**. New cards take them as a template. **On/off** comes first and sets what the object switches on to.
+4. Add **Standard buttons**, one by one or from a template such as **Night · Morning · Day · Bright**. New cards take them as a template. **On/off** comes first and sets what the object switches on to.
 5. Under **Behavior**, set the slider.
 
-**Export** saves an object as a file; **Import** creates a new one from it or replaces the chosen one.
+**Export** saves an object as a file; **Import** creates a new one from it or replaces the chosen one. Explanations sit behind the small **i** beside a heading.
 
 The bar at the bottom shows the position, switches the preview on the lights and starts test runs.
 

@@ -82,7 +82,7 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .objrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .objpick { max-width: 240px; font-weight: 600; }
 .newbox { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.lrow2 { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; gap: 6px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+.lrow2 { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
 .lrow2:first-child { border-top: 0; }
 .lrow2 .lname { padding: 0; }
 .lrow2 select { min-height: 32px; padding: 3px 6px; font-size: 13px; }
@@ -92,9 +92,32 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .gsel { margin: 0 2px 0 0; width: 16px; height: 16px; flex: none; }
 .gadv { padding-bottom: 0 !important; }
 .gmembers { display: flex; flex-wrap: wrap; gap: 6px; }
-.tempo { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
-.tempo b { font-weight: 650; }
-.tempo .note { font-size: 12.5px; }
+.tempo { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); }
+.tempo b { color: var(--ink); font-weight: 600; }
+.tempo input.num { width: 64px; min-height: 32px; }
+.hrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.info { border: 1px solid var(--line); background: transparent; color: var(--muted); width: 20px; height: 20px; border-radius: 50%; padding: 0; font: italic 600 12px/1 Georgia, "Times New Roman", serif; flex: none; display: inline-grid; place-items: center; }
+.info:hover, .info[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.info-text { max-width: none; font-size: 13px; }
+.ctrls { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.morebtn { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+.morebtn:hover, .morebtn[aria-expanded="true"] { color: var(--ink); background: var(--line); }
+.warnbtn { border: 0; background: var(--warn-soft); color: var(--warn); width: 24px; height: 24px; border-radius: 6px; padding: 0; font-weight: 700; flex: none; }
+.lpanel { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 13px; color: var(--muted); padding: 2px 0 4px; }
+.lpanel label { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.lpanel select, .lpanel input:not([type="checkbox"]) { min-height: 30px; padding: 2px 6px; font-size: 13px; color: var(--ink); }
+.lrow2 > .info-text, .lrow2 > .lwarn { grid-column: 2 / -1; }
+.gline { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.lwarn { font-size: 12.5px; color: var(--warn); max-width: none; }
+.sugline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 5px 6px 5px 12px; border-radius: 9px; background: var(--accent-soft); font-size: 13px; }
+.sugline b { font-weight: 600; }
+.sugline small { color: var(--muted); }
+.sugline .btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
+.sugline .x { margin-left: auto; }
+.addrow { justify-self: start; margin-top: 4px; }
+.addline td { border-bottom: 0; }
+.addline .chip { font-size: 12px; }
+@container (max-width: 560px) { .lrow2 .ctrls { grid-column: 2; justify-content: flex-start; } }
 .tplbox { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--accent-soft); }
 .tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
 .tpl { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; align-content: start; background: var(--surface); }
@@ -374,8 +397,9 @@ class CrescendoPanel extends HTMLElement {
     this._sel = { stop: null, lamp: null };
     this._preview = true;
     this._edView = "chart";
-    this._gsel = new Set();
     this._noGroup = new Set();
+    this._infos = new Set();
+    this._addOpen = false;
     this._openMore = new Set();
     this._newing = false;
     this._undo = [];
@@ -518,23 +542,22 @@ class CrescendoPanel extends HTMLElement {
         <div class="objrow"><input class="field title-input" id="objName" aria-label="${esc(t("Name of the object", "Name des Objekts"))}">
           <div class="row"><button class="btn" id="undoBtn" data-act="undo" disabled>${esc(t("Undo", "Rückgängig"))}</button><button class="btn" data-act="export">${esc(t("Export", "Exportieren"))}</button><button class="btn" data-act="import">${esc(t("Import", "Importieren"))}</button><input type="file" id="importFile" accept=".json,application/json" hidden><span id="deleteBox"></span></div></div>
         <div id="importBox" hidden></div>
-        <div class="sec" id="sec-lights"><h2>${esc(t("Lights and devices", "Leuchten und Geräte"))}</h2>
-          <p class="note">${esc(t("Lights shape the curve; for each you choose what it shows, and under More how it fades. A speaker, a thermostat, a blind or another device follows the scale with a course between two stops or with an action at a threshold; you set both under Stops.", "Leuchten formen die Kurve; je Leuchte wählst du, was sie zeigt, und unter „Mehr“, wie sie überblendet. Lautsprecher, Thermostat, Rollo oder andere Geräte folgen der Skala mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle; beides stellst du unter „Stufen“ ein."))}</p>
+        <div class="sec" id="sec-lights"><div class="hrow"><h2>${esc(t("Lights and devices", "Leuchten und Geräte"))}</h2>${this._ib("lights")}</div>
+          ${this._it("lights", t("Lights shape the curve; for each you choose what it shows, and under More how it fades, how it follows a slider and which group it belongs to. A speaker, a thermostat, a blind or another device follows the scale with a course between two stops or with an action at a threshold; you set both under Stops.", "Leuchten formen die Kurve; je Leuchte wählst du, was sie zeigt, und unter „Mehr“, wie sie überblendet, wie sie einem Slider folgt und zu welcher Gruppe sie gehört. Lautsprecher, Thermostat, Rollo oder andere Geräte folgen der Skala mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle; beides stellst du unter „Stufen“ ein."))}
           <div class="lrows" id="rows"></div>
-          <div class="stack" id="groupBar"></div>
-          <div id="modeNotice"></div>
-          <div class="pick" id="devPick"><div class="sub">${esc(t("Add", "Hinzufügen"))}</div>
+          <div class="stack" id="groupBar" hidden></div>
+          <div class="pick" id="devPick" hidden><div class="row space"><div class="sub">${esc(t("Add", "Hinzufügen"))}</div><button class="btn" data-act="add-close">${esc(t("Done", "Fertig"))}</button></div>
             <div class="picktop"><input class="field" type="search" id="devSearch" autocomplete="off" placeholder="${esc(t("Search by name, room or kind", "Nach Name, Raum oder Art suchen"))}" aria-label="${esc(t("Search a light or device", "Leuchte oder Gerät suchen"))}"><select class="field" id="roomSel" aria-label="${esc(t("Room", "Raum"))}"></select></div>
             <div class="chips" id="devKinds" role="group" aria-label="${esc(t("Kind", "Art"))}"></div>
             <div class="picklist" id="devList"></div>
           </div>
         </div>
         <div class="sec" id="sec-stops">
-          <div class="row space"><h2>${esc(t("Stops", "Stufen"))}</h2>
-            <div class="seg" role="group"><button data-act="view-chart" id="vChart">${esc(t("Chart", "Diagramm"))}</button><button data-act="view-table" id="vTable">${esc(t("Table", "Tabelle"))}</button></div></div>
-          <div class="tempo"><div class="row"><label for="fadeDef"><b>${esc(t("Speed", "Tempo"))}</b> · ${esc(t("0 to 100 % in", "0 auf 100 % in"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"><span>${esc(t("seconds", "Sekunden"))}</span></div>
-            <p class="note">${esc(t("Buttons, on/off and taps on a card's slider take their share: from 80 to 100 % a fifth. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Buttons, Ein/Aus und Tippen auf den Regler einer Karte brauchen ihren Anteil davon: von 80 auf 100 % ein Fünftel. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}</p></div>
-          <p class="note" id="stopNote"></p>
+          <div class="row space"><div class="hrow"><h2>${esc(t("Stops", "Stufen"))}</h2>${this._ib("stops")}</div>
+            <div class="row"><span class="tempo"><label for="fadeDef"><b>${esc(t("Speed", "Tempo"))}</b> ${esc(t("0 to 100 % in", "0 auf 100 % in"))}</label><input class="field num" type="number" id="fadeDef" min="0" max="3600" step="0.5"><span>s</span>${this._ib("tempo")}</span>
+            <div class="seg" role="group"><button data-act="view-chart" id="vChart">${esc(t("Chart", "Diagramm"))}</button><button data-act="view-table" id="vTable">${esc(t("Table", "Tabelle"))}</button></div></div></div>
+          ${this._it("tempo", t("Speed: buttons, on/off and taps on a card's slider take their share of this time, from 80 to 100 % a fifth. A card can set its own speed. Automations and other integrations that give a duration keep it exactly.", "Tempo: Buttons, Ein/Aus und Tippen auf den Regler einer Karte brauchen ihren Anteil dieser Zeit, von 80 auf 100 % ein Fünftel. Eine Karte kann ein eigenes Tempo haben. Automationen und andere Integrationen mit eigener Dauer behalten sie genau."))}
+          <p class="note info-text" id="stopNote" data-info="stops"${this._infos.has("stops") ? "" : " hidden"}></p>
           <div class="row" id="stopTools"></div>
           <div class="tplbox" id="tplBox" hidden></div>
           <div class="lights" id="lights">
@@ -545,16 +568,14 @@ class CrescendoPanel extends HTMLElement {
             <div class="inspector" id="inspector" hidden></div>
           </div>
         </div>
-        <div class="sec" id="sec-buttons"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>
-          <p class="note">${esc(t("New cards take these buttons as a template. In each card you can leave out some or add your own. Automations can press them too.", "Neue Karten übernehmen diese Buttons als Vorlage. In jeder Karte kannst du einzelne weglassen oder eigene ergänzen. Automationen können sie ebenfalls auslösen."))}</p>
-          <div class="wrapx"><table class="tbl" id="btnTable"></table></div>
-          <p class="note">${esc(t("On/off switches on to the last position or to a fixed stop. This also applies to tiles and voice commands without a percentage. An automation can set the position with the action “Set switch-on position”, for example by time of day.", "Ein/Aus schaltet auf die letzte Position oder auf eine feste Stufe ein. Das gilt auch für Kacheln und Sprachbefehle ohne Prozentangabe. Eine Automation kann die Position mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}</p>
-          <div><button class="btn" data-act="add-btn">${esc(t("Add button", "Button hinzufügen"))}</button></div></div>
+        <div class="sec" id="sec-buttons"><div class="hrow"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>${this._ib("buttons")}</div>
+          ${this._it("buttons", t("New cards take these buttons as a template; in each card you can leave out some or add your own, and automations can press them too. On/off switches on to the last position or to a fixed stop; this also applies to tiles and voice commands without a percentage, and an automation can set the position with the action “Set switch-on position”, for example by time of day.", "Neue Karten übernehmen diese Buttons als Vorlage; in jeder Karte kannst du einzelne weglassen oder eigene ergänzen, und Automationen können sie ebenfalls auslösen. Ein/Aus schaltet auf die letzte Position oder auf eine feste Stufe ein; das gilt auch für Kacheln und Sprachbefehle ohne Prozentangabe, und eine Automation kann die Position mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}
+          <div class="wrapx"><table class="tbl" id="btnTable"></table></div></div>
         <div class="sec" id="sec-behavior"><h2>${esc(t("Behavior", "Verhalten"))}</h2>
           <div class="stack">
-          <div class="ctl"><div class="sub">${esc(t("Slider", "Slider"))}</div><div class="row"><label for="rate">${esc(t("Updates per second", "Aktualisierungen pro Sekunde"))}</label><input class="field num" type="number" id="rate" min="1" max="10" step="1"></div>
-            <p class="note">${esc(t("The default is 4. More updates feel more direct, but too many can cause stutter.", "Standard ist 4. Mehr Aktualisierungen wirken direkter, zu viele können aber Ruckler verursachen."))}</p></div>
-          <div class="ctl"><div class="sub">${esc(t("In automations", "In Automationen"))}</div><p class="note">${esc(t("The object is a normal light. Its brightness is the position on the scale. The lights always run in the set sequence, backward when dimming down.", "Das Objekt ist ein normales Licht. Seine Helligkeit ist die Position auf der Skala. Die Leuchten laufen immer in der eingestellten Reihenfolge, rückwärts beim Runterdimmen."))}</p><pre id="yaml"></pre></div>
+          <div class="ctl"><div class="hrow"><div class="sub">${esc(t("Slider", "Slider"))}</div>${this._ib("rate")}</div><div class="row"><label for="rate">${esc(t("Updates per second", "Aktualisierungen pro Sekunde"))}</label><input class="field num" type="number" id="rate" min="1" max="10" step="1"></div>
+            ${this._it("rate", t("The default is 4. More updates feel more direct, but too many can cause stutter.", "Standard ist 4. Mehr Aktualisierungen wirken direkter, zu viele können aber Ruckler verursachen."))}</div>
+          <div class="ctl"><div class="hrow"><div class="sub">${esc(t("In automations", "In Automationen"))}</div>${this._ib("auto")}</div>${this._it("auto", t("The object is a normal light. Its brightness is the position on the scale. The lights always run in the set sequence, backward when dimming down.", "Das Objekt ist ein normales Licht. Seine Helligkeit ist die Position auf der Skala. Die Leuchten laufen immer in der eingestellten Reihenfolge, rückwärts beim Runterdimmen."))}<pre id="yaml"></pre></div>
         <div class="ctl"><div class="sub">${esc(t("Entry in the sidebar", "Eintrag in der Seitenleiste"))}</div><div id="sideOpt"></div></div>
         </div></div>
       </div>
@@ -629,8 +650,7 @@ class CrescendoPanel extends HTMLElement {
     this._undo = [];
     this._confirmDelete = false;
     this._import = null;
-    this._grouping = false;
-    this._gsel = new Set();
+    this._addOpen = false;
     this._tplOpen = false;
     this._renderEdit();
   }
@@ -680,6 +700,18 @@ class CrescendoPanel extends HTMLElement {
       <button class="btn" data-act="tpl-toggle" aria-expanded="${!!this._tplOpen}">${esc(t("Templates …", "Vorlagen …"))}</button>`;
   }
 
+  // -- explanations ----------------------------------------------------------------------------
+
+  // Explanations stay folded behind a small "i" until asked for; the choice holds across re-renders.
+  _ib(id) {
+    const label = esc(this._t("Explanation", "Erklärung"));
+    return `<button class="info" data-act="info" data-info-for="${esc(id)}" aria-expanded="${this._infos.has(id)}" aria-label="${label}" title="${label}">i</button>`;
+  }
+
+  _it(id, text) {
+    return `<p class="note info-text" data-info="${esc(id)}"${this._infos.has(id) ? "" : " hidden"}>${esc(text)}</p>`;
+  }
+
   // -- templates --------------------------------------------------------------------------------
 
   _templates() {
@@ -706,7 +738,7 @@ class CrescendoPanel extends HTMLElement {
     if (key === "bath") {
       positions = BATH_STOPS;
       roles = BATH_ROLES.map((r) => (p) => roleValue(r, p));
-      buttons = BATH_BUTTONS.map(([position, name, icon]) => ({ id: newId(), name: this._lang === "de" ? name[1] : name[0], position, duration: 0, icon }));
+      buttons = this._buttonTemplate("day");
     } else if (key === "even") {
       positions = [50, 100];
       roles = [(p) => roleValue(EVEN_ROLE, p)];
@@ -742,6 +774,19 @@ class CrescendoPanel extends HTMLElement {
     return light.mode === "rgb" ? { brightness: b, color: kRgb(k).map(Math.round) } : { brightness: b, kelvin: clamp(Math.round(k / 50) * 50, kmin, kmax) };
   }
 
+  _buttonTemplates() {
+    const t = this._t;
+    const list = [{ key: "day", name: t("Night · Morning · Day · Bright", "Nacht · Morgen · Tag · Hell") }];
+    for (const x of this._objects) if (x.entry_id !== this._o.entry_id && x.options.buttons?.length) list.push({ key: `obj:${x.entry_id}`, name: t(`Like “${x.title}”`, `Wie „${x.title}“`) });
+    return list;
+  }
+
+  _buttonTemplate(key) {
+    if (key === "day") return BATH_BUTTONS.map(([position, name, icon]) => ({ id: newId(), name: this._lang === "de" ? name[1] : name[0], position, duration: 0, icon }));
+    const src = this._objects.find((x) => x.entry_id === key.slice(4));
+    return src ? src.options.buttons.map((b) => ({ ...clone(b), id: newId() })) : null;
+  }
+
   _tplPreview(stops) {
     const W = 200,
       H = 64,
@@ -760,7 +805,7 @@ class CrescendoPanel extends HTMLElement {
     box.hidden = !this._tplOpen;
     if (!this._tplOpen) return;
     const t = this._t;
-    const head = `<div class="row space"><b>${esc(t("Templates", "Vorlagen"))}</b><button class="x" data-act="tpl-toggle" aria-label="${esc(t("Close", "Schließen"))}">×</button></div>`;
+    const head = `<div class="row space"><div class="hrow"><b>${esc(t("Templates", "Vorlagen"))}</b><span class="opt">${esc(t("replace all stops; Undo brings them back", "ersetzen alle Stufen; „Rückgängig“ holt sie zurück"))}</span></div><button class="x" data-act="tpl-toggle" aria-label="${esc(t("Close", "Schließen"))}">×</button></div>`;
     if (!this._o.options.lights.length) {
       box.innerHTML = `${head}<p class="note">${esc(t("Add lights first; a template shapes their stops.", "Füge zuerst Leuchten hinzu; eine Vorlage formt ihre Stufen."))}</p>`;
       return;
@@ -771,7 +816,7 @@ class CrescendoPanel extends HTMLElement {
         return tpl ? `<div class="tpl"><b>${esc(x.name)}</b>${this._tplPreview(tpl.stops)}<small>${esc(x.text)}</small><div><button class="btn" data-act="tpl-apply" data-key="${esc(x.key)}">${esc(t("Apply", "Übernehmen"))}</button></div></div>` : "";
       })
       .join("");
-    box.innerHTML = `${head}<p class="note">${esc(t("A template replaces all stops of this object with a shape for its lights. Undo brings them back.", "Eine Vorlage ersetzt alle Stufen dieses Objekts durch eine Form für seine Leuchten. „Rückgängig“ holt sie zurück."))}</p><div class="tpls">${cards}</div>`;
+    box.innerHTML = `${head}<div class="tpls">${cards}</div>`;
   }
 
   // -- export and import ------------------------------------------------------------------------
@@ -865,6 +910,7 @@ class CrescendoPanel extends HTMLElement {
     r.getElementById("stopNote").textContent = chart
       ? t("Drag a point up or down to change the brightness. The number below a line moves the stop. Tap a point to set its color.", "Ziehe einen Punkt nach oben oder unten, um die Helligkeit zu ändern. Die Zahl unter einer Linie verschiebt die Stufe. Tippe einen Punkt an, um die Farbe einzustellen.")
       : t("Every light has a fixed value at every stop. In between it blends smoothly.", "Jede Leuchte hat in jeder Stufe einen festen Wert. Dazwischen wird fließend überblendet.");
+    if (o.devices.length) r.getElementById("stopNote").textContent += ` ${t("Below stand the devices: drag a bar to move where one starts and ends. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Darunter stehen die Geräte: Ziehe einen Balken, um zu verschieben, wo eines beginnt und endet. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten.")}`;
     r.getElementById("editPos").style.setProperty("--grad", roomGradient(o, undefined, undefined, this._dark));
     r.getElementById("lanes").hidden = !chart;
     if (chart) this._renderChart();
@@ -872,11 +918,7 @@ class CrescendoPanel extends HTMLElement {
     this._renderLanes();
     this._renderRows();
     this._renderDevices();
-    const both = o.lights.filter((l) => l.mode === "rgbcct").map((l) => friendly(this._hass, l.entity_id));
     this._renderTemplates();
-    r.getElementById("modeNotice").innerHTML = both.length
-      ? `<div class="notice"><b>${esc(t("Color + white", "Farbe + Weiß"))}: ${esc(both.join(", "))}</b><span>${esc(t("Changing between color and white can flicker badly. If that bothers you, set one of them for the light above. Another object with the same lights can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann die Leuchte unschön flackern. Falls das stört, lege oben bei der Leuchte eins davon fest. Ein weiteres Objekt mit denselben Leuchten kannst du anders einstellen."))}</span></div>`
-      : "";
     this._renderPicker();
   }
 
@@ -976,6 +1018,9 @@ class CrescendoPanel extends HTMLElement {
       search = r.getElementById("devSearch"),
       room = r.getElementById("roomSel");
     if (!list) return;
+    const pick = r.getElementById("devPick");
+    pick.hidden = !(this._addOpen || !this._o.options.lights.length);
+    if (pick.hidden) return;
     if (search.value !== (this._devQuery || "")) search.value = this._devQuery || "";
     const all = this._candidates();
     const present = new Set(all.map((c) => c.domain));
@@ -1138,7 +1183,7 @@ class CrescendoPanel extends HTMLElement {
       kinds.length > 1
         ? `<select class="field" id="dk-${esc(d.id)}" data-devkind="${esc(d.id)}" aria-label="${esc(t("How it follows the scale", "Wie es der Skala folgt"))}">${kinds.map(([k, l]) => `<option value="${k}"${d.kind === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`
         : `<span class="dkind">${esc((kinds.find(([k]) => k === d.kind) || kinds[0] || ["", ""])[1])}</span>`;
-    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(d))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, d.entity_id))}<small class="members">${esc(this._domainLabel(domain))}</small></span></div>${kind}<button class="x" data-act="rm-dev" data-id="${esc(d.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>`;
+    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(d))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, d.entity_id))}<small class="members">${esc(this._domainLabel(domain))}</small></span></div><div class="ctrls">${kind}<button class="x" data-act="rm-dev" data-id="${esc(d.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
   }
 
   _actionName(a) {
@@ -1182,45 +1227,68 @@ class CrescendoPanel extends HTMLElement {
     };
   }
 
-  // A light's row: what it shows, in view; how it fades and follows a slider, under "More".
-  // A group's row names its lights and offers its display name and a way out under "More".
-  _lampRow(u) {
+  // A light's row: what it shows, with More beside it. More opens fade, slider and group below the row.
+  // A group's row names its lights; under More it can be renamed, lose a light or be dissolved.
+  _lampRow(u, us) {
     const t = this._t,
       l = u.light,
       label = this._modeLabels(),
       g = u.group;
     const avail = u.ids.map((id) => this._modesFor(id)).reduce((a, b) => a.filter((m) => b.includes(m)));
     const modes = (avail.includes(l.mode) ? avail : [...avail, l.mode]).map((m) => `<option value="${m}"${l.mode === m ? " selected" : ""}>${esc(label[m])}</option>`).join("");
-    const key = esc(u.ids.join(","));
+    const key = u.ids.join(","),
+      k = esc(key);
     const names = u.ids.map((id) => friendly(this._hass, id));
     const title = g ? (g.name || "").trim() || commonName(names) : u.name;
-    const pick = this._grouping ? `<input type="checkbox" class="gsel" data-gsel="${key}" aria-label="${esc(t(`Choose ${title}`, `${title} auswählen`))}"${this._gsel.has(u.ids.join(",")) ? " checked" : ""}>` : "";
-    const steps = l.fade === "ontime" ? `<label>${esc(t("Steps per second", "Schritte pro Sekunde"))} <input class="field num" type="number" id="fs-${esc(l.entity_id)}" data-steps="${key}" min="1" max="8" value="${l.steps || 4}"></label>` : "";
-    const group = g
-      ? `<div class="ladv gadv"><label>${esc(t("Display name", "Anzeigename"))} <input class="field" id="gn-${esc(g.id)}" data-gname="${esc(g.id)}" value="${esc(g.name || "")}" placeholder="${esc(commonName(names))}"></label>
-        <span class="gmembers">${u.ids.map((id) => `<button class="chip" data-act="group-out" data-gid="${esc(g.id)}" data-id="${esc(id)}" title="${esc(t("Take out of the group", "Aus der Gruppe nehmen"))}">${esc(friendly(this._hass, id))} ×</button>`).join("")}</span>
-        <button class="btn quiet" data-act="ungroup" data-gid="${esc(g.id)}">${esc(t("Dissolve group", "Gruppe auflösen"))}</button></div>`
+    const open = this._openMore.has(key);
+    const fid = `flicker-${key}`;
+    const flicker = l.mode === "rgbcct";
+    let panel = "";
+    if (open) {
+      const steps = l.fade === "ontime" ? `<label>${esc(t("Steps per second", "Schritte pro Sekunde"))} <input class="field num" type="number" id="fs-${esc(l.entity_id)}" data-steps="${k}" min="1" max="8" value="${l.steps || 4}"></label>` : "";
+      const nameOf = (x) => (x.group ? (x.group.name || "").trim() || commonName(x.ids.map((id) => friendly(this._hass, id))) : x.name);
+      const group = g
+        ? `<div class="gline"><label>${esc(t("Display name", "Anzeigename"))} <input class="field" id="gn-${esc(g.id)}" data-gname="${esc(g.id)}" value="${esc(g.name || "")}" placeholder="${esc(commonName(names))}"></label>
+          <span class="gmembers">${u.ids.map((id) => `<button class="chip" data-act="group-out" data-gid="${esc(g.id)}" data-id="${esc(id)}" title="${esc(t("Take out of the group", "Aus der Gruppe nehmen"))}">${esc(friendly(this._hass, id))} ×</button>`).join("")}</span>
+          <button class="btn quiet" data-act="ungroup" data-gid="${esc(g.id)}">${esc(t("Dissolve group", "Gruppe auflösen"))}</button></div>`
+        : `<label>${esc(t("Group", "Gruppe"))} <select class="field" id="gw-${esc(l.entity_id)}" data-groupwith="${k}"><option value="">${esc(t("None", "Keine"))}</option>${us
+            .filter((x) => x.ids.join(",") !== key)
+            .map((x) => `<option value="${esc(x.ids.join(","))}">${esc(x.group ? t(`Join “${nameOf(x)}”`, `Zu „${nameOf(x)}“ hinzufügen`) : t(`Group with “${nameOf(x)}”`, `Mit „${nameOf(x)}“ gruppieren`))}</option>`)
+            .join("")}</select></label>`;
+      panel = `<div class="lpanel">${g ? group : ""}
+        <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${k}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
+        <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${k}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
+        ${g ? "" : group}${this._ib(`fade-${key}`)}</div>${this._it(`fade-${key}`, t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider. A group shows as one light, here and in the cards, and takes the settings of the light or group it joins.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der Leuchte oder Gruppe, zu der sie kommt."))}`;
+    }
+    const warn = flicker
+      ? `<button class="warnbtn" data-act="info" data-info-for="${esc(fid)}" aria-expanded="${this._infos.has(fid)}" aria-label="${esc(t("Can flicker", "Kann flackern"))}" title="${esc(t("Can flicker", "Kann flackern"))}">!</button>`
       : "";
-    return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname">${pick}<span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
-      <select class="field" id="mode-${esc(l.entity_id)}" data-mode="${key}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select>
-      <button class="x" data-act="rm-lamp" data-ids="${key}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button>
-      <details class="lmore" data-more="${key}"${this._openMore.has(u.ids.join(",")) ? " open" : ""}><summary>${esc(t("More", "Mehr"))}</summary>${group}<div class="ladv">
-      <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${key}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
-      <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${key}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
-      <span class="note">${esc(t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt."))}</span>
-      </div></details></div>`;
+    return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname"><span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
+      <div class="ctrls"><button class="morebtn" data-act="more" data-key="${k}" aria-expanded="${open}">${esc(t("More", "Mehr"))} ${open ? "▾" : "▸"}</button>${warn}<select class="field" id="mode-${esc(l.entity_id)}" data-mode="${k}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select><button class="x" data-act="rm-lamp" data-ids="${k}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>
+      ${flicker ? `<p class="lwarn" data-info="${esc(fid)}"${this._infos.has(fid) ? "" : " hidden"}>${esc(t("Changing between color and white can make this light flicker. If that bothers you, choose Colors or White tones. Another object with the same light can be set differently.", "Beim Wechsel zwischen Farbe und Weiß kann diese Leuchte flackern. Falls das stört, wähle „Farben“ oder „Weißtöne“. Ein weiteres Objekt mit derselben Leuchte kann anders eingestellt sein."))}</p>` : ""}${panel}</div>`;
   }
 
   _renderRows() {
     const box = this.shadowRoot.getElementById("rows"),
       t = this._t,
       o = this._o.options;
-    const rows = this._units().map((u) => this._lampRow(u)).join("") + o.devices.map((d) => this._devItem(d)).join("");
-    box.innerHTML = rows || `<p class="note">${esc(t("Nothing yet. Add the first light below.", "Noch nichts. Füge unten die erste Leuchte hinzu."))}</p>`;
+    const us = this._units();
+    const rows = us.map((u) => this._lampRow(u, us)).join("") + o.devices.map((d) => this._devItem(d)).join("");
+    const folded = this._addOpen || !o.lights.length;
+    box.innerHTML =
+      (rows || `<p class="note">${esc(t("Nothing yet. Add the first light below.", "Noch nichts. Füge unten die erste Leuchte hinzu."))}</p>`) +
+      `<button class="btn quiet addrow" data-act="add-open"${folded ? " hidden" : ""}>+ ${esc(t("Add a light or device", "Leuchte oder Gerät hinzufügen"))}</button>`;
     this._renderGroupBar();
   }
 
   // -- groups -----------------------------------------------------------------------------------
+
+  // What the names share, or all names when they share nothing.
+  _groupName(ids) {
+    const names = ids.map((id) => friendly(this._hass, id));
+    const shared = commonName(names);
+    return names.every((n) => n === shared || n.startsWith(`${shared} `)) ? shared : names.join(" + ");
+  }
 
   // Lights set the same or almost the same, not grouped yet. Not offered while the curve has only its two ends.
   _groupSuggestions() {
@@ -1255,7 +1323,7 @@ class CrescendoPanel extends HTMLElement {
       members.forEach((m) => used.add(m));
       const ids = members.flatMap((m) => m.ids);
       if (no.has([...ids].sort().join(","))) continue;
-      out.push({ ids, same: members.every((m) => same(a, m)), name: commonName(ids.map((id) => friendly(this._hass, id))) });
+      out.push({ ids, same: members.every((m) => same(a, m)), name: this._groupName(ids) });
     }
     return out;
   }
@@ -1281,32 +1349,20 @@ class CrescendoPanel extends HTMLElement {
     }
   }
 
+  // A suggestion takes one line: what is set the same, one button to group, one to let it be.
   _renderGroupBar() {
     const box = this.shadowRoot.getElementById("groupBar");
     if (!box) return;
-    const t = this._t,
-      us = this._units();
+    const t = this._t;
     const nameOf = (id) => friendly(this._hass, id);
-    if (this._grouping) {
-      const chosen = [...this._gsel].map((k) => us.find((u) => u.ids.join(",") === k)).filter(Boolean);
-      const ids = chosen.flatMap((u) => u.ids);
-      const named = chosen.find((u) => u.group?.name)?.group.name;
-      const suggested = named || (ids.length > 1 ? commonName(ids.map(nameOf)) : "");
-      const input = this.shadowRoot.getElementById("groupName");
-      const value = this._groupNameTouched && input ? input.value : suggested;
-      box.innerHTML = `<div class="notice calm"><b>${esc(t("Group lights", "Leuchten gruppieren"))}</b><span>${esc(t("Tick at least two lights above. A group shows as one light, here and in the cards, and takes the settings of the first one ticked.", "Hake oben mindestens zwei Leuchten an. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der zuerst angehakten."))}</span>
-        <div class="row"><label class="opt" for="groupName">${esc(t("Display name", "Anzeigename"))}</label><input class="field" id="groupName" value="${esc(value)}"><button class="btn primary" data-act="group-make"${chosen.length < 2 ? " disabled" : ""}>${esc(t("Make group", "Gruppe bilden"))}</button><button class="btn" data-act="group-cancel">${esc(t("Cancel", "Abbrechen"))}</button></div></div>`;
-      return;
-    }
     this._suggest = this._groupSuggestions();
-    box.innerHTML =
-      this._suggest
-        .map(
-          (h, i) => `<div class="notice calm"><b>${esc(h.same ? t("Set the same", "Gleich eingestellt") : t("Set almost the same", "Fast gleich eingestellt"))}: ${esc(h.ids.map(nameOf).join(", "))}</b>
-        <span>${esc(t("As a group they show as one light, here and in the cards.", "Als Gruppe erscheinen sie als eine Leuchte, hier und in den Karten."))}${h.same ? "" : ` ${esc(t(`All take the values of ${nameOf(h.ids[0])}.`, `Alle übernehmen dabei die Werte von ${nameOf(h.ids[0])}.`))}`}</span>
-        <div class="row"><label class="opt" for="sug-${i}">${esc(t("Display name", "Anzeigename"))}</label><input class="field" id="sug-${i}" value="${esc(h.name)}"><button class="btn primary" data-act="group-suggest" data-i="${i}">${esc(t("Group", "Gruppieren"))}</button><button class="btn" data-act="group-dismiss" data-i="${i}">${esc(t("Do not group", "Nicht gruppieren"))}</button></div></div>`,
-        )
-        .join("") + (us.length > 1 ? `<div><button class="btn quiet" data-act="group-start">${esc(t("Group lights …", "Leuchten gruppieren …"))}</button></div>` : "");
+    box.hidden = !this._suggest.length;
+    box.innerHTML = this._suggest
+      .map(
+        (h, i) => `<div class="sugline"><span>${esc(h.same ? t("Set the same", "Gleich eingestellt") : t("Set almost the same", "Fast gleich eingestellt"))}: <b>${esc(h.ids.map(nameOf).join(", "))}</b>${h.same ? "" : ` <small>${esc(t(`(all take the values of ${nameOf(h.ids[0])})`, `(alle übernehmen die Werte von ${nameOf(h.ids[0])})`))}</small>`}</span>
+        <button class="btn primary" data-act="group-suggest" data-i="${i}">${esc(t(`Group as “${h.name}”`, `Als „${h.name}“ gruppieren`))}</button><button class="x" data-act="group-dismiss" data-i="${i}" aria-label="${esc(t("Do not group", "Nicht gruppieren"))}" title="${esc(t("Do not group", "Nicht gruppieren"))}">×</button></div>`,
+      )
+      .join("");
   }
 
   // The lights become one group with the lead light's mode, as far as all can show it, and its values.
@@ -1345,10 +1401,7 @@ class CrescendoPanel extends HTMLElement {
       t = this._t,
       o = this._o.options;
     box.hidden = !o.devices.length;
-    box.innerHTML = o.devices.length
-      ? o.devices.map((d) => this._deviceRow(d)).join("") +
-        `<p class="note">${esc(t("Drag a bar to move where a device starts and ends. A threshold fires once: on a slider when you let go, on a timed fade when it is crossed.", "Ziehe einen Balken, um zu verschieben, wo ein Gerät beginnt und endet. Eine Schwelle löst einmal aus: beim Slider erst beim Loslassen, bei zeitgesteuertem Dimmen beim Überschreiten."))}</p>`
-      : "";
+    box.innerHTML = o.devices.map((d) => this._deviceRow(d)).join("");
   }
 
   _renderMatrix() {
@@ -1582,6 +1635,10 @@ class CrescendoPanel extends HTMLElement {
         <td><div class="row"><select class="field" id="onMode" aria-label="${esc(t("Switches on to", "Schaltet ein auf"))}"><option value="last"${o.on_mode === "last" ? " selected" : ""}>${esc(t("Last position", "Letzte Position"))}</option><option value="fixed"${o.on_mode === "fixed" ? " selected" : ""}>${esc(t("Fixed stop", "Feste Stufe"))}</option></select>${o.on_mode === "fixed" ? `<input class="field num" type="number" id="onPos" min="1" max="100" value="${o.on_position}" aria-label="${esc(t("Fixed stop in percent", "Feste Stufe in Prozent"))}">` : ""}</div></td>
         <td><ha-icon icon="mdi:power"></ha-icon></td>
         <td><div class="row"><button class="btn" data-act="test-power">${esc(t("Test", "Testen"))}</button></div></td></tr>`;
+    const tpls = this._buttonTemplates();
+    const addRow = `<tr class="addline"><td colspan="4"><div class="row"><button class="btn quiet" data-act="add-btn">+ ${esc(t("Add button", "Button hinzufügen"))}</button>${
+      tpls.length ? `<span class="opt">${esc(t("or from a template:", "oder aus einer Vorlage:"))}</span>${tpls.map((x) => `<button class="chip" data-act="btn-tpl" data-key="${esc(x.key)}">${esc(x.name)}</button>`).join("")}` : ""
+    }</div></td></tr>`;
     this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Stop (%)", "Stufe (%)"))}</th><th>${esc(t("Icon", "Symbol"))}</th><th></th></tr></thead><tbody>${power}${
       o.buttons
         .map(
@@ -1595,7 +1652,7 @@ class CrescendoPanel extends HTMLElement {
         <td><div class="row"><button class="btn" data-act="test-btn" data-id="${esc(b.id)}">${esc(t("Test", "Testen"))}</button><button class="x" data-act="rm-btn" data-id="${esc(b.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></td></tr>`,
         )
         .join("")
-    }</tbody>`;
+    }${addRow}</tbody>`;
     // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
     this.shadowRoot.querySelectorAll("#btnTable ha-icon-picker").forEach((el) => {
       el.hass = this._hass;
@@ -2081,30 +2138,48 @@ data:
         this._devKind = a.dataset.domain;
         this._renderPicker();
         break;
-      case "group-start":
-        this._grouping = true;
-        this._gsel = new Set();
-        this._groupNameTouched = false;
+      case "more": {
+        const key = a.dataset.key;
+        if (this._openMore.has(key)) this._openMore.delete(key);
+        else this._openMore.add(key);
         this._renderRows();
         break;
-      case "group-cancel":
-        this._grouping = false;
-        this._gsel = new Set();
-        this._renderRows();
+      }
+      case "info": {
+        const id = a.dataset.infoFor;
+        const open = !this._infos.has(id);
+        if (open) this._infos.add(id);
+        else this._infos.delete(id);
+        this.shadowRoot.querySelectorAll("[data-info]").forEach((el) => el.dataset.info === id && (el.hidden = !open));
+        this.shadowRoot.querySelectorAll("[data-info-for]").forEach((el) => el.dataset.infoFor === id && el.setAttribute("aria-expanded", String(open)));
         break;
-      case "group-make": {
-        const chosen = [...this._gsel].map((k) => this._units().find((u) => u.ids.join(",") === k)).filter(Boolean);
-        const name = this.shadowRoot.getElementById("groupName")?.value || "";
-        this._grouping = false;
-        this._gsel = new Set();
-        this._makeGroup(chosen.flatMap((u) => u.ids), name, chosen[0]?.ids[0]);
-        this._renderInspector();
+      }
+      case "add-open":
+        this._addOpen = true;
+        this._renderRows();
+        this._renderPicker();
+        this.shadowRoot.getElementById("devSearch")?.focus();
+        break;
+      case "add-close":
+        this._addOpen = false;
+        this._renderRows();
+        this._renderPicker();
+        break;
+      case "btn-tpl": {
+        const list = this._buttonTemplate(a.dataset.key);
+        if (!list) return;
+        const had = o.buttons.length;
+        this._change(() => (o.buttons = list));
+        this._renderButtons();
+        this._toast(had ? t("Buttons replaced by the template. Undo brings back the old ones.", "Buttons durch die Vorlage ersetzt. „Rückgängig“ holt die alten zurück.") : t("Buttons taken from the template.", "Buttons aus der Vorlage übernommen."));
         break;
       }
       case "group-suggest": {
         const h = this._suggest?.[+a.dataset.i];
         if (!h) return;
-        this._makeGroup(h.ids, this.shadowRoot.getElementById(`sug-${a.dataset.i}`)?.value || h.name, h.ids[0]);
+        // Its More opens, so the display name can be changed right away.
+        this._openMore.add(o.lights.map((l) => l.entity_id).filter((id) => h.ids.includes(id)).join(","));
+        this._makeGroup(h.ids, h.name, h.ids[0]);
         this._renderInspector();
         break;
       }
@@ -2254,8 +2329,6 @@ data:
     } else if (t.id === "devSearch") {
       this._devQuery = t.value;
       this._renderPicker();
-    } else if (t.id === "groupName") {
-      this._groupNameTouched = true;
     } else if (t.id === "editPos") {
       this._scrubPos = +t.value;
       this.shadowRoot.getElementById("editPosOut").textContent = `${t.value} %`;
@@ -2293,10 +2366,18 @@ data:
       const file = t.files?.[0];
       t.value = "";
       if (file) file.text().then((text) => this._readImport(text, file.name));
-    } else if (t.dataset.gsel) {
-      if (t.checked) this._gsel.add(t.dataset.gsel);
-      else this._gsel.delete(t.dataset.gsel);
-      this._renderGroupBar();
+    } else if (t.dataset.groupwith) {
+      // The light joins the chosen light or group and takes its settings; the new group's More opens.
+      if (!t.value) return;
+      const mine = t.dataset.groupwith.split(","),
+        theirs = t.value.split(",");
+      const target = this._units().find((u) => u.ids.join(",") === t.value);
+      const all = [...theirs, ...mine];
+      const name = target?.group ? target.group.name : this._groupName(all);
+      this._openMore.delete(t.dataset.groupwith);
+      this._openMore.add(o.lights.map((l) => l.entity_id).filter((id) => all.includes(id)).join(","));
+      this._makeGroup(all, name, theirs[0]);
+      this._renderInspector();
     } else if (t.dataset.gname) {
       const g = o.groups.find((x) => x.id === t.dataset.gname);
       if (g) this._change(() => (g.name = t.value.trim()));

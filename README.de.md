@@ -46,12 +46,12 @@ Gehe zu **Einstellungen → Geräte & Dienste → Integration hinzufügen → Cl
 Öffne **Crescendo** in der Seitenleiste.
 
 1. Wähle oben das Objekt, oder **Neues Objekt**, und gib ihm einen Namen.
-2. Unter **Leuchten und Geräte** suchst du Leuchten und Geräte nach Name, Raum oder Art und fügst sie hinzu; Leuchten sind vorausgewählt. Je Leuchte wählst du, was sie zeigt: Weißtöne, Farben oder beides. Unter **Mehr** stehen Überblendung und Slider-Verhalten. Gleich eingestellte Leuchten schlägt die Seite als Gruppe vor, mit einem Anzeigenamen; mit **Leuchten gruppieren** bildest du Gruppen selbst.
+2. Unter **Leuchten und Geräte** öffnet **+ Leuchte oder Gerät hinzufügen** die Suche nach Name, Raum oder Art; Leuchten sind vorausgewählt. Je Leuchte wählst du, was sie zeigt: Weißtöne, Farben oder beides. **Mehr** daneben öffnet Überblendung, Slider-Verhalten und **Gruppe**. Gleich eingestellte Leuchten schlägt die Seite in einer Zeile als Gruppe vor; den Anzeigenamen änderst du danach unter **Mehr**.
 3. Unter **Stufen** stellst du das **Tempo** ein. **Vorlagen** geben allen Leuchten eine fertige Form, etwa nacheinander von warm zu neutral oder wie ein anderes Objekt. Ziehe die Punkte im Diagramm, um die Helligkeit jeder Leuchte einzustellen, und tippe einen Punkt an: Seine Einstellungen öffnen sich direkt daneben, mit Balken für Helligkeit, Weißton, Farbe und Sättigung; das Häkchen oder ein Tipp daneben schließt sie. Darunter stehen die Geräte mit ihrem Verlauf oder ihrer Schwelle. Die Zahl unter einer Linie verschiebt die Stufe. Änderungen werden automatisch gespeichert und an den Leuchten gezeigt, solange **Vorschau an den Leuchten** an ist.
-4. Lege **Standard-Buttons** an. Neue Karten übernehmen sie als Vorlage. **Ein/Aus** steht als erster Eintrag dabei und legt fest, worauf das Objekt einschaltet.
+4. Lege **Standard-Buttons** an, einzeln oder aus einer Vorlage wie **Nacht · Morgen · Tag · Hell**. Neue Karten übernehmen sie als Vorlage. **Ein/Aus** steht als erster Eintrag dabei und legt fest, worauf das Objekt einschaltet.
 5. Unter **Verhalten** stellst du den Slider ein.
 
-**Exportieren** speichert ein Objekt als Datei, **Importieren** legt daraus ein neues an oder ersetzt das gewählte.
+**Exportieren** speichert ein Objekt als Datei, **Importieren** legt daraus ein neues an oder ersetzt das gewählte. Erklärungen stehen hinter dem kleinen **i** neben einer Überschrift.
 
 Die Leiste am unteren Rand zeigt die Position, schaltet die Vorschau an den Leuchten und startet Probeläufe.
 
