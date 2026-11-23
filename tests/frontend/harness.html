@@ -46,7 +46,7 @@ const LANG = new URLSearchParams(location.search).get("lang") || "de";
 const hass = {
   language: LANG, locale: { language: LANG }, themes: { darkMode: new URLSearchParams(location.search).has("dark") }, config: { unit_system: { temperature: "°C" } },
   areas: { bad: { area_id: "bad", name: "Bad" }, flur: { area_id: "flur", name: "Flur" } },
-  entities: { "light.bogen": { area_id: "flur" }, "light.boden": { area_id: "bad" }, "media_player.bad": { device_id: "dev1" } },
+  entities: { "light.bogen": { area_id: "flur" }, "light.boden": { area_id: "bad" }, "light.spiegel": { area_id: "bad" }, "light.links": { area_id: "bad" }, "light.rechts": { area_id: "bad" }, "media_player.bad": { device_id: "dev1" } },
   devices: { dev1: { area_id: "bad" } },
   states: {
     "light.bad": { entity_id: "light.bad", state: "on", attributes: { friendly_name: "Bad", crescendo: true, position: 62, curve_id: "x1", brightness: 158, buttons: options.buttons, stops: [0, 25, 50, 100], fading: false, deviating: [] } },
@@ -65,7 +65,7 @@ const hass = {
     if (m.type === "cloudless_crescendo/objects") return [{ entry_id: "e1", title: "Bad", entity_id: "light.bad", options }];
     if (m.type === "cloudless_crescendo/object") return { entry_id: "e1", title: "Bad", entity_id: "light.bad", options };
     if (m.type === "cloudless_crescendo/object/save") return { options: m.options };
-    if (m.type === "cloudless_crescendo/object/create") return { entry_id: "e2" };
+    if (m.type === "cloudless_crescendo/object/create") return { entry_id: "e2", entity_id: "light.neu" };
     if (m.type === "media_player/browse_media") {
       if (m.media_content_id === "pl") return { title: "Playlists", media_content_id: "pl", media_content_type: "playlists", can_expand: true, children: [{ title: "Lofi Beats", media_class: "playlist", media_content_id: "spotify:playlist:1", media_content_type: "playlist", can_play: true, can_expand: true }] };
       return { title: "Medien", media_content_id: "", media_content_type: "", can_expand: true, children: [{ title: "Playlists", media_class: "directory", media_content_id: "pl", media_content_type: "playlists", can_expand: true }, { title: "Radio Bad", media_class: "channel", media_content_id: "radio:1", media_content_type: "music", can_play: true }] };
@@ -134,6 +134,9 @@ setTimeout(async () => {
   if (view === "adding") { only("sec-lights"); q('[data-act="add-open"]').click(); }
   if (view === "stops") { only("sec-stops"); q('[data-act="tpl-toggle"]').click(); }
   if (view === "buttons") only("sec-buttons");
+  if (view === "editor") { panel.hidden = true; document.querySelectorAll("crescendo-card").forEach((c) => (c.hidden = true)); host.style.display = "block"; editor.style.maxWidth = "420px"; await wait(200); if (params.has("open")) { editor.shadowRoot.getElementById("new-object").click(); await wait(500); const s = editor.shadowRoot.querySelector("crescendo-setup"); s._pickArea("bad"); s._changed(); } }
+  if (view === "setup") { host.hidden = true; panel._newing = true; panel._renderEdit(); await wait(100); const s = q("#main crescendo-setup"); s._pickArea("bad"); s._way = params.get("way") || "sequence"; s._changed(); }
+  if (view === "auto") { only("sec-stops"); panel._o.options.stops.forEach((s) => panel._setAuto(s, ["light.boden", "light.spiegel"], true)); panel._change(() => {}); const s50 = panel._o.options.stops.find((s) => s.position === 50); panel._selectPoint(s50._sid, "light.spiegel"); }
   if (view === "point") { host.hidden = true; const ph = q('[data-pthit][data-lamp="light.spiegel"]'); const pb = ph.getBoundingClientRect(); capture(ph); point(ph, "pointerdown", pb.left + pb.width / 2, pb.top + pb.height / 2); point(ph, "pointerup", pb.left + pb.width / 2, pb.top + pb.height / 2); }
   if (view === "table") { host.hidden = true; q('[data-act="view-table"]').click(); q('[data-act="sel-cell"]:not(.locked)').click(); }
   if (view === "diag") { host.hidden = true; q('[data-v="diag"]').click(); await wait(300); q('[data-act="test-ask"]').click(); await wait(100); }
@@ -605,7 +608,7 @@ setTimeout(async () => {
     iconInput.value = "mdi:weather-night";
     iconInput.dispatchEvent(new Event("change", { bubbles: true }));
     await wait(20);
-    report("a typed icon is saved", editor._config.buttons?.[0]?.icon === "mdi:weather-night", JSON.stringify(editor._config.buttons?.[0]));
+    report("a typed icon is saved", editor._config.button_changes?.b1?.icon === "mdi:weather-night" && !editor._config.buttons, JSON.stringify(editor._config.button_changes));
     customElements.define("ha-icon-picker", class extends HTMLElement {});
     editor.setConfig({ ...editor._config });
     await wait(20);
@@ -614,11 +617,55 @@ setTimeout(async () => {
     fakePicker.dispatchEvent(new CustomEvent("value-changed", { detail: { value: "mdi:sofa" }, bubbles: false, composed: false }));
     await wait(20);
     report("no glow setting", !ed("#glow"));
-    report("a picked icon is saved and the picker stays", editor._config.buttons?.[1]?.icon === "mdi:sofa" && ed('ha-icon-picker[data-i="1"]') === fakePicker, JSON.stringify(editor._config.buttons?.[1]));
+    report("a picked icon is saved and the picker stays", editor._config.button_changes?.b2?.icon === "mdi:sofa" && ed('ha-icon-picker[data-i="1"]') === fakePicker, JSON.stringify(editor._config.button_changes));
     editor.setConfig({ ...editor._config, glow: false });
     ed("#snap").click();
     await wait(30);
     report("retired settings are dropped when the card is saved", !("glow" in editor._config));
+    // A card keeps only what it changes about the object's buttons, and shows all of them from dim to bright.
+    const edEntity = ed("#entity"), edLinks = ed(".links");
+    report("editor: the way to the object stands right below its choice", !!edLinks && edEntity.closest(".ctl").nextElementSibling === edLinks && !!edLinks.querySelector("#open-setup") && !!edLinks.querySelector("#new-object"));
+    const useB1 = ed('[data-key="b1"][data-f="use"]');
+    useB1.checked = false;
+    useB1.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(20);
+    report("editor: a left out button is kept as a change only", editor._config.button_changes?.b1?.use === false && !editor._config.buttons);
+    ed("#add-button").click();
+    await wait(20);
+    const mineKey = editor._config.own_buttons?.[0]?.id;
+    const mineValue = ed(`[data-key="${mineKey}"][data-f="value"]`);
+    mineValue.value = "30";
+    mineValue.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(20);
+    report("editor: an own button takes its place by value", [...editor.shadowRoot.querySelectorAll('.btn-row [data-f="name"]')].map((i) => i.dataset.key).join() === `b1,${mineKey},b2,b3`);
+    report("editor: an object's button shows its stop and cannot be moved here", !ed('[data-key="b2"][data-f="value"]') && ed('[data-key="b2"][data-f="name"]').parentElement.textContent.includes("50 %"));
+    const changedCard = await newCard({ button_changes: { b1: { use: false }, b2: { name: "Früh" } }, own_buttons: [{ id: "o1", name: "Film", position: 30 }] }, { ...hass, states: { ...hass.states, "light.bad": { ...hass.states["light.bad"], attributes: { ...hass.states["light.bad"].attributes, buttons: [...options.buttons, { id: "b4", name: "Tag", position: 80, duration: 0 }] } } } });
+    const shownButtons = (c) => [...c.shadowRoot.querySelectorAll(".js-presets .preset:not(.js-power)")].map((b) => `${b.textContent.trim()}@${b.dataset.pos}`).join();
+    report("card: changes, own buttons and the object's later ones, by value", shownButtons(changedCard) === "Film@30,Früh@50,Tag@80,Hell@100", shownButtons(changedCard));
+    const oldCopy = await newCard({ buttons: [{ name: "Hell", position: 100, use: true }, { name: "Nachtlicht", position: 25, use: true }, { name: "Morgen", position: 60, use: true }] });
+    report("card: a copy from before keeps its names and places", shownButtons(oldCopy) === "Nachtlicht@25,Morgen@60,Hell@100", shownButtons(oldCopy));
+    const byHand = await newCard({ buttons: [{ name: "Voll", position: 100 }, { name: "Film", position: 12 }] });
+    report("card: a list written by hand is exactly what shows", shownButtons(byHand) === "Film@12,Voll@100", shownButtons(byHand));
+    ed("#reset-buttons").click();
+    await wait(20);
+    report("editor: back to the object's buttons", !editor._config.button_changes && !editor._config.own_buttons && !ed("#reset-buttons"));
+    // The guided setup opens in the card's settings; the new object becomes the card's.
+    ed("#new-object").click();
+    for (let i = 0; i < 40 && !ed("#setup crescendo-setup"); i++) await wait(50);
+    const inEditor = ed("#setup crescendo-setup");
+    report("editor: the guided setup opens in place", !!inEditor && !ed("#setup").hidden && !inEditor.shadowRoot.querySelector('[data-act="empty"]'));
+    const setupQ = (el, sel) => el.shadowRoot.querySelector(sel);
+    const choose = (el, id) => { const s = setupQ(el, "#area"); s.value = id; s.dispatchEvent(new Event("change", { bubbles: true })); };
+    choose(inEditor, "flur");
+    report("setup: a room brings its lights and its name", setupQ(inEditor, "#name").value === "Flur" && [...inEditor.shadowRoot.querySelectorAll('[data-act="light"][aria-pressed="true"]')].map((c) => c.dataset.v).join() === "light.bogen");
+    calls.length = 0;
+    setupQ(inEditor, '[data-act="done"]').click();
+    await wait(60);
+    const edCreate = calls.find((c) => c.type === "cloudless_crescendo/object/create");
+    report("setup: one light gets a warm to neutral course with buttons", edCreate?.title === "Flur" && JSON.stringify(edCreate.options.stops.map((s) => [s.position, s.values["light.bogen"].brightness, s.values["light.bogen"].kelvin])) === "[[0,0,null],[10,10,2700],[40,40,3050],[80,80,3600],[100,100,4000]]" && edCreate.options.buttons.map((b) => b.position).join() === "10,40,80,100" && JSON.stringify(edCreate.options.auto) === '{"light.bogen":[40,80]}', JSON.stringify([edCreate?.options.stops.map((s) => [s.position, s.values["light.bogen"]]), edCreate?.options.auto]));
+    report("editor: the new object becomes the card's", editor._config.entity === "light.neu" && editor._waitingFor === "light.neu" && ed("#setup").hidden);
+    editor.setConfig({ ...editor._config, entity: "light.bad" });
+    await wait(40);
     const pick = async (design) => { ed(`[data-design="${design}"]`).click(); await wait(30); };
     await pick("dial");
     report("no horizontal slider setting for the dial", !ed("#slider") && !!ed("#dial_wedge"));
@@ -692,8 +739,47 @@ setTimeout(async () => {
     q("#objPick").value = "new";
     q("#objPick").dispatchEvent(new Event("change", { bubbles: true }));
     await wait(20);
-    report("page: new object asks for a name in the header", !q("#newBox").hidden);
-    q('[data-act="new-cancel"]').click();
+    const guide = () => q("#main crescendo-setup");
+    report("page: a new object starts with the guided setup", !!guide() && !q("#sec-stops"));
+    // One after another: the order decides who comes on first, and what lies between the set points is automatic.
+    choose(guide(), "bad");
+    report("setup: the questions follow once there are lights", guide().shadowRoot.querySelectorAll(".q").length === 4 && setupQ(guide(), "#name").value === "Bad 2", setupQ(guide(), "#name").value);
+    setupQ(guide(), '[data-act="way"][data-v="sequence"]').click();
+    const orderKeys = () => [...guide().shadowRoot.querySelectorAll(".orow")].map((r) => r.dataset.sortrow).join();
+    const startOrder = orderKeys();
+    setupQ(guide(), '.orow:nth-child(2) [data-act="up"]').click();
+    report("setup: arrows change the order", orderKeys() === "light.spiegel,light.boden,light.links,light.rechts" && startOrder === "light.boden,light.spiegel,light.links,light.rechts", orderKeys());
+    const oGrip = setupQ(guide(), ".orow:nth-child(4) .grip");
+    capture(oGrip);
+    const oTop = setupQ(guide(), ".orow:nth-child(1)").getBoundingClientRect();
+    point(oGrip, "pointerdown", 5, oGrip.getBoundingClientRect().top + 5);
+    point(oGrip, "pointermove", 5, oTop.top + 2);
+    point(oGrip, "pointerup", 5, oTop.top + 2);
+    report("setup: dragging changes the order", orderKeys() === "light.rechts,light.spiegel,light.boden,light.links", orderKeys());
+    const look = guide()._options();
+    const at = (p, id) => look.stops.find((s) => s.position === p)?.values[id]?.brightness;
+    report("setup: the first comes on first, the last only near the top", at(10, "light.rechts") > 0 && at(10, "light.links") === 0 && at(40, "light.links") === 0 && at(60, "light.links") > 0 && look.stops.at(-1) && look.lights.every((l) => at(100, l.entity_id) === 100), JSON.stringify(look.stops.map((s) => [s.position, ...Object.values(s.values).map((v) => v.brightness)])));
+    report("setup: no light gets darker on the way up", look.lights.every((l) => look.stops.every((s, i) => !i || s.values[l.entity_id].brightness >= look.stops[i - 1].values[l.entity_id].brightness)));
+    calls.length = 0;
+    setupQ(guide(), "#live").click();
+    await wait(30);
+    const shownLive = calls.find((c) => c.type === "cloudless_crescendo/setup/preview");
+    const callsLive = calls.filter((c) => Array.isArray(c)).length;
+    calls.length = 0;
+    setupQ(guide(), "#live").click();
+    await wait(30);
+    report("setup: the real lights show it on request and get back what they had", shownLive?.position === 40 && shownLive.options.lights.length === 4 && callsLive === 0 && calls.length === 1 && calls[0].type === "cloudless_crescendo/setup/preview_end", JSON.stringify(calls).slice(0, 200));
+    await wait(500);
+    setupQ(guide(), "#live").click();
+    await wait(50);
+    panel._renderEdit();
+    report("setup: a page built anew ends the preview and says so", !setupQ(guide(), "#live").checked && calls.filter((c) => c.type?.includes("/setup/")).map((c) => c.type.split("/").pop()).join() === "preview_end,preview,preview_end", `${setupQ(guide(), "#live").checked} ${calls.map((c) => c.type || c[1]).join()}`);
+    setupQ(guide(), "#live").click();
+    await wait(500);
+    for (const c of [...guide().shadowRoot.querySelectorAll('[data-act="light"][aria-pressed="true"]')].map((x) => x.dataset.v)) setupQ(guide(), `[data-act="light"][data-v="${c}"]`).click();
+    report("setup: without lights there are no stops and buttons of its own", !!setupQ(guide(), '[data-act="empty"]') && setupQ(guide(), '[data-act="done"]').disabled && calls.filter((c) => c.type === "cloudless_crescendo/setup/preview_end").length === 3 && !guide()._live && guide()._options().stops.length === 2 && guide()._options().buttons.length === 0);
+    setupQ(guide(), '[data-act="cancel"]').click();
+    report("page: cancelling returns to the object", !guide() && !!q("#sec-stops") && q("#objPick").value === "0");
     report("page: jump bar with four sections, devices with the lights", q("#jump").querySelectorAll("a").length === 4 && ["sec-lights", "sec-stops", "sec-buttons", "sec-behavior"].every((id) => !!q(`#${id}`)) && !q("#sec-devices"));
     report("page: every light shows what it shows, without an advanced switch", panel.shadowRoot.querySelectorAll('#rows select[data-mode]').length === panel._units().length && !q("#edAdv"));
     report("page: devices listed with the lights and laned under the stops", panel.shadowRoot.querySelectorAll("#lanes .llane").length === panel._units().length && panel.shadowRoot.querySelectorAll("#sec-stops #devRows .lrow").length === 3 && panel.shadowRoot.querySelectorAll("#rows .dev").length === 3 && !!q("#devSearch"));
@@ -849,12 +935,106 @@ setTimeout(async () => {
     await wait(20);
     report("groups: undo brings the first group back", panel._o.options.groups.length === 1 && panel._o.options.groups[0].id === gid);
     // Buttons: add and templates sit in the list.
-    report("buttons: adding sits in the list, with templates beside it", !!q('#btnTable .addline [data-act="add-btn"]') && !!q('#btnTable [data-act="btn-tpl"][data-key="day"]'));
+    const btnStops = () => [...panel.shadowRoot.querySelectorAll("#btnTable [data-btnstop]")].map((c) => `${c.dataset.btnstop}${c.checked ? "+" : ""}`).join();
+    report("buttons: a row for every stop, with a switch, and templates", btnStops() === panel._o.options.stops.filter((s) => s.position > 0).map((s) => `${s.position}${[25, 50, 100].includes(s.position) ? "+" : ""}`).join() && !!q('#btnTable .addline [data-act="btn-tpl"][data-key="day"]') && !q('#btnTable [data-f="position"]'), btnStops());
+    const spare = panel._o.options.stops.find((s) => s.position > 0 && ![25, 50, 100].includes(s.position));
+    const flip = (p, on) => { const c = q(`#btnTable [data-btnstop="${p}"]`); c.checked = on; c.dispatchEvent(new Event("change", { bubbles: true })); };
+    flip(spare.position, true);
+    const spareButton = () => panel._o.options.buttons.find((b) => b.name === `${spare.position} %`);
+    report("buttons: a stop's switch makes a button named like it, in order", !!spareButton() && panel._o.options.buttons.every((b, i, l) => !i || l[i - 1].position <= b.position));
+    q(`[data-act="sel-cell"][data-stop="${spare._sid}"]`)?.click();
+    panel._sel = { stop: spare._sid, lamp: null };
+    panel._renderTools();
+    const oldPos = spare.position, movedTo = oldPos + 1;
+    q("#stopPos").value = String(movedTo);
+    q("#stopPos").dispatchEvent(new Event("change", { bubbles: true }));
+    report("buttons: a button moves with its stop and keeps its stop's name", panel._o.options.buttons.some((b) => b.position === movedTo && b.name === `${movedTo} %`) && !panel._o.options.buttons.some((b) => b.position === oldPos));
+    q('[data-act="del-stop"]').click();
+    report("buttons: a button goes with its stop", !panel._o.options.buttons.some((b) => b.position === movedTo) && panel._o.options.buttons.length === 3);
+    for (let i = 0; i < 3; i++) q('[data-act="undo"]').click();
+    await wait(20);
+    flip(50, false);
+    flip(50, true);
+    report("buttons: switched off and on again a button keeps its name", panel._o.options.buttons.some((b) => b.position === 50 && b.id === "b2" && b.name === options.buttons[1].name));
+    for (let i = 0; i < 2; i++) q('[data-act="undo"]').click();
+    await wait(20);
+    // A button from before between two stops gets a stop of its own; the lights keep their curve.
+    const before70 = JSON.stringify(panel._valuesAt(70));
+    panel._o.options.buttons.push({ id: "bx", name: "Alt", position: 70, duration: 0 });
+    panel._renderEdit();
+    report("buttons: an old button off the stops gets a stop", JSON.stringify(panel._o.options.stops.find((s) => s.position === 70)?.values) === before70 && btnStops().includes("70+"));
+    panel._o.options.buttons = panel._o.options.buttons.filter((b) => b.id !== "bx");
+    panel._o.options.stops = panel._o.options.stops.filter((s) => s.position !== 70);
+    panel._renderEdit();
     q('#btnTable [data-act="btn-tpl"][data-key="day"]').click();
     report("buttons: a template fills them", panel._o.options.buttons.map((b) => `${b.name}@${b.position}`).join() === "Nacht@10,Morgen@40,Tag@80,Hell@100" && panel._o.options.buttons.every((b) => b.icon && b.id), panel._o.options.buttons.map((b) => b.name).join());
     q('[data-act="undo"]').click();
     await wait(20);
     report("buttons: undo brings the old ones back", panel._o.options.buttons.length === 3 && panel._o.options.buttons[0].id === "b1");
+    // Automatic points: a new light rises evenly, a set point pulls the automatic ones beside it along.
+    const bri = (id) => panel._o.options.stops.map((s) => `${s.position}:${s.values[id].brightness}${s._auto?.[id] ? "a" : ""}`).join(" ");
+    const addedLight = bri("light.bogen");
+    report("auto: an added light rises evenly from off to full", panel._o.options.stops.every((s) => Math.abs(s.values["light.bogen"].brightness - s.position) <= 1) && panel._o.options.stops.every((s) => !!s._auto?.["light.bogen"] === (s.position > 0 && s.position < 100)), addedLight);
+    const sidOf = (p) => panel._o.options.stops.find((s) => s.position === p)._sid;
+    const setBri = (p, id, v) => { panel._selectPoint(sidOf(p), id); const f = q("#pn-bri"); f.value = String(v); f.dispatchEvent(new Event("change", { bubbles: true })); };
+    setBri(25, "light.bogen", 55);
+    const p50 = () => panel._o.options.stops.find((s) => s.position === 50).values["light.bogen"].brightness;
+    report("auto: a set point pulls the later ones along, up to 100 %", p50() === 70 && panel._o.options.stops.at(-1).values["light.bogen"].brightness === 100 && !panel._stop()._auto["light.bogen"], bri("light.bogen"));
+    setBri(50, "light.bogen", 0);
+    report("auto: a point set to off keeps its light off below when those are automatic", (q("#inspector"), panel._selectPoint(sidOf(25), "light.bogen"), q('[data-act="auto-on"]').click(), panel._o.options.stops.filter((s) => s.position < 50).every((s) => s.values["light.bogen"].brightness === 0)), bri("light.bogen"));
+    report("auto: shown hollow in the chart and pale in the row", panel.shadowRoot.querySelectorAll("#chartBox .c-dot.auto").length > 0 && !!q("#lanes .exp .cell.auto") && !q("#autoNote").hidden && q("#autoBtn").hidden);
+    // A light set by hand everywhere becomes even from a point on with one tap.
+    panel._selectPoint(sidOf(25), "light.boden");
+    q('[data-act="auto-rest"]').click();
+    const v50b = panel._o.options.stops.find((s) => s.position === 50);
+    report("auto: evenly from here to 100 %", v50b._auto["light.boden"] === true && v50b.values["light.boden"].brightness === 53 && panel._o.options.stops.at(-1).values["light.boden"].brightness === 100, bri("light.boden"));
+    await wait(600);
+    const autoSave = calls.filter((c) => c.type === "cloudless_crescendo/object/save").at(-1);
+    report("auto: stored by light, without page helpers", autoSave?.options.auto["light.boden"].includes(50) && !JSON.stringify(autoSave.options).includes("_auto"), JSON.stringify(autoSave?.options.auto));
+    for (let i = 0; i < 4; i++) q('[data-act="undo"]').click();
+    await wait(20);
+    report("auto: undo brings the points back", bri("light.bogen") === addedLight, bri("light.bogen"));
+    // The order of the lights: by dragging, by keys, and by when they come on.
+    const lampOrder = () => panel._o.options.lights.map((l) => l.entity_id.slice(6)).join();
+    const firstOrder = lampOrder();
+    const gripOf = (k) => q(`#rows [data-sort="${k}"]`);
+    const g4 = gripOf("light.bogen");
+    capture(g4);
+    const r1 = q("#rows .lrow2").getBoundingClientRect();
+    point(g4, "pointerdown", 5, g4.getBoundingClientRect().top + 5);
+    point(g4, "pointermove", 5, r1.top + 2);
+    point(g4, "pointerup", 5, r1.top + 2);
+    report("order: a light is dragged to the top", lampOrder() === "bogen,boden,spiegel,links,rechts" && panel._units()[0].ids[0] === "light.bogen", lampOrder());
+    gripOf("light.links,light.rechts").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, composed: true }));
+    report("order: a group moves as a whole, by keys", lampOrder() === "bogen,boden,links,rechts,spiegel" && panel.shadowRoot.activeElement?.dataset.sort === "light.links,light.rechts", lampOrder());
+    q('[data-act="sort-on"]').click();
+    report("order: sorted by when the lights come on", lampOrder().endsWith("spiegel,links,rechts") && lampOrder().indexOf("boden") < lampOrder().indexOf("spiegel"), `${lampOrder()} | ${bri("light.boden")} | ${bri("light.spiegel")}`);
+    for (let i = 0; i < 3; i++) q('[data-act="undo"]').click();
+    await wait(20);
+    report("order: undo brings the old order back", lampOrder() === firstOrder, lampOrder());
+    // An object can be built anew with the guided setup; it keeps its devices, groups and buttons.
+    q('[data-act="tpl-toggle"]').click();
+    q('[data-act="setup-again"]').click();
+    const again = q("#main crescendo-setup");
+    report("setup: an object's lights, groups and buttons are known", !!again && again._items().length === panel._units().length && again.shadowRoot.textContent.includes(options.buttons[0].name) && again._buttons.size === 0);
+    calls.length = 0;
+    setupQ(again, '[data-act="done"]').click();
+    await wait(40);
+    report("setup: applying moves no lights by itself", !calls.some((c) => c.type === "cloudless_crescendo/preview" || Array.isArray(c)));
+    report("setup: built anew with its devices, groups and buttons", !q("#main crescendo-setup") && panel._o.options.devices.length === 3 && panel._o.options.groups.length === 1 && panel._o.options.buttons.length === 3 && panel._o.options.stops.some((s) => s._auto["light.boden"]) && [25, 50].every((p) => panel._o.options.stops.some((s) => s.position === p)), JSON.stringify(panel._o.options.stops.map((s) => s.position)));
+    q('[data-act="undo"]').click();
+    await wait(20);
+    report("setup: undo brings the old settings back", lampOrder() === firstOrder && bri("light.bogen") === addedLight, bri("light.bogen"));
+    // An object as Home Assistant creates it opens with the guided setup until someone sets it up by hand.
+    const untouchedObject = { entry_id: "e9", title: "Flur", entity_id: "light.flur", options: { lights: [{ entity_id: "light.bogen", mode: "cct" }], stops: [{ position: 0, _sid: "x0", _auto: {}, values: { "light.bogen": { brightness: 0 } } }, { position: 100, _sid: "x1", _auto: {}, values: { "light.bogen": { brightness: 100 } } }], devices: [], buttons: [], groups: [], slider_rate: 4, on_mode: "last", on_position: 40, default_transition: 5 } };
+    panel._objects.push(untouchedObject);
+    panel._pickObject(panel._objects.length - 1);
+    report("setup: an object nobody has set up yet starts with it", !!q("#main crescendo-setup") && q("#main crescendo-setup")._picked.join() === "light.bogen");
+    setupQ(q("#main crescendo-setup"), '[data-act="cancel"]').click();
+    report("setup: by hand leads to the page and stays there", !q("#main crescendo-setup") && !!q("#sec-stops") && !panel._untouched(untouchedObject));
+    panel._objects.pop();
+    panel._pickObject(0);
+    localStorage.removeItem("crescendo-setup-skip");
     report("page: the live bar holds position, preview and test run", !!q(".livebar #editPos") && !!q(".livebar #preview") && !!q('.livebar [data-act="run-up"]'));
     const pointHit = q("[data-pthit]");
     const phb = pointHit.getBoundingClientRect();

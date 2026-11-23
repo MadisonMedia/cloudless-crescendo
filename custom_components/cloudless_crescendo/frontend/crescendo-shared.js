@@ -483,3 +483,230 @@ export const DEVICE_ACTIONS = {
   scene: ["turn_on"],
 };
 export const RAMP_DOMAINS = ["media_player", "climate", "cover", "fan", "number", "input_number", "light"];
+
+// -- values between two stops ---------------------------------------------------------------------
+
+export function interpVal(a, b, t) {
+  if (a.brightness === 0 && b.brightness === 0) return { ...a };
+  // A light on its way up or down does not round to off.
+  const level = lerp(a.brightness, b.brightness, t);
+  const brightness = level > 0 ? Math.max(1, Math.round(level)) : 0;
+  if (a.brightness === 0) return { ...b, brightness };
+  if (b.brightness === 0) return { ...a, brightness };
+  // Like the lights between two stops: color temperature in mireds, colors in xy.
+  if (a.kelvin && b.kelvin) return { brightness, kelvin: Math.round(1e6 / lerp(1e6 / a.kelvin, 1e6 / b.kelvin, t) / 50) * 50 };
+  if (!a.kelvin && !a.color) return { ...b, brightness };
+  if (!b.kelvin && !b.color) return { ...a, brightness };
+  const ax = rgbToXy(rgbOf({ mode: "rgbcct" }, a)),
+    bx = rgbToXy(rgbOf({ mode: "rgbcct" }, b));
+  return { brightness, color: xyToRgb([lerp(ax[0], bx[0], t), lerp(ax[1], bx[1], t)]).map(Math.round) };
+}
+
+// A light that only switches stays as it was until the next stop.
+export function valueBetween(light, a, b, t) {
+  const va = a.values[light.entity_id] || { brightness: 0 },
+    vb = b.values[light.entity_id] || { brightness: 0 };
+  return light.mode === "onoff" ? { ...va } : interpVal(va, vb, t);
+}
+
+// On the page each stop knows which lights are automatic there, so a moved stop takes that along. Stored by light.
+export function markAuto(options) {
+  const known = new Set(options.lights.map((l) => l.entity_id));
+  for (const stop of options.stops) stop._auto = {};
+  for (const [id, positions] of Object.entries(options.auto || {})) {
+    if (!known.has(id)) continue;
+    for (const stop of options.stops) if (stop.position > 0 && stop.position < 100 && positions.includes(stop.position)) stop._auto[id] = true;
+  }
+  return options;
+}
+
+export function storeAuto(options) {
+  const auto = {};
+  const known = new Set(options.lights.map((l) => l.entity_id));
+  for (const stop of options.stops) {
+    if (stop.position > 0 && stop.position < 100) for (const id of Object.keys(stop._auto || {})) if (known.has(id)) (auto[id] ||= []).push(stop.position);
+    delete stop._auto;
+  }
+  options.auto = auto;
+  return options;
+}
+
+// Automatic points lie on the line between the set ones beside them. Both ends are always set.
+export function fillAuto(options) {
+  const stops = options.stops;
+  for (const light of options.lights) {
+    const id = light.entity_id;
+    let from = 0;
+    for (let i = 1; i < stops.length; i++) {
+      if (i < stops.length - 1 && stops[i]._auto?.[id]) continue;
+      const a = stops[from],
+        b = stops[i];
+      for (let k = from + 1; k < i; k++) stops[k].values[id] = valueBetween(light, a, b, (stops[k].position - a.position) / (b.position - a.position));
+      from = i;
+    }
+  }
+  return options;
+}
+
+// -- buttons --------------------------------------------------------------------------------------
+
+export const byPosition = (list) => [...list].sort((a, b) => a.position - b.position);
+const buttonKey = (b) => b.id || b.name;
+
+// What a card changes about its object's buttons: left out, renamed or given another icon, and buttons of its own.
+// Up to 0.2.0b9 a card kept a copy of the whole list. A copy the editor made is read as changes, so new buttons of the
+// object arrive; a list written by hand is exactly what the card shows.
+export function buttonSettings(config, standard) {
+  if (!Array.isArray(config.buttons)) return { changes: config.button_changes || {}, own: config.own_buttons || [] };
+  if (!config.buttons.some((b) => b.use !== undefined))
+    return {
+      changes: Object.fromEntries(standard.map((s) => [buttonKey(s), { use: false }])),
+      own: config.buttons.map((b, i) => ({ ...b, id: b.id || `own-${i + 1}` })),
+    };
+  const left = new Set(standard);
+  const changes = {},
+    own = [];
+  const rest = [];
+  const take = (b, s) => {
+    left.delete(s);
+    const c = {};
+    if (b.use === false) c.use = false;
+    if (b.name && b.name !== s.name) c.name = b.name;
+    if ((b.icon || "") !== (s.icon || "")) c.icon = b.icon || "";
+    if (Object.keys(c).length) changes[buttonKey(s)] = c;
+  };
+  const same = (b, test) => (b.own ? null : [...left].find((s) => s.position === b.position && test(s)));
+  for (const b of config.buttons) {
+    const s = same(b, (x) => x.name === b.name);
+    if (s) take(b, s);
+    else rest.push(b);
+  }
+  for (const b of rest) {
+    const s = same(b, () => true);
+    if (s) {
+      take(b, s);
+      continue;
+    }
+    // The card shows this one at another place than the object does, so it stays and the object's is left out.
+    const twin = b.own ? null : [...left].find((x) => x.name === b.name);
+    if (twin) {
+      left.delete(twin);
+      changes[buttonKey(twin)] = { use: false };
+    }
+    if (b.own || b.use !== false) own.push({ ...b, id: b.id || `own-${own.length + 1}` });
+  }
+  return { changes, own };
+}
+
+// All of a card's buttons from dim to bright, the hidden ones too.
+export function cardButtons(config, standard) {
+  const { changes, own } = buttonSettings(config, standard);
+  return byPosition([
+    ...standard.map((s) => ({ use: true, ...s, ...changes[buttonKey(s)], key: buttonKey(s), own: false })),
+    ...own.map((b) => ({ use: true, ...b, key: b.id || b.name, own: true })),
+  ]);
+}
+
+// -- lights and rooms -----------------------------------------------------------------------------
+
+export function modesFor(hass, entityId) {
+  const modes = hass.states[entityId]?.attributes?.supported_color_modes || [];
+  const hasColor = modes.some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
+  const hasCt = modes.includes("color_temp");
+  const list = ["onoff"];
+  if (!modes.length || hasColor || hasCt || modes.includes("brightness")) list.push("dim");
+  if (hasCt) list.push("cct");
+  if (hasColor) list.push("rgb");
+  if (hasColor && hasCt) list.push("rgbcct");
+  return list;
+}
+
+// A light joins with white tones where it has them.
+export function newLight(hass, entityId) {
+  const modes = modesFor(hass, entityId);
+  return { entity_id: entityId, mode: modes.includes("cct") ? "cct" : modes[modes.length - 1], fade: "soft", steps: 4, slider: "auto" };
+}
+
+export function kelvinRange(hass, light) {
+  const a = hass.states[light.entity_id]?.attributes || {};
+  // Lights report odd limits such as 2702 K; Home Assistant clamps what it sends anyway.
+  return [Math.round((a.min_color_temp_kelvin || 2000) / 50) * 50, Math.floor((a.max_color_temp_kelvin || 6500) / 50) * 50];
+}
+
+// A value as far as the light can show it: a color becomes the warmest white, a white tone a color.
+export function fitValue(hass, light, v) {
+  const b = Math.round(v?.brightness || 0);
+  if (!b) return { brightness: 0 };
+  if (light.mode === "onoff") return { brightness: 100 };
+  if (light.mode === "dim") return { brightness: b };
+  const [kmin, kmax] = kelvinRange(hass, light);
+  if (v.color) return light.mode === "cct" ? { brightness: b, kelvin: kmin } : { brightness: b, color: v.color.map(Math.round) };
+  const k = v.kelvin ?? 3000;
+  return light.mode === "rgb" ? { brightness: b, color: kRgb(k).map(Math.round) } : { brightness: b, kelvin: clamp(Math.round(k / 50) * 50, kmin, kmax) };
+}
+
+export function areaIdOf(hass, entityId) {
+  const e = hass.entities?.[entityId];
+  return e?.area_id || (e?.device_id && hass.devices?.[e.device_id]?.area_id) || "";
+}
+export const areaName = (hass, entityId) => hass.areas?.[areaIdOf(hass, entityId)]?.name || "";
+
+export const newId = () => Math.random().toString(16).slice(2, 10);
+
+// The buttons a room usually needs, from dim to bright.
+export const DAY_BUTTONS = [
+  [10, ["Night", "Nacht"], "mdi:moon-waning-crescent"],
+  [40, ["Morning", "Morgen"], "mdi:weather-sunset"],
+  [80, ["Day", "Tag"], "mdi:weather-sunny"],
+  [100, ["Bright", "Hell"], "mdi:light-flood-down"],
+];
+
+// Small curves: one line per light over the scale.
+export function curvePreview(list, stops, label) {
+  const W = 200,
+    H = 64,
+    P = 4;
+  const x = (p) => (P + (p / 100) * (W - 2 * P)).toFixed(1),
+    y = (v) => (P + (1 - v / 100) * (H - 2 * P)).toFixed(1);
+  const lines = list
+    .map((u) => `<polyline class="tline" style="stroke:${seriesVar(u.slot)}" points="${stops.map((s) => `${x(s.position)},${y(s.values[u.ids[0]]?.brightness || 0)}`).join(" ")}"/>`)
+    .join("");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><line class="c-axis" x1="${P}" x2="${W - P}" y1="${y(0)}" y2="${y(0)}"/>${lines}</svg>`;
+}
+
+// Sorting a list by its handles. The rows around the dragged one move, so it keeps the pointer.
+export function startSort(e, handle, done) {
+  const row = handle.closest("[data-sortrow]");
+  const list = row?.parentElement;
+  if (!list) return;
+  e.preventDefault();
+  const order = () => [...list.children].filter((el) => el.dataset.sortrow !== undefined);
+  const before = order().map((el) => el.dataset.sortrow).join("|");
+  row.classList.add("sorting");
+  handle.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const mid = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.top + r.height / 2;
+    };
+    // A fast finger passes several rows between two events.
+    for (let n = order().length; n > 0; n--) {
+      const rows = order(),
+        i = rows.indexOf(row);
+      if (i > 0 && ev.clientY < mid(rows[i - 1])) list.insertBefore(rows[i - 1], row.nextSibling);
+      else if (i < rows.length - 1 && ev.clientY > mid(rows[i + 1])) list.insertBefore(rows[i + 1], row);
+      else break;
+    }
+  };
+  const end = (ev) => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", end);
+    handle.removeEventListener("pointercancel", end);
+    row.classList.remove("sorting");
+    const keys = order().map((el) => el.dataset.sortrow);
+    if (ev.type === "pointercancel" || keys.join("|") !== before) done(ev.type === "pointercancel" ? before.split("|") : keys);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+}

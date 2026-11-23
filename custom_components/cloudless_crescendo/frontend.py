@@ -26,7 +26,7 @@ DATA_PANEL_URL = f"{DOMAIN}_panel_url"
 def _versions() -> dict[str, str]:
     """Return a short hash per file, so browsers pick up a new version at once."""
     result = {}
-    for path in FILES.glob("*.js"):
+    for path in sorted(FILES.glob("*.js")):
         result[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()[:10]
     return result
 
@@ -35,7 +35,8 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     """Register the static files, the card and the sidebar page."""
     await hass.http.async_register_static_paths([StaticPathConfig(URL_STATIC, str(FILES), cache_headers=True)])
     versions = await hass.async_add_executor_job(_versions)
-    shared = versions.get("crescendo-shared.js", "0")
+    # The card and the page load these two with their own address, so a change there has to change it too.
+    shared = versions.get("crescendo-shared.js", "0") + versions.get("crescendo-setup.js", "0")
     card_url = f"{URL_STATIC}/{CARD_FILE}?v={versions.get(CARD_FILE, '0')}{shared}"
     panel_url = f"{URL_STATIC}/{PANEL_FILE}?v={versions.get(PANEL_FILE, '0')}{shared}"
 

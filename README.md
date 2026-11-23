@@ -45,17 +45,17 @@ Go to **Settings → Devices & services → Add integration → Cloudless Cresce
 
 Open **Crescendo** in the sidebar.
 
-1. Choose the object at the top, or **New object**, and name it.
-2. Under **Lights and devices**, **+ Add a light or device** opens the search by name, room or kind; lights are chosen first. For each light choose what it shows: white tones, colors or both. **More** beside it opens the fade, the slider behavior and **Group**. Lights set the same are suggested as a group in one line; change the display name afterwards under **More**.
-3. Under **Stops**, set the **Speed**. **Templates** give all lights a ready shape, such as one after another from warm to neutral, or like another object. Drag the points in the chart to set each light's brightness, and tap a point or a light's name: its row of stops opens right under its lane, and a tap on a stop opens the bars for brightness, white tone, color and saturation below it, with fields for exact values. The devices below open the same way; at each stop you set their value and actions. In the table the settings open right under the row. Devices in percent appear as a dashed line in the chart, switch points as small marks: ▲ for crossing up, ▼ for crossing down. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
-4. Add **Standard buttons**, one by one or from a template such as **Night · Morning · Day · Bright**. New cards take them as a template. **On/off** comes first and sets what the object switches on to.
+1. Choose the object at the top, or **New object** for the guided setup of a room: its lights, whether they get brighter together or one after another, warm or warm to neutral, and the buttons. Everything below is for fine-tuning.
+2. Under **Lights and devices**, **+ Add a light or device** opens the search by name, room or kind; lights are chosen first. For each light choose what it shows: white tones, colors or both. **More** beside it opens the fade, the slider behavior and **Group**. Lights set the same are suggested as a group in one line; change the display name afterwards under **More**. Drag the handles to sort the lights, or use **Sort by when they come on**; the order also holds in the cards.
+3. Under **Stops**, set the **Speed**. **Templates** give all lights a ready shape, such as one after another from warm to neutral, or like another object, and lead to the guided setup. Points you have not set lie on the line between the set ones and follow them: hollow in the chart, pale in the table. Drag the points in the chart to set each light's brightness, and tap a point or a light's name: its row of stops opens right under its lane, and a tap on a stop opens the bars for brightness, white tone, color and saturation below it, with fields for exact values. The devices below open the same way; at each stop you set their value and actions. In the table the settings open right under the row. Devices in percent appear as a dashed line in the chart, switch points as small marks: ▲ for crossing up, ▼ for crossing down. The number below a line moves that stop. Changes are saved automatically and shown on the lights while **Preview on the lights** is on.
+4. Under **Standard buttons**, switch on a button for each stop that should have one, or take a template such as **Night · Morning · Day · Bright**. A button moves and goes with its stop, and cards show them from dim to bright. **On/off** comes first and sets what the object switches on to.
 5. Under **Behavior**, set the slider.
 
 **Export** saves an object as a file; **Import** creates a new one from it or replaces the chosen one. Explanations sit behind the small **i** beside a heading.
 
 The bar at the bottom shows the position, switches the preview on the lights and starts test runs.
 
-To add the card to a dashboard, edit the dashboard, add a card and choose **Crescendo**. The card editor offers the design, control colors, buttons, how the single lights open, and more.
+To add the card to a dashboard, edit the dashboard, add a card and choose **Crescendo**. **New object for a room** in the card editor sets up an object on the spot. The card editor also offers the design, control colors, buttons, how the single lights open, and more.
 
 ## Per-light settings
 

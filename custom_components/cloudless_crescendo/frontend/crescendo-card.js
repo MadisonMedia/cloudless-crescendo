@@ -3,6 +3,8 @@
 const shared = await import(new URL(`./crescendo-shared.js${new URL(import.meta.url).search}`, import.meta.url).href);
 const {
   activeColors,
+  buttonSettings,
+  cardButtons,
   clamp,
   comma,
   controllerFor,
@@ -22,6 +24,7 @@ const {
   lightColor,
   loadIconPicker,
   lumOf,
+  newId,
   rampColor,
   rgbHue,
   rgbToXy,
@@ -590,8 +593,7 @@ class CrescendoCard extends HTMLElement {
   _buttons() {
     const cfg = this._config;
     if (!cfg.buttons_on) return [];
-    if (Array.isArray(cfg.buttons)) return cfg.buttons.filter((b) => b.use !== false);
-    return this._ctl.state?.attributes?.buttons || [];
+    return cardButtons(cfg, this._ctl.state?.attributes?.buttons || []).filter((b) => b.use !== false);
   }
 
   // -- the view of all single lights --------------------------------------------------------------
@@ -1917,7 +1919,13 @@ button { font: inherit; color: var(--ink); background: transparent; border: 1px 
 button:hover { border-color: var(--accent); }
 .designs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
 .designs button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 600; }
-.btn-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 62px auto; gap: 4px; align-items: center; }
+.btn-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 62px 34px; gap: 4px; align-items: center; }
+.btn-row .at { text-align: right; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 6px; }
+.links { display: grid; gap: 6px; }
+.links button { width: 100%; min-height: 42px; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; display: flex; gap: 8px; align-items: center; justify-content: center; }
+.links button.quiet { border-color: var(--line); background: transparent; font-weight: 500; }
+.links svg { flex: none; }
+.setup { border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .btn-row input[type="text"], .btn-row input[type="number"] { min-height: 30px; padding: 2px 6px; font-size: 13px; }
 details > summary { cursor: pointer; font-weight: 600; }
 .section { padding: 12px; border: 1px solid var(--divider-color, #d4dae6); border-radius: 10px; }
@@ -1933,6 +1941,8 @@ details[open] > summary { margin-bottom: 10px; }
 .mark { position: absolute; transform: translate(-50%, -50%); padding: 1px 7px; border-radius: 99px; background: rgba(17,21,42,.82); color: #fff; font-size: 11px; border: 1px solid rgba(255,255,255,.7); cursor: grab; touch-action: none; white-space: nowrap; min-height: 0; }
 `;
 
+const EDIT_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8L19 8.8M3 17.2V21h3.8L17.8 9.9l-3.7-3.7z"/></svg>';
+const PLUS_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>';
 const CONTROLLABLE = ["light", "climate", "cover", "media_player", "fan", "number", "input_number"];
 
 class CrescendoCardEditor extends HTMLElement {
@@ -1987,7 +1997,51 @@ class CrescendoCardEditor extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
-    if (first && this._config) this._load();
+    if (this._setup) this._setup.hass = hass;
+    // A new object arrives a moment after it was created.
+    const arrived = this._waitingFor && hass.states[this._waitingFor];
+    if (arrived) this._waitingFor = null;
+    if ((first || arrived) && this._config) this._load();
+  }
+
+  // The guided setup opens right here; the new object becomes the card's.
+  async _openSetup() {
+    const t = tr(this._hass);
+    let objects = [];
+    try {
+      const setup = await import(new URL(`./crescendo-setup.js${new URL(import.meta.url).search}`, import.meta.url).href);
+      objects = await this._hass.callWS({ type: "cloudless_crescendo/objects" }).catch(() => []);
+      this._setup = setup.createSetup(this._hass, { titles: objects.map((o) => o.title), empty: false });
+    } catch (err) {
+      this._setupNote = t(`The setup could not be opened: ${err?.message || err}`, `Die Einrichtung ließ sich nicht öffnen: ${err?.message || err}`);
+      this._render();
+      return;
+    }
+    this._setupNote = "";
+    this._setup.addEventListener("setup-cancel", () => {
+      this._setup = null;
+      this._render();
+    });
+    this._setup.addEventListener("setup-created", (e) => {
+      const { entity_id, title } = e.detail;
+      this._setup = null;
+      this._setupNote = t(`“${title}” is created and connected to this card.`, `„${title}“ ist angelegt und mit dieser Karte verbunden.`);
+      if (!entity_id) {
+        this._render();
+        return;
+      }
+      this._waitingFor = this._hass.states[entity_id] ? null : entity_id;
+      this._connect(entity_id);
+    });
+    this._render();
+  }
+
+  // Another entity brings its own buttons.
+  _connect(entity) {
+    this._entryId = null;
+    this._config = { ...this._config, entity, buttons: undefined, button_changes: undefined, own_buttons: undefined };
+    this._set({});
+    this._load();
   }
 
   _load() {
@@ -2023,11 +2077,35 @@ class CrescendoCardEditor extends HTMLElement {
   }
 
   _list() {
-    return this._config.buttons || this._standard().map((b) => ({ ...b, use: true }));
+    return cardButtons(this._config, this._standard());
   }
 
-  _own() {
-    return Array.isArray(this._config.buttons) ? [...this._config.buttons] : this._list();
+  // Only what differs from the object is kept, so its later buttons arrive in the card.
+  _setButtons(fn, render = true) {
+    const now = buttonSettings(this._config, this._standard());
+    const changes = JSON.parse(JSON.stringify(now.changes)),
+      own = JSON.parse(JSON.stringify(now.own));
+    fn(changes, own);
+    for (const [k, c] of Object.entries(changes)) if (!Object.keys(c).length) delete changes[k];
+    this._set({ buttons: undefined, button_changes: Object.keys(changes).length ? changes : undefined, own_buttons: own.length ? own : undefined }, render);
+  }
+
+  _editButton(key, field, value, render) {
+    const standard = this._standard().find((b) => (b.id || b.name) === key);
+    this._setButtons((changes, own) => {
+      const mine = own.find((b) => (b.id || b.name) === key);
+      if (mine) {
+        if (value !== undefined) mine[field] = value;
+        else if (field === "name") mine.name = "Button";
+        else delete mine[field];
+        return;
+      }
+      if (!standard) return;
+      const c = (changes[key] ||= {});
+      const same = field === "use" ? value === true : (value ?? "") === (standard[field] ?? "") || (field === "name" && value === undefined);
+      if (same) delete c[field];
+      else c[field] = value ?? "";
+    }, render);
   }
 
   _render() {
@@ -2051,20 +2129,24 @@ class CrescendoCardEditor extends HTMLElement {
     }
     const iconField = (b, i) =>
       customElements.get("ha-icon-picker")
-        ? `<ha-icon-picker class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" label="${esc(t("Icon (optional)", "Symbol (optional)"))}"></ha-icon-picker>`
-        : `<input type="text" class="btn-icon" data-i="${i}" data-f="icon" value="${esc(b.icon || "")}" placeholder="${esc(t("Icon, for example mdi:weather-night", "Symbol, zum Beispiel mdi:weather-night"))}" aria-label="${esc(t("Icon", "Symbol"))}">`;
+        ? `<ha-icon-picker class="btn-icon" data-i="${i}" data-key="${esc(b.key)}" data-f="icon" value="${esc(b.icon || "")}" label="${esc(t("Icon (optional)", "Symbol (optional)"))}"></ha-icon-picker>`
+        : `<input type="text" class="btn-icon" data-i="${i}" data-key="${esc(b.key)}" data-f="icon" value="${esc(b.icon || "")}" placeholder="${esc(t("Icon, for example mdi:weather-night", "Symbol, zum Beispiel mdi:weather-night"))}" aria-label="${esc(t("Icon", "Symbol"))}">`;
+    const adjusted = !!(cfg.buttons || cfg.button_changes || cfg.own_buttons);
     const check = (id, on, label) => `<label class="check"><input type="checkbox" id="${id}"${on ? " checked" : ""}> ${esc(label)}</label>`;
     const rows = this._list()
       .map(
         (b, i) => `<div class="btn-row">
-        <input type="checkbox" data-i="${i}" data-f="use"${b.use !== false ? " checked" : ""} aria-label="${esc(t("Show", "Zeigen"))}">
-        <input type="text" data-i="${i}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}">
-        <input type="number" data-i="${i}" data-f="value" value="${ctl.toValue(b.position)}" step="${ctl.step}" aria-label="${esc(t("Value", "Wert"))}">
-        ${b.own ? `<button data-remove="${i}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button>` : "<span></span>"}
+        <input type="checkbox" data-i="${i}" data-key="${esc(b.key)}" data-f="use"${b.use !== false ? " checked" : ""} aria-label="${esc(t("Show", "Zeigen"))}">
+        <input type="text" data-i="${i}" data-key="${esc(b.key)}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}">
+        ${b.own ? `<input type="number" data-i="${i}" data-key="${esc(b.key)}" data-f="value" value="${ctl.toValue(b.position)}" step="${ctl.step}" aria-label="${esc(t("Value", "Wert"))}">` : `<span class="at">${esc(formatValue(ctl, b.position, lang))} ${esc(ctl.unit)}</span>`}
+        ${b.own ? `<button data-remove="${esc(b.key)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button>` : "<span></span>"}
         ${iconField(b, i)}
       </div>`,
       )
       .join("");
+    // Setting up needs admin rights.
+    const admin = hass.user?.is_admin !== false;
+    const links = `${ctl.crescendo && this._entryId ? `<button id="open-setup">${EDIT_ICON}<span>${esc(t("Edit the object in Crescendo", "Objekt in Crescendo bearbeiten"))}</span></button>` : ""}<button id="new-object" class="quiet"${this._setup ? " hidden" : ""}>${PLUS_ICON}<span>${esc(t("New object for a room", "Neues Objekt für einen Raum"))}</span></button>`;
     const lights = this._options?.lights || [];
     const marks = lights
       .map((l, i) => {
@@ -2134,12 +2216,14 @@ class CrescendoCardEditor extends HTMLElement {
           <optgroup label="${esc(t("Other devices", "Andere Geräte"))}">${others.map(opt).join("")}</optgroup>
           ${sensors.length ? `<optgroup label="${esc(t("Display only", "Nur Anzeige"))}">${sensors.map(opt).join("")}</optgroup>` : ""}
         </select></div>
+      ${admin ? `<div class="links">${links}</div>` : ""}
+      ${this._setupNote ? `<p class="hint" role="status">${esc(this._setupNote)}</p>` : ""}
+      <div class="setup" id="setup"${this._setup ? "" : " hidden"}></div>
       <div class="ctl"><label for="name">${esc(t("Name (optional)", "Name (optional)"))}</label><input type="text" id="name" value="${esc(cfg.name || "")}"></div>
       <div class="ctl"><span class="lab">${esc(t("Design", "Design"))}</span><div class="designs">${DESIGNS.map(
         ([k, en, de]) => `<button data-design="${k}" aria-pressed="${cfg.design === k}">${esc(lang === "de" ? de : en)}</button>`,
       ).join("")}</div></div>
-      ${pictureSection}${mixerSection}
-      ${ctl.crescendo && this._entryId ? `<div><button id="open-setup">${esc(t("Edit the object in Crescendo", "Objekt in Crescendo bearbeiten"))}</button></div>` : ""}`,
+      ${pictureSection}${mixerSection}`,
       )}
       ${group(
         t("Header", "Kopfzeile"),
@@ -2202,9 +2286,9 @@ class CrescendoCardEditor extends HTMLElement {
       ${
         cfg.buttons_on
           ? `<div class="ctl stack">
-        <span class="lab">${esc(cfg.buttons ? t("Adjusted for this card", "Für diese Karte angepasst") : t("Template: standard buttons", "Vorlage: Standard-Buttons"))}</span>
+        <span class="lab">${esc(adjusted ? t("Adjusted for this card", "Für diese Karte angepasst") : ctl.crescendo ? t("The object's buttons, from dim to bright", "Die Buttons des Objekts, von dunkel nach hell") : t("Buttons of this card", "Buttons dieser Karte"))}</span>
         ${rows}
-        <div><button id="add-button">${esc(t("Add your own button", "Eigenen Button hinzufügen"))}</button> ${cfg.buttons ? `<button id="reset-buttons">${esc(t("Reset", "Zurücksetzen"))}</button>` : ""}</div></div>
+        <div><button id="add-button">${esc(t("Add your own button", "Eigenen Button hinzufügen"))}</button> ${adjusted ? `<button id="reset-buttons">${esc(t("Reset", "Zurücksetzen"))}</button>` : ""}</div></div>
       <div class="ctl"><label for="button_style">${esc(t("Look", "Aussehen"))}</label>${select("button_style", cfg.button_style, [
         ["tint_icon", t("In their light, with an icon", "In ihrer Lichtfarbe, mit Symbol")],
         ["tint", t("In their light", "In ihrer Lichtfarbe")],
@@ -2277,6 +2361,7 @@ class CrescendoCardEditor extends HTMLElement {
       ${design === "gradient" ? check("show_lanes", cfg.show_lanes, t("Show a lane per light", "Spuren je Leuchte zeigen")) : ""}`,
       )}
     </div>`;
+    if (this._setup) this.shadowRoot.getElementById("setup").append(this._setup);
     // Home Assistant's icon picker reports its choice only on itself, without bubbling, so each one gets its own listener.
     this.shadowRoot.querySelectorAll("ha-icon-picker").forEach((el) => {
       el.hass = this._hass;
@@ -2286,17 +2371,13 @@ class CrescendoCardEditor extends HTMLElement {
 
   async _onChange(e) {
     const t = e.target;
-    if (t.dataset.f !== undefined && t.dataset.i !== undefined) {
-      const list = this._own();
-      const b = { ...list[+t.dataset.i] };
+    if (t.dataset.f !== undefined && t.dataset.key !== undefined) {
+      const { key, f } = t.dataset;
       const ctl = controllerFor(this._hass, this._config.entity);
-      if (t.dataset.f === "use") b.use = t.checked;
-      else if (t.dataset.f === "name") b.name = t.value.trim() || "Button";
-      else if (t.dataset.f === "value") b.position = Math.round(ctl.toPos(+t.value || 0) * 100) / 100;
-      else if (t.dataset.f === "icon") b.icon = String(e.detail?.value ?? t.value ?? "").trim() || undefined;
-      else b.duration = Math.max(0, +t.value || 0);
-      list[+t.dataset.i] = b;
-      this._set({ buttons: list }, t.dataset.f !== "icon");
+      if (f === "use") this._editButton(key, "use", t.checked);
+      else if (f === "name") this._editButton(key, "name", t.value.trim() || undefined);
+      else if (f === "value") this._editButton(key, "position", Math.round(ctl.toPos(+t.value || 0) * 100) / 100);
+      else if (f === "icon") this._editButton(key, "icon", String(e.detail?.value ?? t.value ?? "").trim() || undefined, false);
       return;
     }
     switch (t.id) {
@@ -2314,9 +2395,8 @@ class CrescendoCardEditor extends HTMLElement {
         this._set({ full_fade: t.value === "" ? undefined : Math.max(0, +t.value || 0) });
         break;
       case "entity":
-        this._config = { ...this._config, entity: t.value, buttons: undefined };
-        this._set({});
-        this._load();
+        this._setupNote = "";
+        this._connect(t.value);
         break;
       case "name":
       case "photo":
@@ -2374,7 +2454,7 @@ class CrescendoCardEditor extends HTMLElement {
   }
 
   _onClick(e) {
-    const t = e.target;
+    const t = e.target.closest?.("button") || e.target;
     if (t.id === "pick-photo") this.shadowRoot.getElementById("upload").click();
     else if (t.id === "remove-photo") this._set({ photo: undefined });
     else if (t.dataset?.design) this._set({ design: t.dataset.design });
@@ -2383,17 +2463,16 @@ class CrescendoCardEditor extends HTMLElement {
       history.pushState(null, "", `/crescendo?object=${encodeURIComponent(this._entryId)}`);
       window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
     }
+    else if (t.id === "new-object") this._openSetup();
     else if (t.id === "add-button") {
-      const list = this._own();
-      list.push({ id: Math.random().toString(16).slice(2, 10), name: "Button", position: 50, duration: 3, use: true, own: true });
-      this._set({ buttons: list });
+      this._setButtons((_changes, own) => own.push({ id: newId(), name: "Button", position: 50, duration: 0 }));
     } else if (t.id === "reset-buttons") {
-      this._config = { ...this._config, buttons: undefined };
-      this._set({});
+      this._set({ buttons: undefined, button_changes: undefined, own_buttons: undefined });
     } else if (t.dataset?.remove !== undefined) {
-      const list = this._own();
-      list.splice(+t.dataset.remove, 1);
-      this._set({ buttons: list });
+      this._setButtons((_changes, own) => {
+        const i = own.findIndex((b) => (b.id || b.name) === t.dataset.remove);
+        if (i >= 0) own.splice(i, 1);
+      });
     } else if (t.dataset?.rmchan) {
       this._set({ channels: (this._config.channels || []).filter((id) => id !== t.dataset.rmchan) });
     }

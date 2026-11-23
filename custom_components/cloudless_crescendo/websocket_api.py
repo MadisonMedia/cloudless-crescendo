@@ -18,6 +18,7 @@ from .engine import Engine, Origin
 from .frontend import async_set_sidebar, async_sidebar_shown
 from .model import normalize_options
 from .planner import settle
+from .setup_preview import SetupPreview
 
 
 def _entry_for_entity(hass: HomeAssistant, entity_id: str) -> ConfigEntry | None:
@@ -66,6 +67,8 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         ws_sidebar,
         ws_sidebar_set,
         ws_preview,
+        ws_setup_preview,
+        ws_setup_preview_end,
         ws_diagnostics,
         ws_test_connection,
     ):
@@ -127,12 +130,20 @@ def ws_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg
         vol.Required("type"): f"{DOMAIN}/object/create",
         vol.Required("title"): vol.All(str, vol.Length(min=1)),
         vol.Optional("lights", default=[]): [str],
+        vol.Optional("options"): dict,
     }
 )
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Create an object through the regular config flow."""
+    """Create an object through the regular config flow, ready-made when it comes with its settings."""
+    options = None
+    if "options" in msg:
+        try:
+            options = normalize_options(msg["options"])
+        except vol.Invalid as err:
+            connection.send_error(msg["id"], websocket_api.ERR_INVALID_FORMAT, str(err))
+            return
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_NAME: msg["title"], CONF_LIGHTS: msg["lights"]}
@@ -140,7 +151,10 @@ async def ws_create(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     if result["type"] is not FlowResultType.CREATE_ENTRY:
         connection.send_error(msg["id"], "create_failed", str(result.get("errors")))
         return
-    connection.send_result(msg["id"], {"entry_id": result["result"].entry_id})
+    entry = result["result"]
+    if options is not None:
+        hass.config_entries.async_update_entry(entry, options=options)
+    connection.send_result(msg["id"], {"entry_id": entry.entry_id, "entity_id": _entity_id_of(hass, entry.entry_id)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/object/delete", vol.Required("entry_id"): str})
@@ -309,6 +323,50 @@ def ws_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, 
         engine.sender.send(step.entity_id, step.commands, step.transition)
         if step.target is not None:
             engine.last_targets[step.entity_id] = step.target
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/setup/preview",
+        vol.Required("options"): dict,
+        vol.Required("position"): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_setup_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Show a setup on the real lights, also for an object that does not exist yet."""
+    try:
+        options = normalize_options(msg["options"])
+    except vol.Invalid as err:
+        connection.send_error(msg["id"], websocket_api.ERR_INVALID_FORMAT, str(err))
+        return
+    previews = hass.data.setdefault(DOMAIN, {}).setdefault("setup_preview_of", {})
+    preview: SetupPreview | None = previews.get(connection)
+    if preview is None or preview.closed:
+        if preview is None:
+
+            @callback
+            def _gone() -> None:
+                # The browser left without ending the preview.
+                if (left := previews.pop(connection, None)) is not None:
+                    left.end()
+
+            connection.subscriptions[msg["id"]] = _gone
+        preview = previews[connection] = SetupPreview(hass)
+    preview.show(curve_from_options(options), msg["position"])
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/setup/preview_end"})
+@websocket_api.require_admin
+@callback
+def ws_setup_preview_end(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Give the lights back as they were before the preview."""
+    preview = hass.data.get(DOMAIN, {}).get("setup_preview_of", {}).get(connection)
+    if preview is not None:
+        preview.end()
     connection.send_result(msg["id"])
 
 

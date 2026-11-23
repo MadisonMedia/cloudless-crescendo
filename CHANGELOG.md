@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0b1
+
+Restart Home Assistant after updating, then reload the browser or app once so the card and the page load anew.
+
+### Added
+
+- **A guided setup for a room.** Choose the room, whether its lights get brighter together or one after another, warm or warm to neutral, and the buttons Night, Morning, Day and Bright. A preview shows the result, on request on the real lights, which return to how they were afterwards. It opens for a new object, for an object just added under Devices & services, and under **Templates** to set an object up anew.
+- **A new object right from the card.** **New object for a room** in the card's settings opens the guided setup in place and connects the card to the new object.
+- **Points that follow by themselves.** A light's points lie on the line between the ones you have set, so a light raised at one stop keeps rising to 100 %. They are hollow in the chart and pale in the table, and changing one sets it. Existing objects stay as they are; **Evenly from here to 100 %** at a point frees the later ones, **Automatic** a single one.
+- **Sort the lights.** Drag the handles, use the arrow keys or the arrows under **More**, or sort by when the lights come on. The order also holds in the cards.
+
+### Changed
+
+- **Buttons belong to the stops.** Every stop has a row with a switch, a name and an icon. A button moves and goes with its stop; for a button somewhere else, add a stop there. Buttons from before that lie between two stops get a stop there when the Crescendo page is opened; the lights keep their curve.
+- **Buttons stand in the order of their stops,** in the object and in the cards. The object's `buttons` attribute is in that order too and gives each button its `id`.
+- **A light added to an object rises evenly from off to 100 %** instead of staying off until the last stop.
+- **A card keeps only what it changes about the object's buttons.** Buttons added to the object later now arrive in cards with changed buttons too. The value of an object's button is set at its stop; a card's own buttons keep theirs. Lists written by hand show exactly what they say, from dim to bright.
+- **Edit the object in Crescendo** stands right below the choice of the object in the card's settings.
+
+### Fixed
+
+- A light that only switches keeps its switching point when a stop is added below it.
+
 ## 0.2.0b9
 
 Restart Home Assistant after updating, then reload the browser or app once so the page loads anew.
