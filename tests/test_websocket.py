@@ -79,6 +79,51 @@ async def test_create_and_delete(hass: HomeAssistant, setup_object, hass_ws_clie
     assert len(hass.config_entries.async_entries("cloudless_crescendo")) == 1
 
 
+async def test_create_with_settings(hass: HomeAssistant, setup_object, hass_ws_client) -> None:
+    await setup_object()
+    client = await _client(hass, hass_ws_client)
+    options = {
+        "lights": [{"entity_id": FLOOR, "mode": "cct"}],
+        "stops": [
+            {"position": 0},
+            {"position": 40, "values": {FLOOR: {"brightness": 40, "kelvin": 2700}}},
+            {"position": 100, "values": {FLOOR: {"brightness": 100, "kelvin": 4000}}},
+        ],
+        "buttons": [{"id": "b2", "name": "Hell", "position": 100}, {"id": "b1", "name": "Nacht", "position": 40}],
+        "auto": {FLOOR: [40]},
+    }
+    await client.send_json_auto_id(
+        {"type": "cloudless_crescendo/object/create", "title": "Küche", "lights": [FLOOR], "options": options}
+    )
+    created = (await client.receive_json())["result"]
+    await hass.async_block_till_done()
+    assert created["entity_id"] == "light.kuche"
+    saved = hass.config_entries.async_get_entry(created["entry_id"]).options
+    assert [stop["position"] for stop in saved["stops"]] == [0, 40, 100]
+    assert saved["auto"] == {FLOOR: [40]}
+    # The buttons stand in the order of their stops, and a card can tell them apart.
+    assert [(b["id"], b["name"]) for b in hass.states.get("light.kuche").attributes["buttons"]] == [
+        ("b1", "Nacht"),
+        ("b2", "Hell"),
+    ]
+
+
+async def test_create_refuses_invalid_settings_without_leaving_an_object(
+    hass: HomeAssistant, setup_object, hass_ws_client
+) -> None:
+    await setup_object()
+    client = await _client(hass, hass_ws_client)
+    await client.send_json_auto_id(
+        {
+            "type": "cloudless_crescendo/object/create",
+            "title": "Küche",
+            "options": {"stops": [{"position": 300}]},
+        }
+    )
+    assert not (await client.receive_json())["success"]
+    assert len(hass.config_entries.async_entries("cloudless_crescendo")) == 1
+
+
 async def test_connection_test_reports_each_light_and_restores_it(
     hass: HomeAssistant, setup_object, hass_ws_client, lights: FakeLights
 ) -> None:

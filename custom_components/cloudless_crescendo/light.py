@@ -289,8 +289,8 @@ class CrescendoLight(LightEntity, RestoreEntity):
             ATTR_STOPS: engine.base_curve.positions,
             ATTR_BUTTONS: [
                 {"name": b["name"], "position": b["position"], "duration": b["duration"]}
-                | ({"icon": b["icon"]} if b.get("icon") else {})
-                for b in options.get(CONF_BUTTONS, ())
+                | {key: b[key] for key in ("id", "icon") if b.get(key)}
+                for b in sorted(options.get(CONF_BUTTONS, ()), key=lambda b: b["position"])
             ],
             ATTR_CURVE_ID: hashlib.sha256(json.dumps(options, sort_keys=True).encode()).hexdigest()[:10],
             ATTR_COLOR_OVERRIDE: engine.override is not None,

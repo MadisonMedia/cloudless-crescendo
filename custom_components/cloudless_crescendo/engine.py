@@ -59,6 +59,7 @@ from .const import (
 from .curve import LightCurve, ObjectCurve, Target, curve_from_options, kelvin_to_xy
 from .planner import OFF, Command, Step, color_command, minimum_command, on_command, plan_fade, settle
 from .sender import Sender
+from .setup_preview import is_preview_call, is_previewed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -821,7 +822,7 @@ class Engine:
         data = event.data
         if data.get("domain") != "light" or event.context.id == self.context.id:
             return
-        if event.context.parent_id == self.context.id:
+        if event.context.parent_id == self.context.id or is_preview_call(self.hass, event.context):
             return
         targets = (data.get("service_data") or {}).get(ATTR_ENTITY_ID)
         if not targets:
@@ -864,6 +865,7 @@ class Engine:
             and old.state == STATE_ON
             and self.sender.expected_on.get(eid)
             and (sent is None or time.monotonic() - sent > VERIFY_DELAY * 3)
+            and not is_previewed(self.hass, eid)
         ):
             # Switched off by hand or at the wall.
             self._leave_curve(eid)

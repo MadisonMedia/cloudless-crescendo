@@ -34,6 +34,7 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from .const import (
+    CONF_AUTO,
     CONF_BUTTONS,
     CONF_DEFAULT_TRANSITION,
     CONF_DEVICES,
@@ -141,6 +142,8 @@ OPTIONS_SCHEMA = vol.Schema(
         vol.Optional(CONF_DEVICES, default=[]): [vol.Any(RAMP_SCHEMA, THRESHOLD_SCHEMA)],
         vol.Optional(CONF_BUTTONS, default=[]): [BUTTON_SCHEMA],
         vol.Optional(CONF_GROUPS, default=[]): [GROUP_SCHEMA],
+        # Stops where a light lies on the line between its set neighbors. Their values are stored all the same.
+        vol.Optional(CONF_AUTO, default={}): {cv.entity_domain("light"): [PERCENT]},
         vol.Optional(CONF_SLIDER_RATE, default=DEFAULT_SLIDER_RATE): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
         vol.Optional(CONF_ON_MODE, default=ON_LAST): vol.In((ON_LAST, ON_FIXED)),
         vol.Optional(CONF_ON_POSITION, default=DEFAULT_ON_POSITION): vol.All(
@@ -198,6 +201,16 @@ def normalize_options(options: dict[str, Any]) -> dict[str, Any]:
     for button in data[CONF_BUTTONS]:
         button.setdefault("id", _new_id())
         button["position"] = _tidy(button["position"])
+    data[CONF_BUTTONS] = sorted(data[CONF_BUTTONS], key=lambda button: button["position"])
+
+    # Both ends are always set, and only stops that exist can be automatic.
+    between = {position for position in by_position if 0 < position < 100}
+    auto = {
+        eid: sorted(between.intersection(_tidy(position) for position in positions))
+        for eid, positions in data[CONF_AUTO].items()
+        if eid in known
+    }
+    data[CONF_AUTO] = {eid: positions for eid, positions in auto.items() if positions}
 
     # A group keeps only lights of the object, each light in one group, and at least two of them.
     groups = []

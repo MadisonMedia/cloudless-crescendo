@@ -1,39 +1,52 @@
 // The Crescendo page in the sidebar: set up objects, their stops, devices and buttons, and check the connection.
 
 const shared = await import(new URL(`./crescendo-shared.js${new URL(import.meta.url).search}`, import.meta.url).href);
+const { createSetup } = await import(new URL(`./crescendo-setup.js${new URL(import.meta.url).search}`, import.meta.url).href);
 const {
+  DAY_BUTTONS,
   DEVICE_ACTIONS,
   RAMP_DOMAINS,
+  areaName,
+  byPosition,
   clamp,
   EASE_MAX_SECONDS,
   colorGap,
   comma,
   commonName,
   css,
+  curvePreview,
   ease,
   esc,
+  fillAuto,
+  fitValue,
   friendly,
   hueRgb,
   isDark,
+  kelvinRange,
   kRgb,
   lampAt,
   laneGradient,
   langOf,
   lerp,
-  rgbToXy,
-  xyToRgb,
   lightA,
   lightColor,
   lumOf,
+  markAuto,
+  modesFor,
+  newId,
+  newLight,
   rampColor,
   rgbHue,
   rgbOf,
   roomGradient,
   roomLight,
   seriesVar,
+  startSort,
+  storeAuto,
   tr,
   loadIconPicker,
   units,
+  valueBetween,
 } = shared;
 
 const STYLE = `
@@ -81,12 +94,16 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .sec { scroll-margin-top: 12px; }
 .objrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .objpick { max-width: 240px; font-weight: 600; }
-.newbox { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.lrow2 { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+.lrow2 { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; background: var(--surface); gap: 4px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
 .lrow2:first-child { border-top: 0; }
+.lrow2.sorting { position: relative; z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.lead { display: inline-flex; align-items: center; gap: 4px; min-width: 42px; }
+.grip { border: 0; background: transparent; color: var(--muted); width: 24px; height: 32px; padding: 0; cursor: grab; touch-action: none; font-size: 16px; line-height: 1; border-radius: 6px; }
+.btn.step { min-height: 30px; padding: 2px 9px; }
+.grip:hover { color: var(--ink); background: var(--line); }
 .lrow2 .lname { padding: 0; }
 .lrow2 select { min-height: 32px; padding: 3px 6px; font-size: 13px; }
-.lrow2 > ha-icon { --mdc-icon-size: 16px; color: var(--muted); display: flex; }
+.lrow2 .lead ha-icon { --mdc-icon-size: 16px; color: var(--muted); display: flex; }
 .lrow2 .members { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
 .lrow2 .dkind { font-size: 13px; color: var(--muted); }
 .gsel { margin: 0 2px 0 0; width: 16px; height: 16px; flex: none; }
@@ -179,7 +196,7 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .sugline small { color: var(--muted); }
 .sugline .btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
 .sugline .x { margin-left: auto; }
-.addrow { justify-self: start; margin-top: 4px; }
+.addrow { margin-top: 4px; }
 .addline td { border-bottom: 0; }
 .addline .chip { font-size: 12px; }
 @container (max-width: 560px) { .lrow2 .ctrls { grid-column: 2; justify-content: flex-start; } }
@@ -231,6 +248,7 @@ table { border-collapse: separate; border-spacing: 0; width: 100%; }
 .c-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .c-dot { stroke: var(--surface); stroke-width: 2; }
 .c-dot.sel { stroke: var(--ink); }
+.c-dot.auto { fill: var(--surface); }
 .c-hit { fill: transparent; cursor: ns-resize; }
 .c-stophit { fill: transparent; cursor: ew-resize; }
 .c-ph { stroke: var(--ink); stroke-width: 1.5; opacity: .7; pointer-events: none; }
@@ -271,7 +289,8 @@ input.grad::-moz-range-thumb { width: 7px; height: 24px; border-radius: 3px; bac
 .cell small { font-size: 10.5px; font-weight: 400; opacity: .85; }
 .cell.off { background: transparent; border: 1px dashed var(--line); color: var(--muted); font-weight: 400; }
 .cell.locked { border-style: dotted; cursor: not-allowed; opacity: .75; }
-.cell.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cell.auto { font-weight: 400; font-style: italic; opacity: .72; }
+.cell.sel { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
 .inspector { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
 .inspector h3 { font-size: 16px; font-weight: 650; }
 .inspector h3 small { font-size: 12.5px; font-weight: 400; color: var(--muted); margin-left: 6px; }
@@ -306,6 +325,10 @@ input.grad::-moz-range-thumb { width: 7px; height: 24px; border-radius: 3px; bac
 .tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .tbl tr:last-child td { border-bottom: 0; }
 .tbl input.txt { width: 130px; }
+.btnstop { display: inline-flex; gap: 8px; align-items: center; white-space: nowrap; cursor: pointer; min-height: 32px; }
+.btnstop input { width: 18px; height: 18px; margin: 0; }
+.btnstop b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.nobtn td { color: var(--muted); font-size: 13px; }
 .num-cell { font-variant-numeric: tabular-nums; }
 details > summary { cursor: pointer; font-size: 17px; font-weight: 650; }
 details[open] > summary { margin-bottom: 12px; }
@@ -399,12 +422,6 @@ const BATH_ROLES = [
   { 60: [26, [255, 140, 60]], 80: [50, 3500], 100: [80, 4000] },
   { 80: [45, 3000], 100: [100, 4000] },
 ];
-const BATH_BUTTONS = [
-  [10, ["Night", "Nacht"], "mdi:moon-waning-crescent"],
-  [40, ["Morning", "Morgen"], "mdi:weather-sunset"],
-  [80, ["Day", "Tag"], "mdi:weather-sunny"],
-  [100, ["Bright", "Hell"], "mdi:light-flood-down"],
-];
 const EVEN_ROLE = { 50: [50, 2700], 100: [100, 4000] };
 const roleValue = (r, p) => (r[p] ? { brightness: r[p][0], ...(Array.isArray(r[p][1]) ? { color: [...r[p][1]] } : { kelvin: r[p][1] }) } : { brightness: 0 });
 // Spreads n lights over the roles: a few take roles from first to last, many share them in order.
@@ -429,33 +446,21 @@ const PT = 10,
 let sidCounter = 1;
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const EMPTY_CELL = () => ({ value: null, mode: null, up: null, down: null, data: null, label: null });
-const newId = () => Math.random().toString(16).slice(2, 10);
 
 function withIds(options) {
   const o = clone(options);
   for (const stop of o.stops) stop._sid = `s${sidCounter++}`;
   o.groups = o.groups || [];
-  return o;
+  o.buttons = byPosition(o.buttons || []);
+  return markAuto(o);
 }
 function stripIds(options) {
-  const o = clone(options);
+  const o = storeAuto(clone(options));
   for (const stop of o.stops) delete stop._sid;
   return o;
 }
-function interpVal(a, b, t) {
-  if (a.brightness === 0 && b.brightness === 0) return clone(a);
-  const brightness = Math.round(lerp(a.brightness, b.brightness, t));
-  if (a.brightness === 0) return { ...clone(b), brightness };
-  if (b.brightness === 0) return { ...clone(a), brightness };
-  // Like the lights between two stops: color temperature in mireds, colors in xy.
-  if (a.kelvin && b.kelvin) return { brightness, kelvin: Math.round(1e6 / lerp(1e6 / a.kelvin, 1e6 / b.kelvin, t) / 50) * 50 };
-  if (!a.kelvin && !a.color) return { ...clone(b), brightness };
-  if (!b.kelvin && !b.color) return { ...clone(a), brightness };
-  const ax = rgbToXy(rgbOf({ mode: "rgbcct" }, a)),
-    bx = rgbToXy(rgbOf({ mode: "rgbcct" }, b));
-  return { brightness, color: xyToRgb([lerp(ax[0], bx[0], t), lerp(ax[1], bx[1], t)]).map(Math.round) };
-}
-
+// A button that was never named is called like its stop, and keeps up when the stop moves.
+const stopName = (position) => `${position} %`;
 class CrescendoPanel extends HTMLElement {
   constructor() {
     super();
@@ -476,6 +481,9 @@ class CrescendoPanel extends HTMLElement {
     this._addOpen = false;
     this._openMore = new Set();
     this._newing = false;
+    this._setup = null;
+    this._skipped = new Set();
+    this._offButtons = new Map();
     this._undo = [];
     this._lastKey = null;
     this._chartW = 0;
@@ -493,6 +501,7 @@ class CrescendoPanel extends HTMLElement {
     r.addEventListener("pointermove", (e) => this._onMove(e));
     r.addEventListener("pointerup", (e) => this._onUp(e));
     r.addEventListener("pointercancel", () => {
+      if (this._chartDrag?.type === "stop" && this._chartDrag.moved) this._renderButtons();
       this._chartDrag = null;
       this._devDrag = null;
       if (this._insDrag) {
@@ -520,9 +529,10 @@ class CrescendoPanel extends HTMLElement {
     const themeChanged = dark !== this._dark;
     this._dark = dark;
     this.toggleAttribute("dark", dark);
+    if (this._setup) this._setup.el.hass = hass;
     // A link from a card or a device can name the object to open.
     if (first) this._load(new URLSearchParams(location.search).get("object") || undefined);
-    else if (themeChanged && this._view === "edit" && this._o) this._renderStops();
+    else if (themeChanged && this._view === "edit" && this._o && !this._setup) this._renderStops();
     else this._tickLive();
   }
 
@@ -585,7 +595,6 @@ class CrescendoPanel extends HTMLElement {
         <button class="menu" data-act="menu" aria-label="Menu" ${this._narrow ? "" : "hidden"}>${MENU_ICON}</button>
         <h1 class="mark">${LOGO}</h1>
         <select class="field objpick" id="objPick" aria-label="${esc(t("Object", "Objekt"))}"></select>
-        <span class="newbox" id="newBox" hidden><input class="field" id="newObjName" placeholder="${esc(t("Name of the new object", "Name des neuen Objekts"))}" aria-label="${esc(t("Name of the new object", "Name des neuen Objekts"))}"><button class="btn primary" data-act="new-obj">${esc(t("Create", "Anlegen"))}</button><button class="btn" data-act="new-cancel">${esc(t("Cancel", "Abbrechen"))}</button></span>
         <div class="tabs" role="tablist">
           <button role="tab" data-act="tab" data-v="edit" aria-selected="${this._view === "edit"}">${esc(t("Setup", "Einrichtung"))}</button>
           <button role="tab" data-act="tab" data-v="diag" aria-selected="${this._view === "diag"}">${esc(t("Diagnostics", "Diagnose"))}</button>
@@ -602,6 +611,7 @@ class CrescendoPanel extends HTMLElement {
     const t = this._t,
       main = this.shadowRoot.getElementById("main");
     const o = this._o;
+    if (this._showSetup(main)) return;
     const sections = [
       ["sec-lights", t("Lights and devices", "Leuchten und Geräte")],
       ["sec-stops", t("Stops", "Stufen")],
@@ -617,7 +627,7 @@ class CrescendoPanel extends HTMLElement {
           <div class="row"><button class="btn" id="undoBtn" data-act="undo" disabled>${esc(t("Undo", "Rückgängig"))}</button><button class="btn" data-act="export">${esc(t("Export", "Exportieren"))}</button><button class="btn" data-act="import">${esc(t("Import", "Importieren"))}</button><input type="file" id="importFile" accept=".json,application/json" hidden><span id="deleteBox"></span></div></div>
         <div id="importBox" hidden></div>
         <div class="sec" id="sec-lights"><div class="hrow"><h2>${esc(t("Lights and devices", "Leuchten und Geräte"))}</h2>${this._ib("lights")}</div>
-          ${this._it("lights", t("Lights shape the curve; for each you choose what it shows, and under More how it fades, how it follows a slider and which group it belongs to. A speaker, a thermostat, a blind or another device follows the scale with a course between two stops or with an action at a threshold; you set both under Stops.", "Leuchten formen die Kurve; je Leuchte wählst du, was sie zeigt, und unter „Mehr“, wie sie überblendet, wie sie einem Slider folgt und zu welcher Gruppe sie gehört. Lautsprecher, Thermostat, Rollo oder andere Geräte folgen der Skala mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle; beides stellst du unter „Stufen“ ein."))}
+          ${this._it("lights", t("Lights shape the curve; for each you choose what it shows, and under More how it fades, how it follows a slider and which group it belongs to. Drag the handles to sort the lights; the order also holds in the cards. A speaker, a thermostat, a blind or another device follows the scale with a course between two stops or with an action at a threshold; you set both under Stops.", "Leuchten formen die Kurve; je Leuchte wählst du, was sie zeigt, und unter „Mehr“, wie sie überblendet, wie sie einem Slider folgt und zu welcher Gruppe sie gehört. Mit den Griffen sortierst du die Leuchten; die Reihenfolge gilt auch in den Karten. Lautsprecher, Thermostat, Rollo oder andere Geräte folgen der Skala mit einem Verlauf zwischen zwei Stufen oder mit einer Aktion an einer Schwelle; beides stellst du unter „Stufen“ ein."))}
           <div class="lrows" id="rows"></div>
           <div class="stack" id="groupBar" hidden></div>
           <div class="pick" id="devPick" hidden><div class="row space"><div class="sub">${esc(t("Add", "Hinzufügen"))}</div><button class="btn" data-act="add-close">${esc(t("Done", "Fertig"))}</button></div>
@@ -642,7 +652,7 @@ class CrescendoPanel extends HTMLElement {
           </div>
         </div>
         <div class="sec" id="sec-buttons"><div class="hrow"><h2>${esc(t("Standard buttons", "Standard-Buttons"))}</h2>${this._ib("buttons")}</div>
-          ${this._it("buttons", t("New cards take these buttons as a template; in each card you can leave out some or add your own, and automations can press them too. On/off switches on to the last position or to a fixed stop; this also applies to tiles and voice commands without a percentage, and an automation can set the position with the action “Set switch-on position”, for example by time of day.", "Neue Karten übernehmen diese Buttons als Vorlage; in jeder Karte kannst du einzelne weglassen oder eigene ergänzen, und Automationen können sie ebenfalls auslösen. Ein/Aus schaltet auf die letzte Position oder auf eine feste Stufe ein; das gilt auch für Kacheln und Sprachbefehle ohne Prozentangabe, und eine Automation kann die Position mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}
+          ${this._it("buttons", t("Every stop can have a button; it moves and goes with its stop. Cards show these buttons from dim to bright; in each card you can leave out some or add your own, and automations can press them too. On/off switches on to the last position or to a fixed stop; this also applies to tiles and voice commands without a percentage, and an automation can set the position with the action “Set switch-on position”, for example by time of day.", "Jede Stufe kann einen Button haben; er wandert mit seiner Stufe und verschwindet mit ihr. Karten zeigen diese Buttons von dunkel nach hell; in jeder Karte kannst du einzelne weglassen oder eigene ergänzen, und Automationen können sie ebenfalls auslösen. Ein/Aus schaltet auf die letzte Position oder auf eine feste Stufe ein; das gilt auch für Kacheln und Sprachbefehle ohne Prozentangabe, und eine Automation kann die Position mit der Aktion „Einschaltposition festlegen“ vorgeben, zum Beispiel nach Tageszeit."))}
           <div class="wrapx"><table class="tbl" id="btnTable"></table></div></div>
         <div class="sec" id="sec-behavior"><h2>${esc(t("Behavior", "Verhalten"))}</h2>
           <div class="stack">
@@ -659,12 +669,12 @@ class CrescendoPanel extends HTMLElement {
           <select class="field" id="runDur"><option value="5">5 s</option><option value="10">10 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select>
           <button class="btn" data-act="run-up">${esc(t("Dim up", "Hochdimmen"))}</button><button class="btn" data-act="run-down">${esc(t("Dim down", "Runterdimmen"))}</button></div>
       </div>`
-          : `<div class="sheet"><div class="sec"><h2>${esc(t("No object yet", "Noch kein Objekt"))}</h2><p class="note">${esc(t("Choose “New object” at the top and give it a name.", "Wähle oben „Neues Objekt“ und gib ihm einen Namen."))}</p></div></div>`
+          : ""
       }
     </section>`;
     this._renderSidebarOption();
     if (!o) return;
-    if (this._ensureDeviceStops()) this._save();
+    if (this._ensureStops()) this._save();
     this._watchSections();
     this.shadowRoot.getElementById("objName").value = o.title;
     this._resize?.disconnect();
@@ -713,8 +723,102 @@ class CrescendoPanel extends HTMLElement {
     pick.innerHTML =
       this._objects.map((o, i) => `<option value="${i}"${i === this._i && !this._newing ? " selected" : ""}>${esc(o.title)}</option>`).join("") +
       `<option value="new"${this._newing ? " selected" : ""}>＋ ${esc(t("New object", "Neues Objekt"))}</option>`;
-    const box = this.shadowRoot.getElementById("newBox");
-    if (box) box.hidden = !this._newing;
+  }
+
+  // -- guided setup -----------------------------------------------------------------------------
+
+  // A new object, the first one, one just added under Devices & services, or one to be built anew.
+  _showSetup(main) {
+    const o = this._o;
+    let mode = null;
+    if (this._newing || !o) mode = "new";
+    else if (this._rebuild === o.entry_id) mode = `again|${o.entry_id}`;
+    else if (this._untouched(o)) mode = `first|${o.entry_id}`;
+    if (!mode) {
+      this._setup = null;
+      return false;
+    }
+    if (this._setup?.mode !== mode) {
+      const object = mode === "new" ? null : { ...o, options: stripIds(o.options) };
+      const el = createSetup(this._hass, {
+        object,
+        titles: this._objects.map((x) => x.title),
+        cancel: !!o,
+        first: mode.startsWith("first"),
+      });
+      el.addEventListener("setup-cancel", () => this._endSetup(mode));
+      el.addEventListener("setup-created", (e) => this._setupCreated(e.detail));
+      el.addEventListener("setup-apply", (e) => this._setupApply(e.detail));
+      this._setup = { mode, el };
+    }
+    this._sections?.disconnect();
+    // Nothing of the page is there to drag.
+    this._chartDrag = this._devDrag = this._insDrag = null;
+    this._barsOpen = false;
+    this._dopen = this._dstop = null;
+    main.innerHTML = `<section class="sheet setup"></section>`;
+    main.firstElementChild.append(this._setup.el);
+    this._setup.el.hass = this._hass;
+    return true;
+  }
+
+  _endSetup(mode) {
+    if (mode.startsWith("first")) this._skipSetup(this._o.entry_id);
+    this._newing = false;
+    this._rebuild = null;
+    this._setup = null;
+    this._renderObjects();
+    this._renderEdit();
+  }
+
+  async _setupCreated({ entry_id, title, empty }) {
+    if (empty) this._skipSetup(entry_id);
+    this._newing = false;
+    this._setup = null;
+    await this._load(entry_id);
+    this._toast(this._t(`“${title}” created. You find its card in a dashboard under Crescendo.`, `„${title}“ angelegt. Seine Karte findest du im Dashboard unter Crescendo.`));
+  }
+
+  _setupApply({ title, options }) {
+    this._rebuild = null;
+    this._setup = null;
+    this._skipSetup(this._o.entry_id);
+    this._renderEdit();
+    this._change(() => {
+      this._o.title = title;
+      this._o.options = withIds(options);
+      this._ensureStops();
+    }, null, false);
+    this._sel = { stop: null, lamp: null };
+    this._renderObjects();
+    this._renderEdit();
+    this._toast(this._t("Set up anew. Undo brings back the old settings.", "Neu eingerichtet. „Rückgängig“ holt die alten Einstellungen zurück."));
+  }
+
+  // As Home Assistant creates it: lights that only rise evenly, and nothing else set yet.
+  _untouched(o) {
+    const x = o.options;
+    if (this._skipped.has(o.entry_id) || this._stored("crescendo-setup-skip").includes(o.entry_id)) return false;
+    if (x.stops.length !== 2 || x.buttons.length || x.devices.length || x.groups.length) return false;
+    return x.lights.every((l) => JSON.stringify(x.stops[1].values[l.entity_id]) === '{"brightness":100}');
+  }
+
+  _stored(key) {
+    try {
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  _skipSetup(entryId) {
+    this._skipped.add(entryId);
+    try {
+      localStorage.setItem("crescendo-setup-skip", JSON.stringify([...new Set([...this._stored("crescendo-setup-skip"), entryId])].slice(-100)));
+    } catch {
+      // Without storage the choice holds until the page is reloaded.
+    }
   }
 
   _pickObject(i) {
@@ -724,6 +828,8 @@ class CrescendoPanel extends HTMLElement {
     this._undo = [];
     this._confirmDelete = false;
     this._import = null;
+    this._rebuild = null;
+    this._offButtons.clear();
     this._addOpen = false;
     this._tplOpen = false;
     this._barsOpen = false;
@@ -834,22 +940,10 @@ class CrescendoPanel extends HTMLElement {
       const role = shared ? (p) => at(shared, p) : roles[roleIndex(k, us.length, roles.length)];
       for (const id of u.ids) {
         const light = o.lights.find((l) => l.entity_id === id);
-        for (const s of stops) s.values[id] = s.position === 0 ? { brightness: 0 } : this._fitValue(light, role(s.position));
+        for (const s of stops) s.values[id] = s.position === 0 ? { brightness: 0 } : fitValue(this._hass, light, role(s.position));
       }
     });
     return { stops, buttons };
-  }
-
-  // A value as far as the light can show it: a color becomes the warmest white, a white tone a color.
-  _fitValue(light, v) {
-    const b = Math.round(v?.brightness || 0);
-    if (!b) return { brightness: 0 };
-    if (light.mode === "onoff") return { brightness: 100 };
-    if (light.mode === "dim") return { brightness: b };
-    const [kmin, kmax] = this._kelvinRange(light);
-    if (v.color) return light.mode === "cct" ? { brightness: b, kelvin: kmin } : { brightness: b, color: v.color.map(Math.round) };
-    const k = v.kelvin ?? 3000;
-    return light.mode === "rgb" ? { brightness: b, color: kRgb(k).map(Math.round) } : { brightness: b, kelvin: clamp(Math.round(k / 50) * 50, kmin, kmax) };
   }
 
   _buttonTemplates() {
@@ -860,21 +954,13 @@ class CrescendoPanel extends HTMLElement {
   }
 
   _buttonTemplate(key) {
-    if (key === "day") return BATH_BUTTONS.map(([position, name, icon]) => ({ id: newId(), name: this._lang === "de" ? name[1] : name[0], position, duration: 0, icon }));
+    if (key === "day") return DAY_BUTTONS.map(([position, name, icon]) => ({ id: newId(), name: this._lang === "de" ? name[1] : name[0], position, duration: 0, icon }));
     const src = this._objects.find((x) => x.entry_id === key.slice(4));
     return src ? src.options.buttons.map((b) => ({ ...clone(b), id: newId() })) : null;
   }
 
   _tplPreview(stops) {
-    const W = 200,
-      H = 64,
-      P = 4;
-    const x = (p) => (P + (p / 100) * (W - 2 * P)).toFixed(1),
-      y = (v) => (P + (1 - v / 100) * (H - 2 * P)).toFixed(1);
-    const lines = this._units()
-      .map((u) => `<polyline class="tline" style="stroke:${seriesVar(u.slot)}" points="${stops.map((s) => `${x(s.position)},${y(s.values[u.ids[0]]?.brightness || 0)}`).join(" ")}"/>`)
-      .join("");
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(this._t("Brightness of each light over the scale", "Helligkeit jeder Leuchte über die Skala"))}"><line class="c-axis" x1="${P}" x2="${W - P}" y1="${y(0)}" y2="${y(0)}"/>${lines}</svg>`;
+    return curvePreview(this._units(), stops, this._t("Brightness of each light over the scale", "Helligkeit jeder Leuchte über die Skala"));
   }
 
   _renderTemplates() {
@@ -883,7 +969,7 @@ class CrescendoPanel extends HTMLElement {
     box.hidden = !this._tplOpen;
     if (!this._tplOpen) return;
     const t = this._t;
-    const head = `<div class="row space"><div class="hrow"><b>${esc(t("Templates", "Vorlagen"))}</b><span class="opt">${esc(t("replace all stops; Undo brings them back", "ersetzen alle Stufen; „Rückgängig“ holt sie zurück"))}</span></div><button class="x" data-act="tpl-toggle" aria-label="${esc(t("Close", "Schließen"))}">×</button></div>`;
+    const head = `<div class="row"><button class="btn" data-act="setup-again">${esc(t("Guided setup …", "Geführt neu einrichten …"))}</button></div><div class="row space"><div class="hrow"><b>${esc(t("Templates", "Vorlagen"))}</b><span class="opt">${esc(t("replace all stops; Undo brings them back", "ersetzen alle Stufen; „Rückgängig“ holt sie zurück"))}</span></div><button class="x" data-act="tpl-toggle" aria-label="${esc(t("Close", "Schließen"))}">×</button></div>`;
     if (!this._o.options.lights.length) {
       box.innerHTML = `${head}<p class="note">${esc(t("Add lights first; a template shapes their stops.", "Füge zuerst Leuchten hinzu; eine Vorlage formt ihre Stufen."))}</p>`;
       return;
@@ -987,7 +1073,8 @@ class CrescendoPanel extends HTMLElement {
     r.getElementById("tableWrap").hidden = chart;
     r.getElementById("stopNote").textContent = chart
       ? t("Drag a point up or down to change the brightness. The number below a line moves the stop. Tap a point to set its color.", "Ziehe einen Punkt nach oben oder unten, um die Helligkeit zu ändern. Die Zahl unter einer Linie verschiebt die Stufe. Tippe einen Punkt an, um die Farbe einzustellen.")
-      : t("Every light has a fixed value at every stop. In between it blends smoothly.", "Jede Leuchte hat in jeder Stufe einen festen Wert. Dazwischen wird fließend überblendet.");
+      : t("Every light has a value at every stop. In between it blends smoothly.", "Jede Leuchte hat in jeder Stufe einen Wert. Dazwischen wird fließend überblendet.");
+    r.getElementById("stopNote").textContent += ` ${t("Points you have not set are hollow in the chart and pale in the table: they lie on the line between the set ones and follow them.", "Nicht gesetzte Punkte sind im Diagramm hohl und in der Tabelle blasser: Sie liegen auf der Linie zwischen den gesetzten und ziehen mit.")}`;
     r.getElementById("stopNote").textContent += ` ${t("A tap on a name opens its row of stops right below; a tap on a stop opens its settings under the row. Devices hang on the stops just like the lights.", "Ein Tipp auf einen Namen öffnet seine Zeile mit den Stufen direkt darunter; ein Tipp auf eine Stufe öffnet ihre Einstellungen unter der Zeile. Geräte hängen wie die Leuchten an den Stufen.")}`;
     r.getElementById("editPos").style.setProperty("--grad", roomGradient(o, undefined, undefined, this._dark));
     r.getElementById("lanes").hidden = !chart;
@@ -1010,10 +1097,7 @@ class CrescendoPanel extends HTMLElement {
   }
 
   _areaOf(entityId) {
-    const h = this._hass,
-      e = h.entities?.[entityId];
-    const areaId = e?.area_id || (e?.device_id && h.devices?.[e.device_id]?.area_id);
-    return (areaId && h.areas?.[areaId]?.name) || "";
+    return areaName(this._hass, entityId);
   }
 
   // Every light and device that can join, with the words a search may hit: name, id, room and kind.
@@ -1171,7 +1255,8 @@ class CrescendoPanel extends HTMLElement {
           .map((s) => {
             const v = lampAt(o, u.light, s.position).v;
             const sel = this._barsOpen && this._sel.stop === s._sid && u.ids.includes(this._sel.lamp);
-            return `<circle class="c-dot${sel ? " sel" : ""}" cx="${X(s.position)}" cy="${Y(v)}" r="${sel ? 6 : 4.5}" style="fill:${seriesVar(u.slot)}"/>${s.position === 0 ? "" : `<circle class="c-hit" data-pthit="${s._sid}" data-lamp="${esc(u.ids[0])}" cx="${X(s.position)}" cy="${Y(v)}" r="13"/>`}`;
+            const auto = this._isAuto(s, u);
+            return `<circle class="c-dot${auto ? " auto" : ""}${sel ? " sel" : ""}" cx="${X(s.position)}" cy="${Y(v)}" r="${sel ? 6 : 4.5}" style="${auto ? "stroke" : "fill"}:${seriesVar(u.slot)}"/>${s.position === 0 ? "" : `<circle class="c-hit" data-pthit="${s._sid}" data-lamp="${esc(u.ids[0])}" cx="${X(s.position)}" cy="${Y(v)}" r="13"/>`}`;
           })
           .join(""),
       )
@@ -1303,7 +1388,7 @@ class CrescendoPanel extends HTMLElement {
     const parts = [this._domainLabel(domain)];
     if (valued) parts.push(valued === 1 ? t("a value at 1 stop", "Wert an 1 Stufe") : t(`values at ${valued} stops`, `Werte an ${valued} Stufen`));
     if (marks) parts.push(marks === 1 ? t("1 switch point", "1 Schaltpunkt") : t(`${marks} switch points`, `${marks} Schaltpunkte`));
-    return `<div class="lrow2 dev"><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon><div class="lname"><span>${esc(friendly(this._hass, g.entity))}<small class="members">${esc(parts.join(" · "))}</small></span></div><div class="ctrls"><button class="morebtn" data-act="win-dev" data-entity="${e}" data-jump="1">${esc(t("Stops", "Stufen"))} ▸</button><button class="x" data-act="rm-devall" data-entity="${e}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
+    return `<div class="lrow2 dev"><span class="lead"><ha-icon icon="${esc(this._devIcon(g))}"></ha-icon></span><div class="lname"><span>${esc(friendly(this._hass, g.entity))}<small class="members">${esc(parts.join(" · "))}</small></span></div><div class="ctrls"><button class="morebtn" data-act="win-dev" data-entity="${e}" data-jump="1">${esc(t("Stops", "Stufen"))} ▸</button><button class="x" data-act="rm-devall" data-entity="${e}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></div>`;
   }
 
   _actionName(a) {
@@ -1317,16 +1402,7 @@ class CrescendoPanel extends HTMLElement {
   }
 
   _modesFor(entityId) {
-    const a = this._hass.states[entityId]?.attributes || {};
-    const modes = a.supported_color_modes || [];
-    const hasColor = modes.some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
-    const hasCt = modes.includes("color_temp");
-    const list = ["onoff"];
-    if (!modes.length || hasColor || hasCt || modes.includes("brightness")) list.push("dim");
-    if (hasCt) list.push("cct");
-    if (hasColor) list.push("rgb");
-    if (hasColor && hasCt) list.push("rgbcct");
-    return list;
+    return modesFor(this._hass, entityId);
   }
 
   _modeLabels() {
@@ -1373,10 +1449,15 @@ class CrescendoPanel extends HTMLElement {
       panel = `<div class="lpanel">${g ? group : ""}
         <label>${esc(t("Fade", "Überblendung"))} <select class="field" id="fm-${esc(l.entity_id)}" data-fade="${k}"><option value="soft"${l.fade === "soft" ? " selected" : ""}>${esc(t("Smooth", "Weich"))}</option><option value="ontime"${l.fade === "ontime" ? " selected" : ""}>${esc(t("On time", "Pünktlich"))}</option></select></label>${steps}
         <label>${esc(t("On the slider", "Am Slider"))} <select class="field" id="sl-${esc(l.entity_id)}" data-slider-mode="${k}"><option value="auto"${(l.slider || "auto") === "auto" ? " selected" : ""}>${esc(t("Automatic", "Automatisch"))}</option><option value="glide"${l.slider === "glide" ? " selected" : ""}>${esc(t("Gliding", "Gleitend"))}</option><option value="direct"${l.slider === "direct" ? " selected" : ""}>${esc(t("Direct steps", "Direkte Schritte"))}</option></select></label>
-        ${g ? "" : group}${this._ib(`fade-${key}`)}${note}</div>${this._it(`fade-${key}`, t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider. A group shows as one light, here and in the cards, and takes the settings of the light or group it joins.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der Leuchte oder Gruppe, zu der sie kommt."))}`;
+        ${g ? "" : group}${
+          us.length > 1
+            ? `<span class="row">${esc(t("Order", "Reihenfolge"))} <button class="btn step" data-act="lamp-up" data-key="${k}"${us[0] === u ? " disabled" : ""} aria-label="${esc(t("Move up", "Nach oben"))}">↑</button><button class="btn step" data-act="lamp-down" data-key="${k}"${us.at(-1) === u ? " disabled" : ""} aria-label="${esc(t("Move down", "Nach unten"))}">↓</button></span>`
+            : ""
+        }${this._ib(`fade-${key}`)}${note}</div>${this._it(`fade-${key}`, t("Smooth lets the light fade by itself. On time moves it in short steps if it reaches its target too late, which may stutter more. Gliding and direct steps change how it follows a slider. A group shows as one light, here and in the cards, and takes the settings of the light or group it joins.", "Weich lässt die Leuchte selbst überblenden. Pünktlich bewegt sie in kurzen Schritten, falls sie ihr Ziel zu spät erreicht; das kann mehr ruckeln. Gleitend und direkte Schritte ändern, wie sie einem Slider folgt. Eine Gruppe erscheint als eine Leuchte, hier und in den Karten, und übernimmt die Einstellungen der Leuchte oder Gruppe, zu der sie kommt."))}`;
     }
     const dot = flicker ? `<span class="wdot" title="${esc(t("Can flicker, see More", "Kann flackern, siehe Mehr"))}"></span>` : "";
-    return `<div class="lrow2"><i class="key" style="background:${seriesVar(u.slot)}"></i><div class="lname"><span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
+    const grip = us.length > 1 ? `<button class="grip" data-sort="${k}" aria-label="${esc(t(`Move ${title}`, `${title} verschieben`))}" title="${esc(t("Drag, or use the arrow keys", "Ziehen oder Pfeiltasten benutzen"))}">⠿</button>` : "";
+    return `<div class="lrow2" data-sortrow="${k}"><span class="lead">${grip}<i class="key" style="background:${seriesVar(u.slot)}"></i></span><div class="lname"><span>${esc(title)}${g ? `<small class="members">${esc(t("Group", "Gruppe"))}: ${esc(names.join(", "))}</small>` : ""}</span></div>
       <div class="ctrls"><button class="morebtn" data-act="more" data-key="${k}" aria-expanded="${open}">${esc(t("More", "Mehr"))}${dot} ${open ? "▾" : "▸"}</button><select class="field" id="mode-${esc(l.entity_id)}" data-mode="${k}" aria-label="${esc(t("What the light shows", "Was die Leuchte zeigt"))}">${modes}</select><button class="x" data-act="rm-lamp" data-ids="${k}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div>
       ${panel}</div>`;
   }
@@ -1390,8 +1471,46 @@ class CrescendoPanel extends HTMLElement {
     const folded = this._addOpen || !o.lights.length;
     box.innerHTML =
       (rows || `<p class="note">${esc(t("Nothing yet. Add the first light below.", "Noch nichts. Füge unten die erste Leuchte hinzu."))}</p>`) +
-      `<button class="btn quiet addrow" data-act="add-open"${folded ? " hidden" : ""}>+ ${esc(t("Add a light or device", "Leuchte oder Gerät hinzufügen"))}</button>`;
+      `<div class="row space addrow"><button class="btn quiet" data-act="add-open"${folded ? " hidden" : ""}>+ ${esc(t("Add a light or device", "Leuchte oder Gerät hinzufügen"))}</button>${us.length > 1 ? `<button class="btn quiet" data-act="sort-on">${esc(t("Sort by when they come on", "Nach Einschalten sortieren"))}</button>` : ""}</div>`;
     this._renderGroupBar();
+  }
+
+  // -- order of the lights ------------------------------------------------------------------------
+
+  // The order holds everywhere: here, in the cards, and for templates that let lights follow one another.
+  _orderLamps(keys) {
+    const o = this._o.options;
+    const at = new Map(keys.flatMap((k) => k.split(",")).map((id, i) => [id, i]));
+    if (o.lights.every((l, i) => at.get(l.entity_id) === i)) {
+      this._renderRows();
+      return;
+    }
+    this._change(() => o.lights.sort((a, b) => at.get(a.entity_id) - at.get(b.entity_id)));
+    this._renderInspector();
+  }
+
+  _moveLamp(key, by) {
+    const keys = this._units().map((u) => u.ids.join(","));
+    const i = keys.indexOf(key),
+      to = clamp(i + by, 0, keys.length - 1);
+    if (i < 0 || to === i) return;
+    keys.splice(to, 0, keys.splice(i, 1)[0]);
+    this._orderLamps(keys);
+  }
+
+  // What comes on at the lowest stop stands first; where several do, the brighter one.
+  _sortByStart() {
+    const o = this._o.options;
+    const start = (u) => {
+      const s = o.stops.find((x) => x.values[u.light.entity_id]?.brightness > 0);
+      return s ? [s.position, -s.values[u.light.entity_id].brightness] : [101, 0];
+    };
+    const keys = this._units()
+      .map((u) => [u.ids.join(","), start(u)])
+      .sort(([, a], [, b]) => a[0] - b[0] || a[1] - b[1])
+      .map(([k]) => k);
+    this._orderLamps(keys);
+    this._toast(this._t("Sorted by when they come on.", "Nach dem Einschalten sortiert."));
   }
 
   // -- groups -----------------------------------------------------------------------------------
@@ -1487,13 +1606,17 @@ class CrescendoPanel extends HTMLElement {
     const common = ids.map((id) => this._modesFor(id)).reduce((a, b) => a.filter((m) => b.includes(m)));
     const mode = common.includes(lead.mode) ? lead.mode : PREF.find((m) => common.includes(m)) || "onoff";
     const values = Object.fromEntries(o.stops.map((s) => [s._sid, clone(s.values[leadId] || { brightness: 0 })]));
+    const auto = new Set(o.stops.filter((s) => s._auto?.[leadId]).map((s) => s._sid));
     this._change(() => {
       o.groups = (o.groups || []).map((g) => ({ ...g, lights: g.lights.filter((id) => !ids.includes(id)) })).filter((g) => g.lights.length >= 2);
       o.groups.push({ id: newId(), name: String(name || "").trim(), lights: o.lights.map((l) => l.entity_id).filter((id) => ids.includes(id)) });
       for (const id of ids) {
         const l = o.lights.find((x) => x.entity_id === id);
         Object.assign(l, { mode, fade: lead.fade, steps: lead.steps, slider: lead.slider });
-        for (const s of o.stops) s.values[id] = s.position === 0 ? { brightness: 0 } : this._fitValue(l, values[s._sid]);
+        for (const s of o.stops) {
+          s.values[id] = s.position === 0 ? { brightness: 0 } : fitValue(this._hass, l, values[s._sid]);
+          this._setAuto(s, [id], auto.has(s._sid));
+        }
       }
     });
   }
@@ -1542,8 +1665,9 @@ class CrescendoPanel extends HTMLElement {
       light = u.light,
       val = s.values[light.entity_id] || { brightness: 0 };
     const sel = this._barsOpen && this._sel.stop === s._sid && u.ids.includes(this._sel.lamp) ? " sel" : "";
-    const attrs = `data-act="sel-cell" data-cell="${s._sid}|${esc(light.entity_id)}" data-stop="${s._sid}" data-lamp="${esc(light.entity_id)}" aria-label="${esc(u.name)}, ${esc(t("stop", "Stufe"))} ${s.position}"`;
-    if (!val.brightness) return `<button class="cell off${s.position === 0 ? " locked" : ""}${sel}" ${attrs}>${esc(t("off", "aus"))}</button>`;
+    const auto = this._isAuto(s, u) ? " auto" : "";
+    const attrs = `data-act="sel-cell" data-cell="${s._sid}|${esc(light.entity_id)}" data-stop="${s._sid}" data-lamp="${esc(light.entity_id)}" aria-label="${esc(u.name)}, ${esc(t("stop", "Stufe"))} ${s.position}${auto ? `, ${esc(t("automatic", "automatisch"))}` : ""}"${auto ? ` title="${esc(t("Automatic", "Automatisch"))}"` : ""}`;
+    if (!val.brightness) return `<button class="cell off${auto}${s.position === 0 ? " locked" : ""}${sel}" ${attrs}>${esc(t("off", "aus"))}</button>`;
     const base = rgbOf(light, val);
     const alpha = 0.2 + 0.8 * Math.pow(val.brightness / 100, 0.7);
     const fg = this._dark || alpha > 0.6 ? (lumOf(lightColor(base)) > 0.5 ? "#171d2d" : "#ffffff") : "var(--ink)";
@@ -1551,7 +1675,7 @@ class CrescendoPanel extends HTMLElement {
     if (light.mode === "cct" || (light.mode === "rgbcct" && !val.color)) sub = `${val.kelvin ?? 3000} K`;
     else if (light.mode === "rgb" || light.mode === "rgbcct") sub = t("Color", "Farbe");
     const main = light.mode === "onoff" ? t("on", "an") : `${Math.round(val.brightness)} %`;
-    return `<button class="cell${sel}" style="background:${rampColor(base, alpha, this._dark)};color:${fg}" ${attrs}>${main}${sub ? `<small>${sub}</small>` : ""}</button>`;
+    return `<button class="cell${auto}${sel}" style="background:${rampColor(base, alpha, this._dark)};color:${fg}" ${attrs}>${main}${sub ? `<small>${sub}</small>` : ""}</button>`;
   }
 
   // The chosen stop's bars, each with a field for an exact value.
@@ -1569,7 +1693,11 @@ class CrescendoPanel extends HTMLElement {
         ${b.ends ? `<div class="pends"><span>${esc(b.ends[0])}</span><span>${esc(b.ends[1])}</span></div>` : ""}</div>`;
     }
     if (light.mode === "rgbcct") html += `<p class="note">${esc(t("A tap on a bar or a value in its field chooses: the light shows a white tone or a color.", "Ein Tipp auf einen Balken oder ein Wert in seinem Feld wählt: Die Leuchte zeigt einen Weißton oder eine Farbe."))}</p>`;
-    return `${html}<div><button class="btn" data-act="copy-all">${esc(t("Apply to all lights of this stop", "Für alle Leuchten dieser Stufe übernehmen"))}</button></div>`;
+    const inner = st.position > 0 && st.position < 100;
+    const auto = this._isAuto(st, u);
+    const later = this._o.options.stops.some((s) => s.position > st.position && s.position < 100 && !this._isAuto(s, u));
+    return `${html}<p class="note" id="autoNote"${auto ? "" : " hidden"}>${esc(t("Automatic: lies on the line between the set stops beside it. Changing it sets it.", "Automatisch: liegt auf der Linie zwischen den gesetzten Stufen daneben. Eine Änderung setzt den Wert fest."))}</p>
+      <div class="row">${inner ? `<button class="btn" id="autoBtn" data-act="auto-on"${auto ? " hidden" : ""}>${esc(t("Automatic", "Automatisch"))}</button>` : ""}${later ? `<button class="btn" data-act="auto-rest">${esc(t("Evenly from here to 100 %", "Ab hier gleichmäßig bis 100 %"))}</button>` : ""}<button class="btn" data-act="copy-all">${esc(t("Apply to all lights of this stop", "Für alle Leuchten dieser Stufe übernehmen"))}</button></div>`;
   }
 
   // The devices' lanes; the open device gets its row of stops under its lane, and the chosen stop's settings under that.
@@ -1788,27 +1916,63 @@ class CrescendoPanel extends HTMLElement {
     this._renderInspector();
   }
 
-  // Stops that move or go take the devices' settings along, by stop rather than by position.
-  _withDevices(fn) {
+  // Stops that move or go take their buttons and the devices' settings along, by stop rather than by position.
+  _withStops(fn) {
     const models = this._devGroups().map((g) => [g.entity, this._devModel(g.entity)]);
+    const at = new Map(this._o.options.stops.map((s) => [s.position, s._sid]));
+    const held = this._o.options.buttons.map((b) => [b, at.get(b.position)]);
     fn();
     for (const [entity, cells] of models) this._devWrite(entity, cells);
+    const o = this._o.options;
+    const now = new Map(o.stops.map((s) => [s._sid, s.position]));
+    o.buttons = byPosition(
+      held
+        .filter(([, sid]) => sid === undefined || now.has(sid))
+        .map(([b, sid]) => {
+          const position = sid === undefined ? b.position : now.get(sid);
+          if (position === b.position) return b;
+          return { ...b, position, name: b.name === stopName(b.position) ? stopName(position) : b.name };
+        }),
+    );
   }
 
-  // Settings from before devices hung on the stops get stops of their own; the lights keep their curve there.
-  _ensureDeviceStops() {
+  // Devices and buttons hang on the stops. Where an older setting lies between two, it gets a stop of its own; the
+  // lights keep their curve there.
+  _ensureStops() {
     const o = this._o.options;
     const have = new Set(o.stops.map((s) => s.position));
     let added = 0;
-    for (const d of o.devices)
-      for (const p of d.kind === "ramp" ? [d.from, d.to] : [d.at]) {
-        if (have.has(p)) continue;
-        have.add(p);
-        o.stops.push({ _sid: `s${sidCounter++}`, position: p, values: this._valuesAt(p) });
-        o.stops.sort((a, b) => a.position - b.position);
-        added++;
-      }
+    const wanted = [...o.devices.flatMap((d) => (d.kind === "ramp" ? [d.from, d.to] : [d.at])), ...o.buttons.map((b) => b.position)];
+    for (const p of wanted) {
+      if (have.has(p)) continue;
+      have.add(p);
+      this._addStop(p);
+      added++;
+    }
     return added;
+  }
+
+  // A new stop lies on the lines; every light is automatic there until its value is set.
+  _addStop(position) {
+    const o = this._o.options;
+    const st = { _sid: `s${sidCounter++}`, position, values: this._valuesAt(position), _auto: Object.fromEntries(o.lights.map((l) => [l.entity_id, true])) };
+    o.stops.push(st);
+    o.stops.sort((a, b) => a.position - b.position);
+    return st;
+  }
+
+  // -- automatic points ---------------------------------------------------------------------------
+
+  _isAuto(st, u) {
+    return !!st._auto?.[u.light.entity_id];
+  }
+
+  _setAuto(st, ids, on) {
+    st._auto ||= {};
+    for (const id of ids) {
+      if (on && st.position > 0 && st.position < 100) st._auto[id] = true;
+      else delete st._auto[id];
+    }
   }
 
   _renderMatrix() {
@@ -1845,9 +2009,7 @@ class CrescendoPanel extends HTMLElement {
   }
 
   _kelvinRange(light) {
-    const a = this._hass.states[light.entity_id]?.attributes || {};
-    // Lights report odd limits such as 2702 K; Home Assistant clamps what it sends anyway.
-    return [Math.round((a.min_color_temp_kelvin || 2000) / 50) * 50, Math.floor((a.max_color_temp_kelvin || 6500) / 50) * 50];
+    return kelvinRange(this._hass, light);
   }
 
   // Hue and saturation of the chosen color, kept while dragging so a gray does not lose its hue.
@@ -1902,7 +2064,14 @@ class CrescendoPanel extends HTMLElement {
     const m = this._insModel(st, u);
     const head = box.querySelector(".dhead .swatch");
     if (head) head.style.background = m.shine;
-    this.shadowRoot.querySelectorAll(`[data-cell="${st._sid}|${u.light.entity_id}"]`).forEach((el) => (el.outerHTML = this._lightCell(u, st)));
+    // Automatic stops beside it change along.
+    for (const s of this._o.options.stops)
+      this.shadowRoot.querySelectorAll(`[data-cell="${s._sid}|${u.light.entity_id}"]`).forEach((el) => (el.outerHTML = this._lightCell(u, s)));
+    const auto = this._isAuto(st, u),
+      note = box.querySelector("#autoNote"),
+      btn = box.querySelector("#autoBtn");
+    if (note) note.hidden = !auto;
+    if (btn) btn.hidden = auto;
     for (const b of m.bars) {
       const bar = box.querySelector(`[data-pbar="${b.kind}"]`),
         num = box.querySelector(`[data-pnum="${b.kind}"]`);
@@ -1942,6 +2111,7 @@ class CrescendoPanel extends HTMLElement {
     }
     for (const id of u.ids) {
       const v = st.values[id] || { brightness: 0 };
+      this._setAuto(st, [id], false);
       if (kind === "bri") st.values[id] = { ...v, brightness: Math.round(place * 100) };
       else if (kind === "white") st.values[id] = { brightness: v.brightness, kelvin: Math.round((kmin + (kmax - kmin) * place) / 50) * 50 };
       else st.values[id] = { brightness: v.brightness, color: [...pick.rgb] };
@@ -1952,6 +2122,7 @@ class CrescendoPanel extends HTMLElement {
     const d = this._insDrag;
     if (!d) return;
     this._applyIns(d.kind, clamp((e.clientX - d.r.left) / (d.r.width || 1), 0, 1));
+    fillAuto(this._o.options);
     if (this._edView === "chart") this._renderChart();
     this._paintLanes();
     this._paintInspector();
@@ -1961,6 +2132,15 @@ class CrescendoPanel extends HTMLElement {
 
   // Arrow keys move a bar's mark in small steps; a white tone by 50 K.
   _onKey(e) {
+    const grip = e.target?.closest?.("[data-sort]");
+    if (grip && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const key = grip.dataset.sort;
+      this._moveLamp(key, e.key === "ArrowUp" ? -1 : 1);
+      [...this.shadowRoot.querySelectorAll("[data-sort]")].find((g) => g.dataset.sort === key)?.focus();
+      return;
+    }
+    if (this._setup) return;
     if (e.key === "Escape" && (this._barsOpen || this._dstop)) {
       this._closeInspector();
       return;
@@ -2001,20 +2181,25 @@ class CrescendoPanel extends HTMLElement {
         <td><ha-icon icon="mdi:power"></ha-icon></td>
         <td><div class="row"><button class="btn" data-act="test-power">${esc(t("Test", "Testen"))}</button></div></td></tr>`;
     const tpls = this._buttonTemplates();
-    const addRow = `<tr class="addline"><td colspan="4"><div class="row"><button class="btn quiet" data-act="add-btn">+ ${esc(t("Add button", "Button hinzufügen"))}</button>${
-      tpls.length ? `<span class="opt">${esc(t("or from a template:", "oder aus einer Vorlage:"))}</span>${tpls.map((x) => `<button class="chip" data-act="btn-tpl" data-key="${esc(x.key)}">${esc(x.name)}</button>`).join("")}` : ""
-    }</div></td></tr>`;
-    this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Stop (%)", "Stufe (%)"))}</th><th>${esc(t("Icon", "Symbol"))}</th><th></th></tr></thead><tbody>${power}${
-      o.buttons
-        .map(
-          (b) => `<tr><td><input class="field txt" id="bn-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}"></td>
-        <td><input class="field num" type="number" id="bp-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="position" min="0" max="100" value="${b.position}" aria-label="${esc(t("Stop", "Stufe"))}"></td>
+    const addRow = `<tr class="addline"><td colspan="4"><div class="row"><span class="opt">${esc(t("From a template:", "Aus einer Vorlage:"))}</span>${tpls.map((x) => `<button class="chip" data-act="btn-tpl" data-key="${esc(x.key)}">${esc(x.name)}</button>`).join("")}</div></td></tr>`;
+    // One row per stop, with a button or without; two buttons from before on one stop keep a row each.
+    const toggle = (p, b) => `<label class="btnstop"><input type="checkbox" data-btnstop="${p}"${b ? ` data-id="${esc(b.id)}" checked` : ""} aria-label="${esc(t(`Button at stop ${p}`, `Button an Stufe ${p}`))}"> <b>${p} %</b></label>`;
+    const rows = o.stops.flatMap((s) => {
+      const here = o.buttons.filter((b) => b.position === s.position);
+      return here.length ? here.map((b) => [s.position, b]) : s.position > 0 ? [[s.position, null]] : [];
+    });
+    this.shadowRoot.getElementById("btnTable").innerHTML = `<thead><tr><th>${esc(t("Stop", "Stufe"))}</th><th>${esc(t("Name", "Name"))}</th><th>${esc(t("Icon", "Symbol"))}</th><th></th></tr></thead><tbody>${power}${
+      rows
+        .map(([p, b]) =>
+          !b
+            ? `<tr class="nobtn"><td>${toggle(p, null)}</td><td colspan="3">${esc(t("no button", "kein Button"))}</td></tr>`
+            : `<tr><td>${toggle(p, b)}</td><td><input class="field txt" id="bn-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="name" value="${esc(b.name)}" aria-label="${esc(t("Name", "Name"))}"></td>
         <td>${
           customElements.get("ha-icon-picker")
             ? `<ha-icon-picker id="bi-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="icon" value="${esc(b.icon || "")}"></ha-icon-picker>`
             : `<input class="field txt" id="bi-${esc(b.id)}" data-btn="${esc(b.id)}" data-f="icon" value="${esc(b.icon || "")}" placeholder="mdi:weather-night" aria-label="${esc(t("Icon", "Symbol"))}">`
         }</td>
-        <td><div class="row"><button class="btn" data-act="test-btn" data-id="${esc(b.id)}">${esc(t("Test", "Testen"))}</button><button class="x" data-act="rm-btn" data-id="${esc(b.id)}" aria-label="${esc(t("Remove", "Entfernen"))}">×</button></div></td></tr>`,
+        <td><div class="row"><button class="btn" data-act="test-btn" data-id="${esc(b.id)}">${esc(t("Test", "Testen"))}</button></div></td></tr>`,
         )
         .join("")
     }${addRow}</tbody>`;
@@ -2169,17 +2354,19 @@ data:
 
   // -- changes ----------------------------------------------------------------------------------
 
-  _change(fn, key) {
+  _change(fn, key, preview = true) {
     if (!key || key !== this._lastKey) {
       this._undo.push(JSON.stringify({ title: this._o.title, options: this._o.options }));
       if (this._undo.length > 60) this._undo.shift();
     }
     this._lastKey = key || null;
     fn();
+    fillAuto(this._o.options);
+    this._o.options.buttons = byPosition(this._o.options.buttons);
     this.shadowRoot.getElementById("undoBtn").disabled = false;
     this._renderStops();
     this._save();
-    this._previewDraft();
+    if (preview) this._previewDraft();
   }
 
   _save() {
@@ -2264,7 +2451,7 @@ data:
     const a = o.stops[i],
       b = o.stops[i + 1],
       tt = (position - a.position) / (b.position - a.position);
-    return Object.fromEntries(o.lights.map((l) => [l.entity_id, interpVal(a.values[l.entity_id] || { brightness: 0 }, b.values[l.entity_id] || { brightness: 0 }, tt)]));
+    return Object.fromEntries(o.lights.map((l) => [l.entity_id, valueBetween(l, a, b, tt)]));
   }
 
   _selectPoint(stop, lamp) {
@@ -2348,20 +2535,10 @@ data:
         this._renderSidebarOption();
         break;
       }
-      case "new-obj": {
-        const name = this.shadowRoot.getElementById("newObjName").value.trim();
-        if (!name) {
-          this._toast(t("Give the object a name first.", "Gib dem Objekt zuerst einen Namen."));
-          return;
-        }
-        const res = await hass.callWS({ type: "cloudless_crescendo/object/create", title: name, lights: [] });
-        this._newing = false;
-        await this._load(res.entry_id);
-        break;
-      }
-      case "new-cancel":
-        this._newing = false;
-        this._renderObjects();
+      case "setup-again":
+        this._rebuild = this._o.entry_id;
+        this._tplOpen = false;
+        this._renderEdit();
         break;
       case "jump": {
         e.preventDefault();
@@ -2393,6 +2570,7 @@ data:
         this._o.title = parsed.title;
         this._o.options = parsed.options;
         this._lastKey = null;
+        this._renderObjects();
         this._renderEdit();
         this._save();
         this._previewDraft();
@@ -2443,11 +2621,10 @@ data:
           return;
         }
         this._change(() => {
-          const st = { _sid: `s${sidCounter++}`, position: pos, values: this._valuesAt(pos) };
-          o.stops.push(st);
-          o.stops.sort((x, y) => x.position - y.position);
+          const st = this._addStop(pos);
           this._sel = { stop: st._sid, lamp: this._sel.lamp };
         });
+        this._renderButtons();
         this._renderTools();
         this._renderInspector();
         break;
@@ -2461,11 +2638,12 @@ data:
           return;
         }
         this._change(() => {
-          const copy = { _sid: `s${sidCounter++}`, position: pos, values: clone(st.values) };
+          const copy = { _sid: `s${sidCounter++}`, position: pos, values: clone(st.values), _auto: {} };
           o.stops.push(copy);
           o.stops.sort((x, y) => x.position - y.position);
           this._sel = { stop: copy._sid, lamp: this._sel.lamp };
         });
+        this._renderButtons();
         this._renderTools();
         this._renderInspector();
         break;
@@ -2475,6 +2653,7 @@ data:
         this._change(() => {
           for (const l of o.lights) {
             const s = hass.states[l.entity_id];
+            this._setAuto(st, [l.entity_id], false);
             if (!s || s.state !== "on") {
               st.values[l.entity_id] = { ...st.values[l.entity_id], brightness: 0 };
               continue;
@@ -2492,12 +2671,13 @@ data:
       case "del-stop": {
         const st = this._stop();
         this._change(() =>
-          this._withDevices(() => {
+          this._withStops(() => {
             o.stops = o.stops.filter((x) => x !== st);
             this._o.options.stops = o.stops;
             this._sel = { stop: null, lamp: null };
           }),
         );
+        this._renderButtons();
         this._renderTools();
         this._renderInspector();
         break;
@@ -2506,7 +2686,11 @@ data:
         const ids = a.dataset.ids.split(",");
         this._change(() => {
           o.lights = o.lights.filter((l) => !ids.includes(l.entity_id));
-          for (const s of o.stops) for (const id of ids) delete s.values[id];
+          for (const s of o.stops)
+            for (const id of ids) {
+              delete s.values[id];
+              delete s._auto?.[id];
+            }
           o.groups = (o.groups || []).map((g) => ({ ...g, lights: g.lights.filter((id) => !ids.includes(id)) })).filter((g) => g.lights.length >= 2);
           if (ids.includes(this._sel.lamp)) this._sel.lamp = null;
         });
@@ -2668,7 +2852,11 @@ data:
         const list = this._buttonTemplate(a.dataset.key);
         if (!list) return;
         const had = o.buttons.length;
-        this._change(() => (o.buttons = list));
+        this._change(() => {
+          o.buttons = list;
+          this._ensureStops();
+        });
+        this._renderTools();
         this._renderButtons();
         this._toast(had ? t("Buttons replaced by the template. Undo brings back the old ones.", "Buttons durch die Vorlage ersetzt. „Rückgängig“ holt die alten zurück.") : t("Buttons taken from the template.", "Buttons aus der Vorlage übernommen."));
         break;
@@ -2714,9 +2902,9 @@ data:
         if (!tpl) return;
         const withButtons = !!tpl.buttons && !o.buttons.length;
         this._change(() => {
-          o.stops = tpl.stops.map((s) => ({ ...s, _sid: `s${sidCounter++}` }));
+          o.stops = tpl.stops.map((s) => ({ ...s, _sid: `s${sidCounter++}`, _auto: {} }));
           if (withButtons) o.buttons = tpl.buttons;
-          this._ensureDeviceStops();
+          this._ensureStops();
         });
         this._sel = { stop: null, lamp: null };
         this._tplOpen = false;
@@ -2739,7 +2927,7 @@ data:
         this._import = null;
         this._change(() => {
           this._o.options = withIds(clean);
-          this._ensureDeviceStops();
+          this._ensureStops();
         });
         this._sel = { stop: null, lamp: null };
         this._renderEdit();
@@ -2770,13 +2958,16 @@ data:
       case "add-light": {
         const x = a.dataset.id;
         if (o.lights.some((l) => l.entity_id === x)) return;
-        const modes = this._modesFor(x);
-        const mode = modes.includes("cct") ? "cct" : modes[modes.length - 1];
+        const light = newLight(hass, x);
+        // It rises evenly from off to full until its points are set.
         this._change(() => {
-          o.lights.push({ entity_id: x, mode, fade: "soft", steps: 4, slider: "auto" });
-          for (const s of o.stops) s.values[x] = { brightness: 0 };
+          o.lights.push(light);
+          for (const s of o.stops) {
+            s.values[x] = { brightness: 0 };
+            this._setAuto(s, [x], true);
+          }
           const top = o.stops[o.stops.length - 1];
-          top.values[x] = mode === "cct" || mode === "rgbcct" ? { brightness: 100, kelvin: 3000 } : { brightness: 100 };
+          top.values[x] = light.mode === "cct" || light.mode === "rgbcct" ? { brightness: 100, kelvin: 3000 } : { brightness: 100 };
         });
         this._toast(t(`${friendly(hass, x)} added.`, `${friendly(hass, x)} hinzugefügt.`));
         break;
@@ -2785,20 +2976,38 @@ data:
         const st = this._stop(),
           src = st.values[this._sel.lamp];
         this._change(() => {
-          for (const l of o.lights) st.values[l.entity_id] = clone(src);
+          for (const l of o.lights) {
+            st.values[l.entity_id] = clone(src);
+            this._setAuto(st, [l.entity_id], false);
+          }
         });
+        this._renderInspector();
         break;
       }
-      case "add-btn":
-        this._change(() => o.buttons.push({ id: newId(), name: t("New", "Neu"), position: Math.max(1, Math.round(this._livePos())), duration: 5 }));
-        this._renderButtons();
+      case "auto-on": {
+        const st = this._stop(),
+          u = this._selUnit();
+        if (!st || !u) return;
+        this._change(() => this._setAuto(st, u.ids, true));
+        this._renderInspector();
         break;
-      case "rm-btn":
-        this._change(() => {
-          o.buttons = o.buttons.filter((b) => b.id !== a.dataset.id);
-        });
-        this._renderButtons();
+      }
+      case "auto-rest": {
+        const st = this._stop(),
+          u = this._selUnit();
+        if (!st || !u) return;
+        this._change(() => o.stops.forEach((s) => s.position > st.position && this._setAuto(s, u.ids, true)));
+        this._renderInspector();
         break;
+      }
+      case "lamp-up":
+      case "lamp-down":
+        this._moveLamp(a.dataset.key, act === "lamp-up" ? -1 : 1);
+        break;
+      case "sort-on": {
+        this._sortByStart();
+        break;
+      }
       case "test-btn": {
         const b = o.buttons.find((x) => x.id === a.dataset.id);
         hass.callService("cloudless_crescendo", "press_button", { button: b.id }, { entity_id: this._o.entity_id });
@@ -2853,8 +3062,8 @@ data:
     else if (t.id === "objPick") {
       if (t.value === "new") {
         this._newing = true;
-        this._renderObjects();
-        this.shadowRoot.getElementById("newObjName")?.focus();
+        this._view = "edit";
+        this._render();
       } else {
         this._newing = false;
         this._pickObject(+t.value);
@@ -2920,7 +3129,13 @@ data:
     } else if (t.id === "insOn") {
       const st = this._stop(),
         u = this._selUnit();
-      this._change(() => u.ids.forEach((id) => (st.values[id] = { ...st.values[id], brightness: t.checked ? 100 : 0 })));
+      this._change(() =>
+        u.ids.forEach((id) => {
+          st.values[id] = { ...st.values[id], brightness: t.checked ? 100 : 0 };
+          this._setAuto(st, [id], false);
+        }),
+      );
+      this._renderInspector();
     } else if (t.id === "stopPos") {
       const st = this._stop(),
         pos = Math.round(+t.value);
@@ -2930,11 +3145,12 @@ data:
         return;
       }
       this._change(() =>
-        this._withDevices(() => {
+        this._withStops(() => {
           st.position = pos;
           o.stops.sort((a, b) => a.position - b.position);
         }),
       );
+      this._renderButtons();
       this._renderInspector();
     } else if (t.dataset.mode) {
       const ids = t.dataset.mode.split(",");
@@ -2949,12 +3165,28 @@ data:
     } else if (t.dataset.sliderMode) {
       const ids = t.dataset.sliderMode.split(",");
       this._change(() => o.lights.forEach((l) => ids.includes(l.entity_id) && (l.slider = t.value)));
+    } else if (t.dataset.btnstop) {
+      // The switch beside a stop: with a button or without. Its name and icon come back when switched on again.
+      const p = +t.dataset.btnstop,
+        sid = o.stops.find((s) => s.position === p)?._sid;
+      this._change(() => {
+        if (t.checked) {
+          const kept = this._offButtons.get(sid);
+          const name = kept && !/^\d+(\.\d+)? %$/.test(kept.name) ? kept.name : stopName(p);
+          o.buttons.push({ id: newId(), duration: 0, ...kept, name, position: p });
+        } else {
+          const gone = o.buttons.find((b) => b.id === t.dataset.id);
+          if (gone) this._offButtons.set(sid, gone);
+          o.buttons = o.buttons.filter((b) => b !== gone);
+        }
+      });
+      this._renderButtons();
+      this.shadowRoot.querySelector(`#btnTable [data-btnstop="${p}"]`)?.focus();
     } else if (t.dataset.btn) {
       const b = o.buttons.find((x) => x.id === t.dataset.btn),
         f = t.dataset.f;
       this._change(() => {
-        if (f === "name") b.name = t.value.trim() || "Button";
-        else if (f === "position") b.position = clamp(Math.round(+t.value) || 0, 0, 100);
+        if (f === "name") b.name = t.value.trim() || stopName(b.position);
         else if (f === "icon") {
           const icon = String(e.detail?.value ?? t.value ?? "").trim();
           if (icon) b.icon = icon;
@@ -3010,6 +3242,11 @@ data:
   }
 
   _onDown(e) {
+    const grip = e.target.closest?.("[data-sort]");
+    if (grip) {
+      startSort(e, grip, (keys) => this._orderLamps(keys));
+      return;
+    }
     const pbar = e.target.closest?.("[data-pbar]");
     if (pbar) {
       e.preventDefault();
@@ -3092,7 +3329,14 @@ data:
       d.ids = d.ids || u.ids;
       const v = Math.round(this._yToVal(p.y));
       this._sel = { stop: st._sid, lamp: d.lamp };
-      this._change(() => d.ids.forEach((id) => (st.values[id] = { ...st.values[id], brightness: v })), `pt${st._sid}${d.lamp}`);
+      this._change(
+        () =>
+          d.ids.forEach((id) => {
+            st.values[id] = { ...st.values[id], brightness: v };
+            this._setAuto(st, [id], false);
+          }),
+        `pt${st._sid}${d.lamp}`,
+      );
       this._renderInspector();
     } else if (d.type === "stop") {
       if (!d.moved && Math.abs(e.clientX - d.x) < 3) return;
@@ -3103,7 +3347,7 @@ data:
       const pos = Math.round(clamp(this._xToPos(p.x), o.stops[i - 1].position + 1, o.stops[i + 1].position - 1));
       if (pos === st.position) return;
       this._sel = { stop: st._sid, lamp: this._sel.lamp };
-      this._change(() => this._withDevices(() => (st.position = pos)), `sp${st._sid}`);
+      this._change(() => this._withStops(() => (st.position = pos)), `sp${st._sid}`);
       this._renderTools();
     }
   }
@@ -3155,7 +3399,8 @@ data:
     else if (d.type === "pt") {
       this._renderTools();
       this._renderInspector();
-    } else if (d.type === "stop" && !d.moved) {
+    } else if (d.type === "stop" && d.moved) this._renderButtons();
+    else if (d.type === "stop") {
       this._sel = { stop: d.stop, lamp: this._sel.lamp };
       this._renderTools();
       this._renderStops();
